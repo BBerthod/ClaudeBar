@@ -17,13 +17,21 @@ final class NotificationService {
     private var digestTimer: Timer?
 
     init() {
-        requestAuthorization()
         startDigestTimer()
+        // Delay notification authorization to avoid crash when bundle proxy is unavailable
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.requestAuthorization()
+        }
     }
 
     // MARK: - Authorization
 
     private func requestAuthorization() {
+        guard Bundle.main.bundleIdentifier != nil else {
+            // Not running as a proper .app bundle — skip notifications
+            isAuthorized = false
+            return
+        }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             Task { @MainActor in
                 self.isAuthorized = granted
