@@ -110,6 +110,8 @@ final class LiveStatsService {
         }
 
         // Aggregate stats
+        // Token counts use input+output only (consistent with stats-cache).
+        // Cost uses all token types (input, output, cacheRead, cacheWrite).
         var totalTokens = 0
         var totalCost = 0.0
         var modelTokenCounts: [String: Int] = [:]
@@ -120,9 +122,9 @@ final class LiveStatsService {
             let cacheRead = entry.usage["cache_read_input_tokens"] as? Int ?? 0
             let cacheWrite = entry.usage["cache_creation_input_tokens"] as? Int ?? 0
 
-            let msgTokens = inp + out + cacheRead + cacheWrite
-            totalTokens += msgTokens
-            modelTokenCounts[entry.model, default: 0] += msgTokens
+            let ioTokens = inp + out
+            totalTokens += ioTokens
+            modelTokenCounts[entry.model, default: 0] += ioTokens
 
             totalCost += Self.messageCost(
                 model: entry.model,

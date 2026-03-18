@@ -95,13 +95,17 @@ enum CostCalculator {
         return inputCost + outputCost + readCost + writeCost
     }
 
-    /// Estimates the USD cost for a day given the per-model token totals
-    /// and the cumulative model-usage table (used for the output/cache split).
+    /// Estimates the USD-equivalent API cost for a day given the per-model
+    /// token totals and the cumulative model-usage table.
+    ///
+    /// `tokensByModel` from stats-cache contains **input + output tokens only**
+    /// (no cache reads/writes). We compute this day's share of all token types
+    /// by using the I/O ratio against cumulative I/O, then scale cache costs
+    /// proportionally.
     ///
     /// - Parameters:
-    ///   - tokens: `tokensByModel` from a `DailyModelTokens` entry.
-    ///   - modelUsage: The full `modelUsage` table from `StatsCache`
-    ///                 (used to compute the per-model output ratio).
+    ///   - tokens: `tokensByModel` from a `DailyModelTokens` entry (I/O only).
+    ///   - modelUsage: The full `modelUsage` table from `StatsCache`.
     static func estimateDailyCost(
         tokens: [String: Int],
         modelUsage: [String: ModelUsageEntry]
@@ -111,16 +115,20 @@ enum CostCalculator {
             let p = pricing(for: modelId)
             let mTok = 1_000_000.0
 
-            if let usage = modelUsage[modelId], usage.totalTokens > 0 {
-                // Distribute daily tokens proportionally across input/output/cache buckets.
-                let ratio = Double(tokenCount) / Double(usage.totalTokens)
-                let inputCost  = Double(usage.inputTokens)              * ratio / mTok * p.inputPerMTok
-                let outputCost = Double(usage.outputTokens)             * ratio / mTok * p.outputPerMTok
-                let readCost   = Double(usage.cacheReadInputTokens)     * ratio / mTok * p.cacheReadPerMTok
-                let writeCost  = Double(usage.cacheCreationInputTokens) * ratio / mTok * p.cacheWritePerMTok
+            if let usage = modelUsage[modelId] {
+                let cumulativeIO = usage.inputTokens + usage.outputTokens
+                guard cumulativeIO > 0 else {
+                    total += Double(tokenCount) / mTok * p.inputPerMTok
+                    continue
+                }
+                // Daily fraction based on input+output only (matching tokensByModel scope).
+                let fraction = Double(tokenCount) / Double(cumulativeIO)
+                let inputCost  = Double(usage.inputTokens)              * fraction / mTok * p.inputPerMTok
+                let outputCost = Double(usage.outputTokens)             * fraction / mTok * p.outputPerMTok
+                let readCost   = Double(usage.cacheReadInputTokens)     * fraction / mTok * p.cacheReadPerMTok
+                let writeCost  = Double(usage.cacheCreationInputTokens) * fraction / mTok * p.cacheWritePerMTok
                 total += inputCost + outputCost + readCost + writeCost
             } else {
-                // No usage breakdown available — use input price as a rough estimate.
                 total += Double(tokenCount) / mTok * p.inputPerMTok
             }
         }
