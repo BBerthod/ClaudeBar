@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SessionsView: View {
     var sessionService: SessionService
@@ -6,6 +7,11 @@ struct SessionsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // Quick Resume search bar
+                QuickResumeBar(recentSessions: sessionService.recentSessions)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 12)
+
                 // Active sessions
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -29,17 +35,11 @@ struct SessionsView: View {
                         activeEmptyState
                     } else {
                         ForEach(sessionService.activeSessions) { session in
-                            SessionRow(
-                                projectName: session.projectName,
-                                detail: session.cwd,
-                                duration: session.duration.formattedDuration,
-                                isActive: true
-                            )
-                            .padding(.horizontal, 12)
+                            activeSessionRow(session)
+                                .padding(.horizontal, 12)
                         }
                     }
                 }
-                .padding(.top, 12)
 
                 Divider()
                     .padding(.horizontal, 12)
@@ -68,6 +68,37 @@ struct SessionsView: View {
             }
         }
     }
+
+    // MARK: - Active session row (with context gauge + clipboard tap)
+
+    @ViewBuilder
+    private func activeSessionRow(_ session: ActiveSession) -> some View {
+        Button {
+            copyResumeCommand(sessionId: session.sessionId)
+        } label: {
+            HStack(spacing: 6) {
+                SessionRow(
+                    projectName: session.projectName,
+                    detail: session.cwd,
+                    duration: session.duration.formattedDuration,
+                    isActive: true
+                )
+                if let ctx = sessionService.contextEstimates[session.sessionId], ctx > 0 {
+                    ContextGauge(percentage: ctx, compact: true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Click to copy resume command")
+    }
+
+    private func copyResumeCommand(sessionId: String) {
+        let command = "claude --resume \(sessionId)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command, forType: .string)
+    }
+
+    // MARK: - Recent session row
 
     @ViewBuilder
     private func recentSessionRow(_ entry: SessionIndexEntry) -> some View {
@@ -115,6 +146,8 @@ struct SessionsView: View {
         .contentShape(Rectangle())
     }
 
+    // MARK: - Empty states
+
     private var activeEmptyState: some View {
         HStack {
             Spacer()
@@ -147,11 +180,12 @@ struct SessionsView: View {
         }
     }
 
+    // MARK: - Time helpers
+
     private func timeAgo(from dateString: String) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         guard let date = formatter.date(from: dateString) else {
-            // try without fractional seconds
             let f2 = ISO8601DateFormatter()
             guard let d = f2.date(from: dateString) else { return dateString }
             return relativeString(from: d)

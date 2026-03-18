@@ -2,10 +2,11 @@ import SwiftUI
 
 struct SettingsView: View {
     var settingsService: SettingsService
+    var hookHealthService: HookHealthService
 
     @State private var expandedPermissions = false
     @State private var expandedHooks = false
-    @State private var errorMessage: String?
+    @State private var expandedHookHealth = false
 
     var body: some View {
         ScrollView {
@@ -20,6 +21,7 @@ struct SettingsView: View {
                     envVarsSection(settings)
                     permissionsSection(settings)
                     hooksSection(settings)
+                    hookHealthSection
                 } else {
                     loadingState
                 }
@@ -75,7 +77,7 @@ struct SettingsView: View {
                     Divider()
                     Toggle(isOn: Binding(
                         get: { mcpEnabled },
-                        set: { _ in } // read-only for now; could hook into saveSettings
+                        set: { _ in } // read-only for now
                     )) {
                         Label("Enable all project MCP servers", systemImage: "server.rack")
                             .font(.subheadline)
@@ -236,6 +238,136 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Hook Health
+
+    @ViewBuilder
+    private var hookHealthSection: some View {
+        if hookHealthService.totalHookTypes > 0 {
+            GroupBox {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Summary row
+                    HStack {
+                        Label(
+                            "\(hookHealthService.totalHookTypes) types, \(hookHealthService.totalHooks) hooks",
+                            systemImage: "shield.checkered"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        Spacer()
+                        if hookHealthService.issueCount > 0 {
+                            Label("\(hookHealthService.issueCount) issue\(hookHealthService.issueCount == 1 ? "" : "s")", systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        } else {
+                            Label("All OK", systemImage: "checkmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    }
+
+                    Divider()
+
+                    // Per-entry list
+                    ForEach(hookHealthService.hookEntries) { entry in
+                        hookEntryRow(entry)
+                    }
+                }
+                .padding(8)
+            } label: {
+                HStack {
+                    sectionLabel("Hook Health")
+                    Spacer()
+                    Button {
+                        withAnimation { expandedHookHealth.toggle() }
+                    } label: {
+                        Image(systemName: expandedHookHealth ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+
+    @ViewBuilder
+    private func hookEntryRow(_ entry: HookHealthEntry) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(entry.hookType)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                if let matcher = entry.matcher {
+                    Text(matcher)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+                Spacer()
+                Text("\(entry.totalHooks) hook\(entry.totalHooks == 1 ? "" : "s")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Script statuses
+            if !entry.scriptStatuses.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(entry.scriptStatuses.keys.sorted()), id: \.self) { path in
+                        if let status = entry.scriptStatuses[path] {
+                            HStack(spacing: 5) {
+                                scriptStatusIcon(status)
+                                Text(URL(fileURLWithPath: path).lastPathComponent)
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(status.rawValue)
+                                    .font(.caption2)
+                                    .foregroundStyle(scriptStatusColor(status))
+                            }
+                        }
+                    }
+                }
+                .padding(.leading, 4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func scriptStatusIcon(_ status: HookHealthEntry.ScriptStatus) -> some View {
+        switch status {
+        case .ok:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.green)
+        case .missing:
+            Image(systemName: "xmark.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.red)
+        case .notExecutable:
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.yellow)
+        case .inline:
+            Image(systemName: "minus.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func scriptStatusColor(_ status: HookHealthEntry.ScriptStatus) -> Color {
+        switch status {
+        case .ok:            return .green
+        case .missing:       return .red
+        case .notExecutable: return .yellow
+        case .inline:        return .secondary
+        }
+    }
+
     // MARK: - Helpers
 
     @ViewBuilder
@@ -276,7 +408,6 @@ struct SettingsView: View {
 
     private func maskedValue(_ value: String) -> String {
         guard value.count > 4 else { return "••••" }
-        // Show last 4 chars of secrets, full value for non-secret-looking ones
         let lower = value.lowercased()
         let looksSecret = lower.contains("key") || lower.contains("token") || lower.contains("secret") || value.count > 20
         if looksSecret {
@@ -287,6 +418,9 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(settingsService: SettingsService())
-        .frame(width: 420, height: 480)
+    SettingsView(
+        settingsService: SettingsService(),
+        hookHealthService: HookHealthService()
+    )
+    .frame(width: 420, height: 480)
 }

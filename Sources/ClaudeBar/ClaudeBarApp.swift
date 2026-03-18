@@ -5,6 +5,8 @@ struct ClaudeBarApp: App {
     @State private var statsService = StatsService()
     @State private var sessionService = SessionService()
     @State private var settingsService = SettingsService()
+    @State private var projectService = ProjectService()
+    @State private var hookHealthService = HookHealthService()
 
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
@@ -15,8 +17,14 @@ struct ClaudeBarApp: App {
             ContentView(
                 statsService: statsService,
                 sessionService: sessionService,
-                settingsService: settingsService
+                settingsService: settingsService,
+                projectService: projectService,
+                hookHealthService: hookHealthService
             )
+            .task {
+                projectService.reload(totalCostEstimate: statsService.totalCostEstimate)
+                hookHealthService.analyze(settings: settingsService.settings)
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "brain.head.profile")
