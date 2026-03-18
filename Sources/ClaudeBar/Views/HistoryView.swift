@@ -7,10 +7,16 @@ enum HistoryPeriod: String, CaseIterable {
     case all    = "All time"
 }
 
+enum HistoryChart: String, CaseIterable {
+    case cost     = "Cost"
+    case activity = "Activity"
+}
+
 struct HistoryView: View {
     var statsService: StatsService
 
     @State private var period: HistoryPeriod = .month
+    @State private var chartType: HistoryChart = .cost
 
     private var filteredActivity: [DailyActivity] {
         let all = statsService.last30DaysActivity
@@ -37,7 +43,29 @@ struct HistoryView: View {
         return f
     }()
 
-    /// Flat list of (date, model, tokens) for the line chart
+    // MARK: - Cost series
+
+    /// Per-day estimated cost for the current period filter.
+    private var costSeries: [(date: Date, cost: Double)] {
+        guard let stats = statsService.stats else { return [] }
+        return filteredTokens.compactMap { day in
+            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
+            let cost = CostCalculator.estimateDailyCost(
+                tokens: day.tokensByModel,
+                modelUsage: stats.modelUsage
+            )
+            return (date: date, cost: cost)
+        }
+    }
+
+    /// Total cost summed over the current period.
+    private var periodCost: Double {
+        costSeries.reduce(0.0) { $0 + $1.cost }
+    }
+
+    // MARK: - Activity series
+
+    /// Flat list of (date, model, tokens) for the token line chart.
     private var tokenSeries: [(date: Date, model: String, tokens: Int)] {
         filteredTokens.flatMap { day in
             let date = Self.isoDateFormatter.date(from: day.date) ?? Date()
@@ -51,6 +79,14 @@ struct HistoryView: View {
         Array(Set(tokenSeries.map(\.model))).sorted()
     }
 
+    /// Activity data with parsed dates — messages and tool calls combined.
+    private var activityWithDates: [(date: Date, messages: Int, toolCalls: Int)] {
+        filteredActivity.compactMap { day in
+            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
+            return (date: date, messages: day.messageCount, toolCalls: day.toolCallCount)
+        }
+    }
+
     private var totalMessages: Int {
         filteredActivity.reduce(0) { $0 + $1.messageCount }
     }
@@ -59,16 +95,21 @@ struct HistoryView: View {
         filteredActivity.reduce(0) { $0 + $1.sessionCount }
     }
 
+    // MARK: - Body
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 periodPicker
+                chartTypePicker
                 summaryCards
                 chartsSection
                 Spacer(minLength: 12)
             }
         }
     }
+
+    // MARK: - Pickers
 
     private var periodPicker: some View {
         Picker("Period", selection: $period) {
@@ -81,6 +122,18 @@ struct HistoryView: View {
         .padding(.top, 12)
     }
 
+    private var chartTypePicker: some View {
+        Picker("Chart", selection: $chartType) {
+            ForEach(HistoryChart.allCases, id: \.self) { c in
+                Text(c.rawValue).tag(c)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 12)
+    }
+
+    // MARK: - Summary cards
+
     private var summaryCards: some View {
         LazyVGrid(
             columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
@@ -90,22 +143,64 @@ struct HistoryView: View {
             StatCard(title: "Messages", value: "\(totalMessages)", icon: "message")
             StatCard(
                 title: "Est. Cost",
-                value: CostCalculator.formatCost(statsService.totalCostEstimate),
+                value: CostCalculator.formatCost(periodCost),
                 icon: "dollarsign.circle"
             )
         }
         .padding(.horizontal, 12)
     }
 
+    // MARK: - Charts section
+
     @ViewBuilder
     private var chartsSection: some View {
         if filteredTokens.isEmpty && filteredActivity.isEmpty {
             emptyState
         } else {
-            tokenChart
-            messagesChart
+            switch chartType {
+            case .cost:
+                costChartSection
+            case .activity:
+                tokenChart
+                messagesAndToolCallsChart
+            }
         }
     }
+
+    // MARK: - Cost chart
+
+    @ViewBuilder
+    private var costChartSection: some View {
+        if !costSeries.isEmpty {
+            sectionHeader("Daily Cost")
+            Chart(costSeries, id: \.date) { point in
+                BarMark(
+                    x: .value("Date", point.date, unit: .day),
+                    y: .value("Cost", point.cost)
+                )
+                .foregroundStyle(Color.accentColor.gradient)
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        .font(.caption2)
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(String(format: "$%.2f", v)).font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 150)
+            .padding(.horizontal, 12)
+        }
+    }
+
+    // MARK: - Activity charts
 
     @ViewBuilder
     private var tokenChart: some View {
@@ -125,9 +220,7 @@ struct HistoryView: View {
                     }
                 }
             }
-            .chartForegroundStyleScale { modelId in
-                Color.color(for: modelId)
-            }
+            .chartForegroundStyleScale { modelId in Color.color(for: modelId) }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
                     AxisValueLabel(format: .dateTime.month(.abbreviated).day())
@@ -148,35 +241,43 @@ struct HistoryView: View {
         }
     }
 
-    /// Activity data with parsed Date for charts
-    private var activityWithDates: [(date: Date, messages: Int)] {
-        filteredActivity.compactMap { day in
-            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
-            return (date: date, messages: day.messageCount)
-        }
-    }
-
     @ViewBuilder
-    private var messagesChart: some View {
+    private var messagesAndToolCallsChart: some View {
         if !activityWithDates.isEmpty {
-            sectionHeader("Daily Messages")
-            Chart(activityWithDates, id: \.date) { point in
-                BarMark(
-                    x: .value("Date", point.date, unit: .day),
-                    y: .value("Messages", point.messages)
-                )
-                .foregroundStyle(Color.accentColor.gradient)
+            sectionHeader("Daily Messages & Tool Calls")
+            Chart {
+                ForEach(activityWithDates, id: \.date) { point in
+                    LineMark(
+                        x: .value("Date", point.date, unit: .day),
+                        y: .value("Count", point.messages)
+                    )
+                    .foregroundStyle(by: .value("Series", "Messages"))
+                    .symbol(by: .value("Series", "Messages"))
+
+                    LineMark(
+                        x: .value("Date", point.date, unit: .day),
+                        y: .value("Count", point.toolCalls)
+                    )
+                    .foregroundStyle(by: .value("Series", "Tool Calls"))
+                    .symbol(by: .value("Series", "Tool Calls"))
+                }
             }
+            .chartForegroundStyleScale([
+                "Messages":   Color.accentColor,
+                "Tool Calls": Color.orange,
+            ])
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
                     AxisValueLabel(format: .dateTime.month(.abbreviated).day())
                         .font(.caption2)
                 }
             }
-            .frame(height: 100)
+            .frame(height: 120)
             .padding(.horizontal, 12)
         }
     }
+
+    // MARK: - Helpers
 
     @ViewBuilder
     private func sectionHeader(_ title: String) -> some View {

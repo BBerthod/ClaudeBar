@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct DashboardView: View {
     var statsService: StatsService
@@ -46,7 +47,6 @@ struct DashboardView: View {
 
     /// Derives active provider information from available stats.
     private var providers: [ProviderInfo] {
-        // Claude is always present if we have any token activity
         let claudeConfigured = statsService.todayTokens > 0 || statsService.totalCostEstimate > 0
         let claudeTokens = statsService.todayTokens
         let claudeProvider = ProviderInfo(
@@ -58,7 +58,6 @@ struct DashboardView: View {
             details: nil
         )
 
-        // Gemini: detected by looking for gemini model IDs in token usage
         let hasGemini = statsService.tokensByModelToday.contains {
             $0.model.lowercased().contains("gemini")
         }
@@ -74,11 +73,32 @@ struct DashboardView: View {
         return [claudeProvider, geminiProvider]
     }
 
+    // MARK: - 7-day sparkline data
+
+    private var sevenDaySparklineData: [Int] {
+        statsService.last30DaysActivity.suffix(7).map(\.messageCount)
+    }
+
+    // MARK: - Human cost (ROI)
+
+    private var devHoursEquivalent: Double {
+        Double(effectiveMessages) * 3.0 / 60.0
+    }
+
+    private var devCostEquivalent: Double {
+        devHoursEquivalent * 150.0
+    }
+
+    private var roiMultiplier: Double {
+        devCostEquivalent / max(effectiveCost, 0.01)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                // Header
-                HStack {
+                // Header: Today label | 7-day sparkline | cost + 5h gauge
+                HStack(alignment: .center, spacing: 8) {
+                    // Left: date label
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Today")
                             .font(.headline)
@@ -86,24 +106,52 @@ struct DashboardView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(CostCalculator.formatCost(effectiveCost))
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
-                        HStack(spacing: 3) {
-                            if liveStatsService.isStale {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 7))
-                                    .foregroundStyle(.orange)
+
+                    // Center: 7-day sparkline (only when data exists)
+                    if !sevenDaySparklineData.isEmpty {
+                        Chart {
+                            ForEach(sevenDaySparklineData.indices, id: \.self) { index in
+                                BarMark(
+                                    x: .value("Day", index),
+                                    y: .value("Messages", sevenDaySparklineData[index])
+                                )
+                                .foregroundStyle(Color.accentColor.opacity(0.6))
                             }
-                            Text(liveStatsService.isStale ? "live estimate" : "estimated cost")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                        }
+                        .chartXAxis(.hidden)
+                        .chartYAxis(.hidden)
+                        .chartLegend(.hidden)
+                        .frame(width: 60, height: 30)
+                    }
+
+                    Spacer()
+
+                    // Right: cost + 5h gauge stacked
+                    HStack(alignment: .center, spacing: 8) {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(CostCalculator.formatCost(effectiveCost))
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.primary)
+                            HStack(spacing: 3) {
+                                if liveStatsService.isStale {
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 7))
+                                        .foregroundStyle(.orange)
+                                }
+                                Text(liveStatsService.isStale ? "live estimate" : "estimated cost")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        // 5h circular arc gauge (only when data available)
+                        if let fiveHour = usageService.usage?.fiveHour {
+                            fiveHourArcGauge(utilization: fiveHour.utilization)
                         }
                     }
-                    Sparkline(data: statsService.last30DaysActivity.suffix(7).map(\.messageCount))
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
@@ -124,7 +172,13 @@ struct DashboardView: View {
                         .padding(.horizontal, 12)
                 }
 
-                // Active sessions — always visible regardless of stats
+                // Human cost comparison row
+                if effectiveCost > 0 && effectiveMessages > 0 {
+                    humanCostRow
+                        .padding(.horizontal, 12)
+                }
+
+                // Active sessions
                 if !sessionService.activeSessions.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
@@ -161,11 +215,7 @@ struct DashboardView: View {
                                 ProcessHelper.focusTerminal(forChildPID: session.pid)
                             }
                             .onHover { hovering in
-                                if hovering {
-                                    NSCursor.pointingHand.push()
-                                } else {
-                                    NSCursor.pop()
-                                }
+                                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                             }
                         }
                     }
@@ -175,36 +225,13 @@ struct DashboardView: View {
                 // Stats grid (2x2)
                 if hasStats {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        StatCard(
-                            title: "Messages",
-                            value: "\(effectiveMessages)",
-                            icon: "message"
-                        )
-                        StatCard(
-                            title: "Sessions",
-                            value: "\(effectiveSessions)",
-                            icon: "rectangle.stack"
-                        )
-                        StatCard(
-                            title: "Tool Calls",
-                            value: "\(effectiveToolCalls)",
-                            icon: "wrench.and.screwdriver"
-                        )
-                        StatCard(
-                            title: "Tokens",
-                            value: effectiveTokens.abbreviatedTokenCount,
-                            icon: "text.word.spacing"
-                        )
+                        StatCard(title: "Messages", value: "\(effectiveMessages)", icon: "message")
+                        StatCard(title: "Sessions", value: "\(effectiveSessions)", icon: "rectangle.stack")
+                        StatCard(title: "Tool Calls", value: "\(effectiveToolCalls)", icon: "wrench.and.screwdriver")
+                        StatCard(title: "Tokens", value: effectiveTokens.abbreviatedTokenCount, icon: "text.word.spacing")
                     }
                     .padding(.horizontal, 12)
 
-                    // Human cost comparison
-                    if effectiveMessages > 0 {
-                        humanCostSection
-                            .padding(.horizontal, 12)
-                    }
-
-                    // Token distribution by model
                     if !effectiveTokensByModel.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Tokens by Model")
@@ -216,7 +243,6 @@ struct DashboardView: View {
                                 .frame(height: 28)
                                 .padding(.horizontal, 12)
 
-                            // Legend
                             HStack(spacing: 12) {
                                 ForEach(effectiveTokensByModel, id: \.model) { entry in
                                     HStack(spacing: 4) {
@@ -237,13 +263,87 @@ struct DashboardView: View {
                         .padding(.vertical, 4)
                     }
                 } else if sessionService.activeSessions.isEmpty {
-                    // Only show empty state when truly nothing is happening
                     emptyState
                 }
 
                 Spacer(minLength: 12)
             }
         }
+    }
+
+    // MARK: - 5h Circular Arc Gauge
+
+    @ViewBuilder
+    private func fiveHourArcGauge(utilization: Double) -> some View {
+        let ratio = min(utilization / 100.0, 1.0)
+        let startAngle: Double = -130
+        let sweepAngle: Double = 260
+        let strokeWidth: CGFloat = 6
+
+        // Gradient color: green → orange at 70% → red at 90%+
+        let gaugeColor: Color = {
+            switch utilization {
+            case ..<70:  return .green
+            case 70..<90: return .orange
+            default:      return .red
+            }
+        }()
+
+        ZStack {
+            // Background track
+            Circle()
+                .trim(from: 0, to: CGFloat(sweepAngle / 360.0))
+                .stroke(Color.secondary.opacity(0.15), style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
+                .rotationEffect(.degrees(startAngle))
+
+            // Foreground fill
+            Circle()
+                .trim(from: 0, to: CGFloat(sweepAngle / 360.0) * ratio)
+                .stroke(gaugeColor, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
+                .rotationEffect(.degrees(startAngle))
+                .animation(.easeOut(duration: 0.4), value: ratio)
+
+            // Center label
+            VStack(spacing: 0) {
+                Text("\(Int(utilization))%")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                Text("5h")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 56, height: 56)
+    }
+
+    // MARK: - Human Cost Row
+
+    private var humanCostRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "person.badge.clock")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Text("≈ \(Int(devHoursEquivalent * 60)) dev-min")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Text("×\(Int(roiMultiplier)) ROI")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.blue)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.blue.opacity(0.1))
+                .clipShape(Capsule())
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(Color.primary.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Usage Section
@@ -375,7 +475,7 @@ struct DashboardView: View {
 
     private func utilizationColor(_ pct: Double) -> Color {
         switch pct {
-        case ..<30:  return .green
+        case ..<30:   return .green
         case 30..<60: return .blue
         case 60..<80: return .orange
         default:      return .red
@@ -462,7 +562,7 @@ struct DashboardView: View {
         )
     }
 
-    // MARK: - Provider summary
+    // MARK: - Provider Summary
 
     private var providerSummary: some View {
         HStack(spacing: 8) {
@@ -508,7 +608,7 @@ struct DashboardView: View {
         )
     }
 
-    // MARK: - Empty state
+    // MARK: - Empty State
 
     private var emptyState: some View {
         VStack(spacing: 12) {
@@ -527,47 +627,6 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-    }
-
-    // MARK: - Human cost comparison
-
-    private var humanCostSection: some View {
-        let humanHours = HumanCostCalculator.estimateHumanHours(
-            messages: effectiveMessages,
-            toolCalls: effectiveToolCalls
-        )
-        let humanCost = HumanCostCalculator.estimateHumanCost(
-            messages: effectiveMessages,
-            toolCalls: effectiveToolCalls
-        )
-        let roi = HumanCostCalculator.roiMultiplier(humanCost: humanCost, claudeCost: effectiveCost)
-
-        return HStack(spacing: 8) {
-            Image(systemName: "person.badge.clock")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-
-            Text("≈ \(HumanCostCalculator.formatHours(humanHours)) of dev (\(CostCalculator.formatCost(humanCost)))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            if roi > 0 {
-                Text("\(Int(roi))x ROI")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.green)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.green.opacity(0.1))
-                    .clipShape(Capsule())
-            }
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 10)
-        .background(Color.primary.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Helpers

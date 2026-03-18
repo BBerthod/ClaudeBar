@@ -4,6 +4,7 @@ struct SettingsView: View {
     var settingsService: SettingsService
     var hookHealthService: HookHealthService
     var notificationService: NotificationService
+    var launchAtLoginService: LaunchAtLoginService
 
     @State private var expandedPermissions = false
     @State private var expandedHooks = false
@@ -15,6 +16,8 @@ struct SettingsView: View {
                 if let error = settingsService.lastError {
                     errorBanner(error)
                 }
+
+                appSection()
 
                 if let settings = settingsService.settings {
                     notificationsSection()
@@ -32,6 +35,46 @@ struct SettingsView: View {
             }
             .padding(.top, 12)
         }
+    }
+
+    // MARK: - App
+
+    @ViewBuilder
+    private func appSection() -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                if launchAtLoginService.isAvailable {
+                    Toggle(isOn: Binding(
+                        get: { launchAtLoginService.isEnabled },
+                        set: { launchAtLoginService.setEnabled($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Launch at Login")
+                                .font(.subheadline)
+                            Text("Start ClaudeBar automatically at login")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else {
+                    Toggle(isOn: .constant(false)) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Launch at Login")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("Requires .app bundle (not available in swift run mode)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(true)
+                }
+            }
+            .padding(8)
+        } label: {
+            sectionLabel("App")
+        }
+        .padding(.horizontal, 12)
     }
 
     // MARK: - Notifications
@@ -494,7 +537,8 @@ struct SettingsView: View {
     SettingsView(
         settingsService: SettingsService(),
         hookHealthService: HookHealthService(),
-        notificationService: NotificationService()
+        notificationService: NotificationService(),
+        launchAtLoginService: LaunchAtLoginService()
     )
     .frame(width: 420, height: 480)
 }

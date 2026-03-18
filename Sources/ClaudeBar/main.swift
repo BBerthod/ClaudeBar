@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let usageService = UsageService()
     let liveStatsService = LiveStatsService()
     let overlayManager = OverlayManager()
+    let desktopWidgetManager = DesktopWidgetManager()
+    let launchAtLoginService = LaunchAtLoginService()
 
     private var refreshTimer: Timer?
 
@@ -70,7 +72,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notificationService: notificationService,
             usageService: usageService,
             liveStatsService: liveStatsService,
-            overlayManager: overlayManager
+            overlayManager: overlayManager,
+            desktopWidgetManager: desktopWidgetManager,
+            launchAtLoginService: launchAtLoginService
         )
 
         popover = NSPopover()
@@ -102,7 +106,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.liveStatsService.updateIfNeeded(statsService: self.statsService)
             self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
-            self.notificationService.checkUsageThreshold(usageService: self.usageService)
+            if let fiveHour = self.usageService.usage?.fiveHour {
+                self.notificationService.checkUsageThreshold(
+                    fiveHourUtilization: fiveHour.utilization,
+                    resetKey: fiveHour.resetsAt
+                )
+            }
             self.updateStatusLabel()
         }
     }
@@ -113,7 +122,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 self.burnRateService.update(statsService: self.statsService)
                 self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
-                self.notificationService.checkUsageThreshold(usageService: self.usageService)
+                if let fiveHour = self.usageService.usage?.fiveHour {
+                    self.notificationService.checkUsageThreshold(
+                        fiveHourUtilization: fiveHour.utilization,
+                        resetKey: fiveHour.resetsAt
+                    )
+                }
                 self.updateStatusLabel()
 
                 if self.notificationService.digestPending {

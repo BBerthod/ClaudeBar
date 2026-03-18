@@ -40,6 +40,8 @@ struct ContentView: View {
     var usageService: UsageService
     var liveStatsService: LiveStatsService
     var overlayManager: OverlayManager
+    var desktopWidgetManager: DesktopWidgetManager
+    var launchAtLoginService: LaunchAtLoginService
 
     @State private var selectedTab: Tab = .dashboard
 
@@ -64,6 +66,20 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .help(overlayManager.isVisible ? "Hide floating overlay" : "Show floating overlay")
+
+                Button {
+                    desktopWidgetManager.toggle(
+                        usageService: usageService,
+                        statsService: statsService,
+                        sessionService: sessionService
+                    )
+                } label: {
+                    Image(systemName: desktopWidgetManager.isVisible ? "gauge.with.dots.needle.67percent.fill" : "gauge.with.dots.needle.67percent")
+                        .font(.system(size: 13))
+                        .foregroundStyle(desktopWidgetManager.isVisible ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(desktopWidgetManager.isVisible ? "Hide desktop widget" : "Show desktop widget")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -94,7 +110,8 @@ struct ContentView: View {
                     SettingsView(
                         settingsService: settingsService,
                         hookHealthService: hookHealthService,
-                        notificationService: notificationService
+                        notificationService: notificationService,
+                        launchAtLoginService: launchAtLoginService
                     )
                 }
             }
@@ -115,6 +132,8 @@ struct ContentView: View {
         notificationService: NotificationService(),
         usageService: UsageService(),
         liveStatsService: LiveStatsService(),
-        overlayManager: OverlayManager()
+        overlayManager: OverlayManager(),
+        desktopWidgetManager: DesktopWidgetManager(),
+        launchAtLoginService: LaunchAtLoginService()
     )
 }
