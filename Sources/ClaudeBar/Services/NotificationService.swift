@@ -9,8 +9,8 @@ final class NotificationService {
     private(set) var costThreshold: Double = 50.0 // daily cost alert threshold in USD
     private(set) var lastDigestDate: String?
     private(set) var lastThresholdAlertDate: String?
-    private var lastUsage80AlertKey: String?
-    private var lastUsage95AlertKey: String?
+    private(set) var lastUsage80AlertKey: String?
+    private(set) var lastUsage95AlertKey: String?
 
     /// Set to `true` by the timer when the digest hour arrives.
     /// The app can observe this and call `sendDailyDigest(...)` then reset it.
@@ -18,7 +18,23 @@ final class NotificationService {
 
     private var digestTimer: Timer?
 
+    // MARK: - UserDefaults keys
+
+    private enum DefaultsKey {
+        static let dailyDigestTime = "claudebar.dailyDigestTime"
+        static let costThreshold   = "claudebar.costThreshold"
+    }
+
     init() {
+        // Load persisted preferences before starting the timer
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: DefaultsKey.dailyDigestTime) != nil {
+            dailyDigestTime = defaults.integer(forKey: DefaultsKey.dailyDigestTime)
+        }
+        if defaults.object(forKey: DefaultsKey.costThreshold) != nil {
+            costThreshold = defaults.double(forKey: DefaultsKey.costThreshold)
+        }
+
         startDigestTimer()
         // Delay notification authorization to avoid crash when bundle proxy is unavailable
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
@@ -26,12 +42,17 @@ final class NotificationService {
         }
     }
 
+    /// When `true`, notifications are sent via `osascript` instead of UNUserNotificationCenter.
+    /// SPM executables have no bundle identifier, so UNUserNotificationCenter cannot be used.
+    private var usesOsascriptFallback = false
+
     // MARK: - Authorization
 
     private func requestAuthorization() {
         guard Bundle.main.bundleIdentifier != nil else {
-            // Not running as a proper .app bundle — skip notifications
-            isAuthorized = false
+            // SPM executable — use osascript fallback (always works)
+            usesOsascriptFallback = true
+            isAuthorized = true
             return
         }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
@@ -45,11 +66,13 @@ final class NotificationService {
 
     func setDailyDigestTime(_ hour: Int) {
         dailyDigestTime = max(0, min(23, hour))
+        UserDefaults.standard.set(dailyDigestTime, forKey: DefaultsKey.dailyDigestTime)
         startDigestTimer()
     }
 
     func setCostThreshold(_ amount: Double) {
         costThreshold = amount
+        UserDefaults.standard.set(costThreshold, forKey: DefaultsKey.costThreshold)
     }
 
     // MARK: - Cost Threshold Alert
@@ -69,27 +92,30 @@ final class NotificationService {
 
     // MARK: - Usage Threshold Alert
 
-    func checkUsageThreshold(usageService: UsageService) {
-        guard let fiveHour = usageService.usage?.fiveHour else { return }
-        let utilization = fiveHour.utilization
-        let resetKey = fiveHour.resetsAt
-
-        if utilization >= 95 {
+    /// Fires a notification at 80 % and/or 95 % of the 5-hour rate-limit window.
+    ///
+    /// - Parameters:
+    ///   - fiveHourUtilization: Current utilization expressed as a value from 0 to 100.
+    ///   - resetKey: A string that uniquely identifies the current reset window (e.g. the
+    ///     ISO timestamp of the window's reset time). Used to deduplicate alerts so only one
+    ///     notification fires per threshold per window.
+    func checkUsageThreshold(fiveHourUtilization: Double, resetKey: String) {
+        if fiveHourUtilization >= 95 {
             let alertKey = "usage-95-\(resetKey)"
             guard lastUsage95AlertKey != alertKey else { return }
             lastUsage95AlertKey = alertKey
             sendNotification(
-                title: "⚠️ Usage Critical — \(Int(utilization))%",
-                body: "5-hour window at \(Int(utilization))%. Consider slowing down. Resets: \(fiveHour.timeRemaining ?? "soon")",
+                title: "Rate Limit Critical",
+                body: "5-hour window at \(Int(fiveHourUtilization))% utilization",
                 identifier: alertKey
             )
-        } else if utilization >= 80 {
+        } else if fiveHourUtilization >= 80 {
             let alertKey = "usage-80-\(resetKey)"
             guard lastUsage80AlertKey != alertKey else { return }
             lastUsage80AlertKey = alertKey
             sendNotification(
-                title: "Usage High — \(Int(utilization))%",
-                body: "5-hour window at \(Int(utilization))%. Resets: \(fiveHour.timeRemaining ?? "soon")",
+                title: "Rate Limit Warning",
+                body: "5-hour window at \(Int(fiveHourUtilization))% utilization",
                 identifier: alertKey
             )
         }
@@ -151,6 +177,11 @@ final class NotificationService {
     private func sendNotification(title: String, body: String, identifier: String) {
         guard isAuthorized else { return }
 
+        if usesOsascriptFallback {
+            sendViaOsascript(title: title, body: body)
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -163,6 +194,19 @@ final class NotificationService {
         )
 
         UNUserNotificationCenter.current().add(request)
+    }
+
+    private func sendViaOsascript(title: String, body: String) {
+        let escapedTitle = title.replacingOccurrences(of: "\"", with: "\\\"")
+        let escapedBody = body.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "display notification \"\(escapedBody)\" with title \"\(escapedTitle)\""
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
     }
 
     private func todayString() -> String {
