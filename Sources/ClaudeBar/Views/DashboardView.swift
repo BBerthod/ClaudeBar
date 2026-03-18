@@ -78,10 +78,56 @@ struct DashboardView: View {
                         .padding(.horizontal, 12)
                 }
 
+                // Active sessions — always visible regardless of stats
+                if !sessionService.activeSessions.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Active Sessions")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Text("\(sessionService.activeSessions.count)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.green.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 12)
+
+                        ForEach(sessionService.activeSessions) { session in
+                            HStack(spacing: 6) {
+                                SessionRow(
+                                    projectName: session.projectName,
+                                    detail: session.cwd,
+                                    duration: session.duration.formattedDuration,
+                                    isActive: true
+                                )
+                                if let ctx = sessionService.contextEstimates[session.sessionId],
+                                   ctx > 0 {
+                                    ContextGauge(percentage: ctx, compact: true)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                ProcessHelper.focusTerminal(forChildPID: session.pid)
+                            }
+                            .onHover { hovering in
+                                if hovering {
+                                    NSCursor.pointingHand.push()
+                                } else {
+                                    NSCursor.pop()
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 // Stats grid (2x2)
-                if statsService.todayMessages == 0 && statsService.todaySessions == 0 {
-                    emptyState
-                } else {
+                if statsService.todayMessages > 0 || statsService.todaySessions > 0 {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         StatCard(
                             title: "Messages",
@@ -138,54 +184,9 @@ struct DashboardView: View {
                         }
                         .padding(.vertical, 4)
                     }
-
-                    // Active sessions with context gauges
-                    if !sessionService.activeSessions.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("Active Sessions")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                Spacer()
-                                Text("\(sessionService.activeSessions.count)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.green.opacity(0.15))
-                                    .clipShape(Capsule())
-                            }
-                            .padding(.horizontal, 12)
-
-                            ForEach(sessionService.activeSessions) { session in
-                                HStack(spacing: 6) {
-                                    SessionRow(
-                                        projectName: session.projectName,
-                                        detail: session.cwd,
-                                        duration: session.duration.formattedDuration,
-                                        isActive: true
-                                    )
-                                    if let ctx = sessionService.contextEstimates[session.sessionId],
-                                       ctx > 0 {
-                                        ContextGauge(percentage: ctx, compact: true)
-                                    }
-                                }
-                                .padding(.horizontal, 12)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    ProcessHelper.focusTerminal(forChildPID: session.pid)
-                                }
-                                .onHover { hovering in
-                                    if hovering {
-                                        NSCursor.pointingHand.push()
-                                    } else {
-                                        NSCursor.pop()
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
+                } else if sessionService.activeSessions.isEmpty {
+                    // Only show empty state when truly nothing is happening
+                    emptyState
                 }
 
                 Spacer(minLength: 12)

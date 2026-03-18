@@ -126,8 +126,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusLabel() {
         guard let button = statusItem.button else { return }
         let tokens = statsService.todayTokens
+        let activeCount = sessionService.activeSessions.count
+
         if tokens > 0 {
             button.title = " \(tokens.abbreviatedTokenCount)"
+        } else if activeCount > 0 {
+            button.title = " \(activeCount)"
         } else {
             button.title = ""
         }

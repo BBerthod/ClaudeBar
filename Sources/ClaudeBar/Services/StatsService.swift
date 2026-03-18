@@ -63,10 +63,18 @@ final class StatsService {
         stats?.last30DaysModelTokens ?? []
     }
 
+    /// Total estimated cost across all recorded days.
+    ///
+    /// Sums per-day cost estimates rather than applying pricing to raw cumulative
+    /// token counters. The cumulative `modelUsage.cacheReadInputTokens` can reach
+    /// billions, which inflates the total to absurd levels if priced directly.
     var totalCostEstimate: Double {
-        guard let modelUsage = stats?.modelUsage else { return 0 }
-        return modelUsage.reduce(0) { sum, entry in
-            sum + CostCalculator.estimateCost(for: entry.value, modelId: entry.key)
+        guard let stats else { return 0 }
+        return stats.dailyModelTokens.reduce(0.0) { sum, day in
+            sum + CostCalculator.estimateDailyCost(
+                tokens: day.tokensByModel,
+                modelUsage: stats.modelUsage
+            )
         }
     }
 
