@@ -4,6 +4,7 @@ struct DashboardView: View {
     var statsService: StatsService
     var sessionService: SessionService
     var burnRateService: BurnRateService
+    var usageService: UsageService
 
     private var formattedDate: String {
         let formatter = DateFormatter()
@@ -71,6 +72,12 @@ struct DashboardView: View {
                 // Provider summary pills
                 providerSummary
                     .padding(.horizontal, 12)
+
+                // Rate limit usage (live from API)
+                if usageService.usage != nil {
+                    usageSection
+                        .padding(.horizontal, 12)
+                }
 
                 // Burn Rate indicator
                 if let rate = burnRateService.burnRate {
@@ -191,6 +198,121 @@ struct DashboardView: View {
 
                 Spacer(minLength: 12)
             }
+        }
+    }
+
+    // MARK: - Usage Section
+
+    private var usageSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Rate Limits")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+                HStack(spacing: 4) {
+                    Text(usageService.plan.displayName)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                    Text(usageService.tier.displayName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.accentColor.opacity(0.1))
+                .clipShape(Capsule())
+            }
+
+            if let fiveHour = usageService.usage?.fiveHour {
+                usageBar(
+                    label: "5h Window",
+                    utilization: fiveHour.utilization,
+                    timeRemaining: fiveHour.timeRemaining,
+                    pace: usageService.fiveHourPace
+                )
+            }
+
+            if let sevenDay = usageService.usage?.sevenDay {
+                usageBar(
+                    label: "7d Window",
+                    utilization: sevenDay.utilization,
+                    timeRemaining: sevenDay.timeRemaining,
+                    pace: usageService.sevenDayPace
+                )
+            }
+
+            if let sonnet = usageService.usage?.sevenDaySonnet {
+                usageBar(
+                    label: "Sonnet 7d",
+                    utilization: sonnet.utilization,
+                    timeRemaining: sonnet.timeRemaining,
+                    pace: nil
+                )
+            }
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private func usageBar(label: String, utilization: Double, timeRemaining: String?, pace: PaceLevel?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let pace {
+                    Text(pace.rawValue)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(paceColor(pace))
+                }
+                Text("\(Int(utilization))%")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                if let remaining = timeRemaining {
+                    Text("(\(remaining))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.primary.opacity(0.08))
+                        .frame(height: 6)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(utilizationColor(utilization))
+                        .frame(width: geo.size.width * min(utilization / 100, 1.0), height: 6)
+                }
+            }
+            .frame(height: 6)
+        }
+    }
+
+    private func utilizationColor(_ pct: Double) -> Color {
+        switch pct {
+        case ..<30:  return .green
+        case 30..<60: return .blue
+        case 60..<80: return .orange
+        default:      return .red
+        }
+    }
+
+    private func paceColor(_ pace: PaceLevel) -> Color {
+        switch pace {
+        case .comfortable: return .green
+        case .onTrack:     return .blue
+        case .warming:     return .yellow
+        case .pressing:    return .orange
+        case .critical:    return .red
+        case .runaway:     return .red
         }
     }
 
@@ -363,7 +485,8 @@ struct DashboardView: View {
     DashboardView(
         statsService: StatsService(),
         sessionService: SessionService(),
-        burnRateService: BurnRateService()
+        burnRateService: BurnRateService(),
+        usageService: UsageService()
     )
     .frame(width: 420, height: 480)
 }

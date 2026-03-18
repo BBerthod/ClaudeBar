@@ -37,6 +37,7 @@ struct ContentView: View {
     var hookHealthService: HookHealthService
     var burnRateService: BurnRateService
     var notificationService: NotificationService
+    var usageService: UsageService
     var overlayManager: OverlayManager
 
     @State private var selectedTab: Tab = .dashboard
@@ -75,7 +76,8 @@ struct ContentView: View {
                     DashboardView(
                         statsService: statsService,
                         sessionService: sessionService,
-                        burnRateService: burnRateService
+                        burnRateService: burnRateService,
+                        usageService: usageService
                     )
                 case .history:
                     HistoryView(statsService: statsService)
@@ -109,6 +111,7 @@ struct ContentView: View {
         hookHealthService: HookHealthService(),
         burnRateService: BurnRateService(),
         notificationService: NotificationService(),
+        usageService: UsageService(),
         overlayManager: OverlayManager()
     )
 }

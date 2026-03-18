@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let hookHealthService = HookHealthService()
     let burnRateService = BurnRateService()
     let notificationService = NotificationService()
+    let usageService = UsageService()
     let overlayManager = OverlayManager()
 
     private var refreshTimer: Timer?
@@ -39,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.autosaveName = "com.claudebar.statusitem"
 
         guard let button = statusItem.button else { return }
 
@@ -65,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hookHealthService: hookHealthService,
             burnRateService: burnRateService,
             notificationService: notificationService,
+            usageService: usageService,
             overlayManager: overlayManager
         )
 
@@ -125,15 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateStatusLabel() {
         guard let button = statusItem.button else { return }
-        let tokens = statsService.todayTokens
-        let activeCount = sessionService.activeSessions.count
-
-        if tokens > 0 {
-            button.title = " \(tokens.abbreviatedTokenCount)"
-        } else if activeCount > 0 {
-            button.title = " \(activeCount)"
-        } else {
-            button.title = ""
-        }
+        // Keep the menu bar compact — icon only. All details live in the popover.
+        button.title = ""
     }
 }
