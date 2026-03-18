@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     var settingsService: SettingsService
     var hookHealthService: HookHealthService
+    var notificationService: NotificationService
 
     @State private var expandedPermissions = false
     @State private var expandedHooks = false
@@ -16,6 +17,7 @@ struct SettingsView: View {
                 }
 
                 if let settings = settingsService.settings {
+                    notificationsSection()
                     modelBehaviorSection(settings)
                     pluginsSection(settings)
                     envVarsSection(settings)
@@ -30,6 +32,77 @@ struct SettingsView: View {
             }
             .padding(.top, 12)
         }
+    }
+
+    // MARK: - Notifications
+
+    @ViewBuilder
+    private func notificationsSection() -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                // Authorization status
+                HStack {
+                    Label(
+                        "Notifications",
+                        systemImage: notificationService.isAuthorized ? "bell.badge" : "bell.slash"
+                    )
+                    .font(.subheadline)
+                    Spacer()
+                    Text(notificationService.isAuthorized ? "Authorized" : "Not authorized")
+                        .font(.caption)
+                        .foregroundStyle(notificationService.isAuthorized ? .green : .red)
+                }
+
+                Divider()
+
+                // Daily digest time
+                HStack {
+                    Label("Daily digest", systemImage: "clock")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { notificationService.dailyDigestTime },
+                        set: { notificationService.setDailyDigestTime($0) }
+                    )) {
+                        ForEach(0..<24, id: \.self) { hour in
+                            Text(formatHour(hour)).tag(hour)
+                        }
+                    }
+                    .frame(width: 100)
+                }
+
+                Divider()
+
+                // Cost threshold
+                HStack {
+                    Label("Cost alert", systemImage: "dollarsign.circle")
+                        .font(.subheadline)
+                    Spacer()
+                    Text("$")
+                        .font(.subheadline)
+                    TextField("", value: Binding(
+                        get: { notificationService.costThreshold },
+                        set: { notificationService.setCostThreshold($0) }
+                    ), format: .number.precision(.fractionLength(0)))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 60)
+                }
+            }
+            .padding(8)
+        } label: {
+            sectionLabel("Notifications")
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func formatHour(_ hour: Int) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = 0
+        let date = Calendar.current.date(from: components) ?? Date()
+        return f.string(from: date)
     }
 
     // MARK: - Model & Behavior
@@ -420,7 +493,8 @@ struct SettingsView: View {
 #Preview {
     SettingsView(
         settingsService: SettingsService(),
-        hookHealthService: HookHealthService()
+        hookHealthService: HookHealthService(),
+        notificationService: NotificationService()
     )
     .frame(width: 420, height: 480)
 }

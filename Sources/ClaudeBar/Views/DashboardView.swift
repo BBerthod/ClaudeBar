@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     var statsService: StatsService
     var sessionService: SessionService
+    var burnRateService: BurnRateService
 
     private var formattedDate: String {
         let formatter = DateFormatter()
@@ -70,6 +71,12 @@ struct DashboardView: View {
                 // Provider summary pills
                 providerSummary
                     .padding(.horizontal, 12)
+
+                // Burn Rate indicator
+                if let rate = burnRateService.burnRate {
+                    burnRateCard(rate)
+                        .padding(.horizontal, 12)
+                }
 
                 // Stats grid (2x2)
                 if statsService.todayMessages == 0 && statsService.todaySessions == 0 {
@@ -164,6 +171,17 @@ struct DashboardView: View {
                                     }
                                 }
                                 .padding(.horizontal, 12)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    ProcessHelper.focusTerminal(forChildPID: session.pid)
+                                }
+                                .onHover { hovering in
+                                    if hovering {
+                                        NSCursor.pointingHand.push()
+                                    } else {
+                                        NSCursor.pop()
+                                    }
+                                }
                             }
                         }
                         .padding(.vertical, 4)
@@ -173,6 +191,75 @@ struct DashboardView: View {
                 Spacer(minLength: 12)
             }
         }
+    }
+
+    // MARK: - Burn Rate Card
+
+    @ViewBuilder
+    private func burnRateCard(_ rate: BurnRate) -> some View {
+        HStack(spacing: 10) {
+            // Zone icon + label
+            HStack(spacing: 5) {
+                Image(systemName: zoneIcon(rate.zone))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(zoneColor(rate.zone))
+                Text(rate.zone.rawValue)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(zoneColor(rate.zone))
+            }
+
+            Spacer()
+
+            // Cost per hour
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(rate.costPerHourFormatted)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Text("/hr")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Divider
+            Rectangle()
+                .fill(Color.secondary.opacity(0.2))
+                .frame(width: 1, height: 24)
+
+            // Projected daily cost
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(rate.projectedCostFormatted)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Text("projected")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Divider
+            Rectangle()
+                .fill(Color.secondary.opacity(0.2))
+                .frame(width: 1, height: 24)
+
+            // % of average
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("\(Int(rate.percentOfAverage))%")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(rate.percentOfAverage > 150 ? zoneColor(rate.zone) : .primary)
+                Text("of avg")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(zoneColor(rate.zone).opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(zoneColor(rate.zone).opacity(0.2), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Provider summary
@@ -251,12 +338,31 @@ struct DashboardView: View {
         if name.contains("haiku")  { return .haikuColor }
         return .secondary
     }
+
+    private func zoneColor(_ zone: PacingZone) -> Color {
+        switch zone {
+        case .chill:    return .blue
+        case .onTrack:  return .green
+        case .hot:      return .orange
+        case .critical: return .red
+        }
+    }
+
+    private func zoneIcon(_ zone: PacingZone) -> String {
+        switch zone {
+        case .chill:    return "snowflake"
+        case .onTrack:  return "checkmark.circle"
+        case .hot:      return "flame"
+        case .critical: return "flame.fill"
+        }
+    }
 }
 
 #Preview {
     DashboardView(
         statsService: StatsService(),
-        sessionService: SessionService()
+        sessionService: SessionService(),
+        burnRateService: BurnRateService()
     )
     .frame(width: 420, height: 480)
 }

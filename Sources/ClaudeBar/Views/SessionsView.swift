@@ -73,23 +73,42 @@ struct SessionsView: View {
 
     @ViewBuilder
     private func activeSessionRow(_ session: ActiveSession) -> some View {
-        Button {
-            copyResumeCommand(sessionId: session.sessionId)
-        } label: {
-            HStack(spacing: 6) {
-                SessionRow(
-                    projectName: session.projectName,
-                    detail: session.cwd,
-                    duration: session.duration.formattedDuration,
-                    isActive: true
-                )
-                if let ctx = sessionService.contextEstimates[session.sessionId], ctx > 0 {
-                    ContextGauge(percentage: ctx, compact: true)
+        HStack(spacing: 6) {
+            Button {
+                copyResumeCommand(sessionId: session.sessionId)
+            } label: {
+                HStack(spacing: 6) {
+                    SessionRow(
+                        projectName: session.projectName,
+                        detail: session.cwd,
+                        duration: session.duration.formattedDuration,
+                        isActive: true
+                    )
+                    if let ctx = sessionService.contextEstimates[session.sessionId], ctx > 0 {
+                        ContextGauge(percentage: ctx, compact: true)
+                    }
                 }
             }
+            .buttonStyle(.plain)
+            .help("Click to copy resume command")
+
+            Button {
+                ProcessHelper.focusTerminal(forChildPID: session.pid)
+            } label: {
+                Image(systemName: "arrow.up.forward.app")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Jump to terminal window")
         }
-        .buttonStyle(.plain)
-        .help("Click to copy resume command")
+        .onHover { hovering in
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
     }
 
     private func copyResumeCommand(sessionId: String) {

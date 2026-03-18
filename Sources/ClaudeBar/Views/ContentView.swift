@@ -35,19 +35,34 @@ struct ContentView: View {
     var settingsService: SettingsService
     var projectService: ProjectService
     var hookHealthService: HookHealthService
+    var burnRateService: BurnRateService
+    var notificationService: NotificationService
+    var overlayManager: OverlayManager
 
     @State private var selectedTab: Tab = .dashboard
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab picker
-            Picker("Tab", selection: $selectedTab) {
-                ForEach(Tab.allCases, id: \.self) { tab in
-                    Label(tab.shortLabel, systemImage: tab.icon)
-                        .tag(tab)
+            // Tab picker + overlay toggle
+            HStack(spacing: 6) {
+                Picker("Tab", selection: $selectedTab) {
+                    ForEach(Tab.allCases, id: \.self) { tab in
+                        Label(tab.shortLabel, systemImage: tab.icon)
+                            .tag(tab)
+                    }
                 }
+                .pickerStyle(.segmented)
+
+                Button {
+                    overlayManager.toggle(sessionService: sessionService)
+                } label: {
+                    Image(systemName: overlayManager.isVisible ? "pip.fill" : "pip")
+                        .font(.system(size: 13))
+                        .foregroundStyle(overlayManager.isVisible ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(overlayManager.isVisible ? "Hide floating overlay" : "Show floating overlay")
             }
-            .pickerStyle(.segmented)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
@@ -59,7 +74,8 @@ struct ContentView: View {
                 case .dashboard:
                     DashboardView(
                         statsService: statsService,
-                        sessionService: sessionService
+                        sessionService: sessionService,
+                        burnRateService: burnRateService
                     )
                 case .history:
                     HistoryView(statsService: statsService)
@@ -73,7 +89,8 @@ struct ContentView: View {
                 case .settings:
                     SettingsView(
                         settingsService: settingsService,
-                        hookHealthService: hookHealthService
+                        hookHealthService: hookHealthService,
+                        notificationService: notificationService
                     )
                 }
             }
@@ -89,6 +106,9 @@ struct ContentView: View {
         sessionService: SessionService(),
         settingsService: SettingsService(),
         projectService: ProjectService(),
-        hookHealthService: HookHealthService()
+        hookHealthService: HookHealthService(),
+        burnRateService: BurnRateService(),
+        notificationService: NotificationService(),
+        overlayManager: OverlayManager()
     )
 }
