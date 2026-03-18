@@ -103,6 +103,7 @@ struct DashboardView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    Sparkline(data: statsService.last30DaysActivity.suffix(7).map(\.messageCount))
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
@@ -197,6 +198,12 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal, 12)
 
+                    // Human cost comparison
+                    if effectiveMessages > 0 {
+                        humanCostSection
+                            .padding(.horizontal, 12)
+                    }
+
                     // Token distribution by model
                     if !effectiveTokensByModel.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
@@ -263,12 +270,7 @@ struct DashboardView: View {
             }
 
             if let fiveHour = usageService.usage?.fiveHour {
-                usageBar(
-                    label: "5h Window",
-                    utilization: fiveHour.utilization,
-                    timeRemaining: fiveHour.timeRemaining,
-                    pace: usageService.fiveHourPace
-                )
+                fiveHourGauge(fiveHour: fiveHour, pace: usageService.fiveHourPace)
             }
 
             if let sevenDay = usageService.usage?.sevenDay {
@@ -292,6 +294,43 @@ struct DashboardView: View {
         .padding(10)
         .background(Color.primary.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private func fiveHourGauge(fiveHour: UsageWindow, pace: PaceLevel?) -> some View {
+        HStack(spacing: 12) {
+            // Circular gauge
+            Gauge(value: min(fiveHour.utilization, 100), in: 0...100) {
+                // Label (not shown in accessoryCircular)
+            } currentValueLabel: {
+                Text("\(Int(fiveHour.utilization))%")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .gaugeStyle(.accessoryCircular)
+            .tint(Gradient(colors: [.green, .yellow, .orange, .red]))
+            .scaleEffect(0.8)
+            .frame(width: 44, height: 44)
+
+            // Details
+            VStack(alignment: .leading, spacing: 2) {
+                Text("5h Window")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                if let remaining = fiveHour.timeRemaining {
+                    Text("Resets in \(remaining)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let pace {
+                    Text(pace.rawValue)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(paceColor(pace))
+                }
+            }
+
+            Spacer()
+        }
     }
 
     @ViewBuilder
@@ -488,6 +527,47 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
+    }
+
+    // MARK: - Human cost comparison
+
+    private var humanCostSection: some View {
+        let humanHours = HumanCostCalculator.estimateHumanHours(
+            messages: effectiveMessages,
+            toolCalls: effectiveToolCalls
+        )
+        let humanCost = HumanCostCalculator.estimateHumanCost(
+            messages: effectiveMessages,
+            toolCalls: effectiveToolCalls
+        )
+        let roi = HumanCostCalculator.roiMultiplier(humanCost: humanCost, claudeCost: effectiveCost)
+
+        return HStack(spacing: 8) {
+            Image(systemName: "person.badge.clock")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Text("≈ \(HumanCostCalculator.formatHours(humanHours)) of dev (\(CostCalculator.formatCost(humanCost)))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if roi > 0 {
+                Text("\(Int(roi))x ROI")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.green.opacity(0.1))
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(Color.primary.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Helpers
