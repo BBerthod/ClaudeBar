@@ -170,26 +170,16 @@ final class LiveStatsService {
         return date.timeIntervalSince1970
     }
 
-    /// Per-message cost calculation with model-specific pricing.
+    /// Per-message cost using the shared CostCalculator pricing table.
     private static func messageCost(
         model: String, input: Int, output: Int,
         cacheRead: Int, cacheWrite: Int
     ) -> Double {
-        let mtok = 1_000_000.0
-        let lower = model.lowercased()
-
-        let (iRate, oRate, crRate, cwRate): (Double, Double, Double, Double)
-        if lower.contains("opus") {
-            (iRate, oRate, crRate, cwRate) = (15.0, 75.0, 1.5, 18.75)
-        } else if lower.contains("sonnet") {
-            (iRate, oRate, crRate, cwRate) = (3.0, 15.0, 0.3, 3.75)
-        } else if lower.contains("haiku") {
-            (iRate, oRate, crRate, cwRate) = (0.25, 1.25, 0.025, 0.3125)
-        } else {
-            (iRate, oRate, crRate, cwRate) = (15.0, 75.0, 1.5, 18.75) // conservative
-        }
-
-        return (Double(input) * iRate + Double(output) * oRate +
-                Double(cacheRead) * crRate + Double(cacheWrite) * cwRate) / mtok
+        let p = CostCalculator.pricing(for: model)
+        let mTok = 1_000_000.0
+        return (Double(input)      * p.inputPerMTok +
+                Double(output)     * p.outputPerMTok +
+                Double(cacheRead)  * p.cacheReadPerMTok +
+                Double(cacheWrite) * p.cacheWritePerMTok) / mTok
     }
 }

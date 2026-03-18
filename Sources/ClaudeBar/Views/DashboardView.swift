@@ -543,10 +543,10 @@ struct DashboardView: View {
 
             // % of average
             VStack(alignment: .trailing, spacing: 1) {
-                Text("\(Int(rate.percentOfAverage))%")
+                Text("\(Int(rate.percentOfAverage * 100))%")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(rate.percentOfAverage > 150 ? zoneColor(rate.zone) : .primary)
+                    .foregroundStyle(rate.percentOfAverage > 1.5 ? zoneColor(rate.zone) : .primary)
                 Text("of avg")
                     .font(.caption2)
                     .foregroundStyle(.secondary)

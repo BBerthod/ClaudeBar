@@ -113,35 +113,27 @@ final class UsageService {
     }
 
     /// Discovers the prefixed Keychain service name used by newer Claude Code versions.
+    /// Uses SecItemCopyMatching to search for matching entries instead of dumping
+    /// the entire keychain via the `security` CLI.
     private func discoverKeychainService() -> String? {
-        // Run security dump-keychain and look for Claude Code-credentials-* entries
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["dump-keychain"]
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll
+        ]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
+        guard status == errSecSuccess,
+              let items = result as? [[String: Any]] else {
             return nil
         }
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else { return nil }
-
-        // Find lines matching "svce"<blob>="Claude Code-credentials-XXXX"
-        for line in output.components(separatedBy: "\n") {
-            if line.contains("Claude Code-credentials-"),
-               let start = line.range(of: "\"Claude Code-credentials-"),
-               let end = line.range(of: "\"", range: start.upperBound..<line.endIndex) {
-                let service = String(line[start.lowerBound..<end.upperBound])
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-                return service
-            }
+        for item in items {
+            guard let service = item[kSecAttrService as String] as? String,
+                  service.hasPrefix("Claude Code-credentials-") else { continue }
+            return service
         }
 
         return nil

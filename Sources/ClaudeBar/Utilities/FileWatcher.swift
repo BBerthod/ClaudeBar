@@ -34,7 +34,7 @@ final class FileWatcher {
 
         let src = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
-            eventMask: .write,
+            eventMask: [.write, .rename, .delete],
             queue: .global(qos: .utility)
         )
 
@@ -44,11 +44,10 @@ final class FileWatcher {
             }
         }
 
-        src.setCancelHandler { [weak self] in
-            if let self, self.fileDescriptor >= 0 {
-                close(self.fileDescriptor)
-                self.fileDescriptor = -1
-            }
+        // Capture fd by value so close() runs even if self is already deallocated.
+        let fdToClose = fd
+        src.setCancelHandler {
+            close(fdToClose)
         }
 
         source = src
