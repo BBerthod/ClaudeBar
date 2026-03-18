@@ -13,6 +13,7 @@ final class UsageService {
 
     private var refreshTimer: Timer?
     private var cachedToken: KeychainCredentials.OAuthTokens?
+    private var keychainServiceName: String?
 
     init() {
         loadCredentials()
@@ -56,8 +57,10 @@ final class UsageService {
 
     private func loadCredentials() {
         // Try standard service name first
-        if let creds = readKeychain(service: "Claude Code-credentials") {
+        let standardService = "Claude Code-credentials"
+        if let creds = readKeychain(service: standardService) {
             cachedToken = creds.claudeAiOauth
+            keychainServiceName = standardService
             plan = SubscriptionPlan(rawValue: creds.claudeAiOauth.subscriptionType ?? "unknown") ?? .unknown
             tier = RateLimitTier(raw: creds.claudeAiOauth.rateLimitTier)
             return
@@ -67,9 +70,27 @@ final class UsageService {
         if let service = discoverKeychainService() {
             if let creds = readKeychain(service: service) {
                 cachedToken = creds.claudeAiOauth
+                keychainServiceName = service
                 plan = SubscriptionPlan(rawValue: creds.claudeAiOauth.subscriptionType ?? "unknown") ?? .unknown
                 tier = RateLimitTier(raw: creds.claudeAiOauth.rateLimitTier)
             }
+        }
+    }
+
+    private func writeKeychain(service: String, credentials: KeychainCredentials) {
+        guard let data = try? JSONEncoder().encode(credentials) else { return }
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service
+        ]
+        let attributes: [String: Any] = [kSecValueData as String: data]
+
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if updateStatus == errSecItemNotFound {
+            var addQuery = query
+            addQuery[kSecValueData as String] = data
+            SecItemAdd(addQuery as CFDictionary, nil)
         }
     }
 
@@ -126,6 +147,69 @@ final class UsageService {
         return nil
     }
 
+    // MARK: - Token Refresh
+
+    private struct TokenRefreshResponse: Codable {
+        let accessToken: String
+        let refreshToken: String
+        let expiresIn: Int
+
+        enum CodingKeys: String, CodingKey {
+            case accessToken = "access_token"
+            case refreshToken = "refresh_token"
+            case expiresIn = "expires_in"
+        }
+    }
+
+    private func refreshToken() async -> Bool {
+        guard let refreshTokenValue = cachedToken?.refreshToken else { return false }
+
+        let url = URL(string: "https://console.anthropic.com/v1/oauth/token")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "grant_type": "refresh_token",
+            "refresh_token": refreshTokenValue,
+            "client_id": "cli"
+        ]
+        request.httpBody = try? JSONEncoder().encode(body)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else { return false }
+
+            let decoded = try JSONDecoder().decode(TokenRefreshResponse.self, from: data)
+
+            // expiresAt is in milliseconds
+            let expiresAt = Int(Date().timeIntervalSince1970 * 1000) + (decoded.expiresIn * 1000)
+
+            let oldToken = cachedToken
+            let newOAuthTokens = KeychainCredentials.OAuthTokens(
+                accessToken: decoded.accessToken,
+                refreshToken: decoded.refreshToken,
+                expiresAt: expiresAt,
+                scopes: oldToken?.scopes ?? [],
+                subscriptionType: oldToken?.subscriptionType,
+                rateLimitTier: oldToken?.rateLimitTier
+            )
+
+            cachedToken = newOAuthTokens
+
+            // Persist to Keychain using the service name captured at load time
+            if let service = keychainServiceName {
+                let updated = KeychainCredentials(claudeAiOauth: newOAuthTokens)
+                writeKeychain(service: service, credentials: updated)
+            }
+
+            return true
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - API
 
     func fetchUsage() async {
@@ -136,10 +220,14 @@ final class UsageService {
 
         // Check token expiry and refresh if needed
         if token.isExpired {
-            loadCredentials()
-            guard cachedToken != nil, !cachedToken!.isExpired else {
-                lastError = "Token expired"
-                return
+            let refreshed = await refreshToken()
+            if !refreshed {
+                // Fallback: Claude Code might have refreshed it in the meantime
+                loadCredentials()
+                guard cachedToken != nil, !cachedToken!.isExpired else {
+                    lastError = "Token expired — refresh failed"
+                    return
+                }
             }
         }
 
