@@ -38,6 +38,7 @@ struct ContentView: View {
     var burnRateService: BurnRateService
     var notificationService: NotificationService
     var usageService: UsageService
+    var liveStatsService: LiveStatsService
     var overlayManager: OverlayManager
 
     @State private var selectedTab: Tab = .dashboard
@@ -77,7 +78,8 @@ struct ContentView: View {
                         statsService: statsService,
                         sessionService: sessionService,
                         burnRateService: burnRateService,
-                        usageService: usageService
+                        usageService: usageService,
+                        liveStatsService: liveStatsService
                     )
                 case .history:
                     HistoryView(statsService: statsService)
@@ -112,6 +114,7 @@ struct ContentView: View {
         burnRateService: BurnRateService(),
         notificationService: NotificationService(),
         usageService: UsageService(),
+        liveStatsService: LiveStatsService(),
         overlayManager: OverlayManager()
     )
 }

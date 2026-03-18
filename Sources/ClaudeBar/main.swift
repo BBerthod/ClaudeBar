@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let burnRateService = BurnRateService()
     let notificationService = NotificationService()
     let usageService = UsageService()
+    let liveStatsService = LiveStatsService()
     let overlayManager = OverlayManager()
 
     private var refreshTimer: Timer?
@@ -68,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             burnRateService: burnRateService,
             notificationService: notificationService,
             usageService: usageService,
+            liveStatsService: liveStatsService,
             overlayManager: overlayManager
         )
 
@@ -98,6 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self else { return }
+            self.liveStatsService.updateIfNeeded(statsService: self.statsService)
             self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
             self.updateStatusLabel()
         }

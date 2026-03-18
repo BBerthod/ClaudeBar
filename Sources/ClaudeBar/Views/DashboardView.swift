@@ -5,6 +5,37 @@ struct DashboardView: View {
     var sessionService: SessionService
     var burnRateService: BurnRateService
     var usageService: UsageService
+    var liveStatsService: LiveStatsService
+
+    // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
+
+    private var effectiveMessages: Int {
+        statsService.todayMessages > 0 ? statsService.todayMessages : liveStatsService.todayMessages
+    }
+
+    private var effectiveSessions: Int {
+        statsService.todaySessions > 0 ? statsService.todaySessions : sessionService.activeSessions.count
+    }
+
+    private var effectiveToolCalls: Int {
+        statsService.todayToolCalls > 0 ? statsService.todayToolCalls : liveStatsService.todayToolCalls
+    }
+
+    private var effectiveTokens: Int {
+        statsService.todayTokens > 0 ? statsService.todayTokens : liveStatsService.todayTokens
+    }
+
+    private var effectiveCost: Double {
+        statsService.todayCostEstimate > 0 ? statsService.todayCostEstimate : liveStatsService.todayCost
+    }
+
+    private var effectiveTokensByModel: [(model: String, tokens: Int)] {
+        !statsService.tokensByModelToday.isEmpty ? statsService.tokensByModelToday : liveStatsService.tokensByModel
+    }
+
+    private var hasStats: Bool {
+        effectiveMessages > 0 || effectiveSessions > 0
+    }
 
     private var formattedDate: String {
         let formatter = DateFormatter()
@@ -57,13 +88,20 @@ struct DashboardView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(statsService.todayCostFormatted)
+                        Text(CostCalculator.formatCost(effectiveCost))
                             .font(.title3)
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)
-                        Text("estimated cost")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 3) {
+                            if liveStatsService.isStale {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 7))
+                                    .foregroundStyle(.orange)
+                            }
+                            Text(liveStatsService.isStale ? "live estimate" : "estimated cost")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -134,46 +172,46 @@ struct DashboardView: View {
                 }
 
                 // Stats grid (2x2)
-                if statsService.todayMessages > 0 || statsService.todaySessions > 0 {
+                if hasStats {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         StatCard(
                             title: "Messages",
-                            value: "\(statsService.todayMessages)",
+                            value: "\(effectiveMessages)",
                             icon: "message"
                         )
                         StatCard(
                             title: "Sessions",
-                            value: "\(statsService.todaySessions)",
+                            value: "\(effectiveSessions)",
                             icon: "rectangle.stack"
                         )
                         StatCard(
                             title: "Tool Calls",
-                            value: "\(statsService.todayToolCalls)",
+                            value: "\(effectiveToolCalls)",
                             icon: "wrench.and.screwdriver"
                         )
                         StatCard(
                             title: "Tokens",
-                            value: statsService.todayTokens.abbreviatedTokenCount,
+                            value: effectiveTokens.abbreviatedTokenCount,
                             icon: "text.word.spacing"
                         )
                     }
                     .padding(.horizontal, 12)
 
                     // Token distribution by model
-                    if !statsService.tokensByModelToday.isEmpty {
+                    if !effectiveTokensByModel.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Tokens by Model")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .padding(.horizontal, 12)
 
-                            TokenBar(segments: statsService.tokensByModelToday)
+                            TokenBar(segments: effectiveTokensByModel)
                                 .frame(height: 28)
                                 .padding(.horizontal, 12)
 
                             // Legend
                             HStack(spacing: 12) {
-                                ForEach(statsService.tokensByModelToday, id: \.model) { entry in
+                                ForEach(effectiveTokensByModel, id: \.model) { entry in
                                     HStack(spacing: 4) {
                                         Circle()
                                             .fill(modelColor(for: entry.model))
@@ -486,7 +524,8 @@ struct DashboardView: View {
         statsService: StatsService(),
         sessionService: SessionService(),
         burnRateService: BurnRateService(),
-        usageService: UsageService()
+        usageService: UsageService(),
+        liveStatsService: LiveStatsService()
     )
     .frame(width: 420, height: 480)
 }
