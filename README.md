@@ -47,7 +47,7 @@ A compact, always-on-top PiP panel listing active sessions. Toggle it with the p
 ClaudeBar has **zero third-party dependencies** — only the Swift standard library, AppKit, and SwiftUI.
 
 ```bash
-git clone https://github.com/your-username/ClaudeBar
+git clone https://github.com/BBerthod/ClaudeBar
 cd ClaudeBar
 swift build -c release
 swift run
