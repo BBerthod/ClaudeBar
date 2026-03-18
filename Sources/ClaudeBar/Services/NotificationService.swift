@@ -9,6 +9,8 @@ final class NotificationService {
     private(set) var costThreshold: Double = 50.0 // daily cost alert threshold in USD
     private(set) var lastDigestDate: String?
     private(set) var lastThresholdAlertDate: String?
+    private var lastUsage80AlertKey: String?
+    private var lastUsage95AlertKey: String?
 
     /// Set to `true` by the timer when the digest hour arrives.
     /// The app can observe this and call `sendDailyDigest(...)` then reset it.
@@ -63,6 +65,34 @@ final class NotificationService {
             body: "Today's estimated cost has reached \(CostCalculator.formatCost(currentCost)) (threshold: \(CostCalculator.formatCost(costThreshold)))",
             identifier: "cost-threshold-\(today)"
         )
+    }
+
+    // MARK: - Usage Threshold Alert
+
+    func checkUsageThreshold(usageService: UsageService) {
+        guard let fiveHour = usageService.usage?.fiveHour else { return }
+        let utilization = fiveHour.utilization
+        let resetKey = fiveHour.resetsAt
+
+        if utilization >= 95 {
+            let alertKey = "usage-95-\(resetKey)"
+            guard lastUsage95AlertKey != alertKey else { return }
+            lastUsage95AlertKey = alertKey
+            sendNotification(
+                title: "⚠️ Usage Critical — \(Int(utilization))%",
+                body: "5-hour window at \(Int(utilization))%. Consider slowing down. Resets: \(fiveHour.timeRemaining ?? "soon")",
+                identifier: alertKey
+            )
+        } else if utilization >= 80 {
+            let alertKey = "usage-80-\(resetKey)"
+            guard lastUsage80AlertKey != alertKey else { return }
+            lastUsage80AlertKey = alertKey
+            sendNotification(
+                title: "Usage High — \(Int(utilization))%",
+                body: "5-hour window at \(Int(utilization))%. Resets: \(fiveHour.timeRemaining ?? "soon")",
+                identifier: alertKey
+            )
+        }
     }
 
     // MARK: - Daily Digest

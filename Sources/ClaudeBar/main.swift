@@ -102,6 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.liveStatsService.updateIfNeeded(statsService: self.statsService)
             self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
+            self.notificationService.checkUsageThreshold(usageService: self.usageService)
             self.updateStatusLabel()
         }
     }
@@ -112,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 self.burnRateService.update(statsService: self.statsService)
                 self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
+                self.notificationService.checkUsageThreshold(usageService: self.usageService)
                 self.updateStatusLabel()
 
                 if self.notificationService.digestPending {
