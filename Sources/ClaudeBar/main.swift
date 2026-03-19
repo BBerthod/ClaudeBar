@@ -122,7 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
-                self.burnRateService.update(statsService: self.statsService)
+                self.burnRateService.update(statsService: self.statsService, liveStatsService: self.liveStatsService)
                 self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
                 if let fiveHour = self.usageService.usage?.fiveHour {
                     self.notificationService.checkUsageThreshold(
