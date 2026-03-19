@@ -24,6 +24,7 @@ struct AnalyticsView: View {
     var usageService: UsageService
     var liveStatsService: LiveStatsService
     var mcpHealthService: McpHealthService
+    var projectService: ProjectService
 
     @State private var selectedSection: AnalyticsSection = .alerts
 
@@ -275,8 +276,144 @@ struct AnalyticsView: View {
                 // Week comparison
                 weekComparisonView
                     .padding(.horizontal)
+
+                // Token breakdown by model
+                modelBreakdownChart
+                    .padding(.horizontal)
+
+                // Hourly activity pattern
+                hourlyPatternChart
+                    .padding(.horizontal)
+
+                // Key stats summary
+                keyStatsGrid
+                    .padding(.horizontal)
             }
         }
+    }
+
+    // MARK: - Model Breakdown
+
+    private var modelCosts: [(model: String, cost: Double)] {
+        guard let stats = statsService.stats else { return [] }
+        var costByModel: [String: Double] = [:]
+        for day in stats.dailyModelTokens {
+            for (modelId, tokenCount) in day.tokensByModel {
+                let p = CostCalculator.pricing(for: modelId)
+                let mTok = 1_000_000.0
+                if let usage = stats.modelUsage[modelId] {
+                    let io = usage.inputTokens + usage.outputTokens
+                    guard io > 0 else { continue }
+                    let frac = Double(tokenCount) / Double(io)
+                    let cost = (Double(usage.inputTokens) * frac / mTok * p.inputPerMTok +
+                                Double(usage.outputTokens) * frac / mTok * p.outputPerMTok +
+                                Double(usage.cacheReadInputTokens) * frac / mTok * p.cacheReadPerMTok +
+                                Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
+                    costByModel[StatsService.displayName(for: modelId), default: 0] += cost
+                }
+            }
+        }
+        return costByModel.map { (model: $0.key, cost: $0.value) }.sorted { $0.cost > $1.cost }
+    }
+
+    private var modelBreakdownChart: some View {
+        GroupBox("Cost by Model (All Time)") {
+            if modelCosts.isEmpty {
+                Text("No data").font(.caption).foregroundStyle(.tertiary).padding()
+            } else {
+                Chart(modelCosts, id: \.model) { entry in
+                    SectorMark(
+                        angle: .value("Cost", entry.cost),
+                        innerRadius: .ratio(0.5),
+                        angularInset: 2
+                    )
+                    .foregroundStyle(Color.color(for: entry.model))
+                    .annotation(position: .overlay) {
+                        if entry.cost / modelCosts.reduce(0, { $0 + $1.cost }) > 0.08 {
+                            Text(CostCalculator.formatCost(entry.cost))
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+                .chartLegend(position: .bottom)
+                .frame(height: 220)
+                .padding(8)
+            }
+        }
+    }
+
+    // MARK: - Hourly Pattern
+
+    private var hourlyData: [(hour: Int, count: Int)] {
+        guard let hourCounts = statsService.stats?.hourCounts else { return [] }
+        return (0..<24).map { h in (hour: h, count: hourCounts[String(h)] ?? 0) }
+    }
+
+    private var hourlyPatternChart: some View {
+        GroupBox("Activity by Hour (All Time)") {
+            let data = hourlyData
+            let maxCount = data.map(\.count).max() ?? 1
+            if maxCount > 0 {
+                Chart(data, id: \.hour) { point in
+                    BarMark(
+                        x: .value("Hour", "\(point.hour)"),
+                        y: .value("Messages", point.count)
+                    )
+                    .foregroundStyle(
+                        Double(point.count) / Double(maxCount) > 0.7
+                            ? Color.orange.gradient
+                            : Color.blue.opacity(0.6).gradient
+                    )
+                }
+                .frame(height: 140)
+                .padding(8)
+            } else {
+                Text("No hourly data").font(.caption).foregroundStyle(.tertiary).padding()
+            }
+        }
+    }
+
+    // MARK: - Key Stats Grid
+
+    private var keyStatsGrid: some View {
+        let stats = statsService.stats
+        let totalSessions = stats?.totalSessions ?? 0
+        let totalMessages = stats?.totalMessages ?? 0
+        let totalDays = stats?.dailyModelTokens.count ?? 0
+        let avgMessagesPerDay = totalDays > 0 ? totalMessages / totalDays : 0
+        let avgCostPerDay = totalDays > 0 ? statsService.totalCostEstimate / Double(totalDays) : 0
+        let speculationSaved = stats?.totalSpeculationTimeSavedMs ?? 0
+        let specSeconds = speculationSaved / 1000
+        let specFormatted = specSeconds >= 3600 ? "\(specSeconds / 3600)h \((specSeconds % 3600) / 60)m" : "\(specSeconds / 60)m"
+
+        return GroupBox("Lifetime Stats") {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                statTile("Total Sessions", value: "\(totalSessions)")
+                statTile("Total Messages", value: totalMessages.abbreviatedTokenCount)
+                statTile("Days Tracked", value: "\(totalDays)")
+                statTile("Avg Msgs/Day", value: "\(avgMessagesPerDay)")
+                statTile("Avg Cost/Day", value: CostCalculator.formatCost(avgCostPerDay))
+                statTile("Time Saved", value: specFormatted)
+            }
+            .padding(8)
+        }
+    }
+
+    @ViewBuilder
+    private func statTile(_ label: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
     }
 
     private var weekComparisonView: some View {
@@ -322,7 +459,11 @@ struct AnalyticsView: View {
     // MARK: - Projects Panel
 
     private var projectsPanel: some View {
-        ScrollView {
+        let sorted = projectService.projects.sorted { $0.estimatedCost > $1.estimatedCost }
+        let totalCost = statsService.totalCostEstimate
+        let totalMessages = sorted.reduce(0) { $0 + $1.totalMessages }
+
+        return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Project Analytics")
                     .font(.title2)
@@ -330,11 +471,143 @@ struct AnalyticsView: View {
                     .padding(.horizontal)
                     .padding(.top)
 
-                Text("Detailed per-project analytics coming in the next round. For now, see the Projects tab in the popover.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                // Summary
+                HStack(spacing: 30) {
+                    VStack(spacing: 2) {
+                        Text("\(sorted.count)")
+                            .font(.title)
+                            .fontWeight(.bold)
+                        Text("projects")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(spacing: 2) {
+                        Text(CostCalculator.formatCost(totalCost))
+                            .font(.title)
+                            .fontWeight(.bold)
+                        Text("total cost")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(spacing: 2) {
+                        Text("\(totalMessages)")
+                            .font(.title)
+                            .fontWeight(.bold)
+                        Text("messages")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.primary.opacity(0.03))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal)
+
+                // Cost distribution chart
+                if sorted.count > 1 {
+                    GroupBox("Cost Distribution") {
+                        Chart(sorted.prefix(10)) { project in
+                            BarMark(
+                                x: .value("Cost", project.estimatedCost),
+                                y: .value("Project", project.projectName)
+                            )
+                            .foregroundStyle(Color.accentColor.gradient)
+                            .annotation(position: .trailing) {
+                                Text(CostCalculator.formatCost(project.estimatedCost))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .chartXAxis(.hidden)
+                        .frame(height: CGFloat(min(sorted.count, 10)) * 32)
+                        .padding(8)
+                    }
                     .padding(.horizontal)
+                }
+
+                // Project table
+                GroupBox("All Projects") {
+                    VStack(spacing: 0) {
+                        // Header
+                        HStack {
+                            Text("Project")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("Sessions")
+                                .frame(width: 70, alignment: .trailing)
+                            Text("Messages")
+                                .frame(width: 80, alignment: .trailing)
+                            Text("Cost")
+                                .frame(width: 90, alignment: .trailing)
+                            Text("Share")
+                                .frame(width: 60, alignment: .trailing)
+                        }
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+
+                        Divider()
+
+                        ForEach(sorted) { project in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(project.projectName)
+                                        .font(.subheadline)
+                                        .lineLimit(1)
+                                    if let lastActive = project.lastActive {
+                                        Text(projectTimeAgo(from: lastActive))
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text("\(project.sessionCount)")
+                                    .font(.subheadline)
+                                    .monospacedDigit()
+                                    .frame(width: 70, alignment: .trailing)
+
+                                Text("\(project.totalMessages)")
+                                    .font(.subheadline)
+                                    .monospacedDigit()
+                                    .frame(width: 80, alignment: .trailing)
+
+                                Text(CostCalculator.formatCost(project.estimatedCost))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .monospacedDigit()
+                                    .frame(width: 90, alignment: .trailing)
+
+                                let share = totalCost > 0 ? project.estimatedCost / totalCost * 100 : 0
+                                Text(String(format: "%.0f%%", share))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                    .frame(width: 60, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+
+                            if project.id != sorted.last?.id {
+                                Divider().padding(.horizontal, 8)
+                            }
+                        }
+                    }
+                    .padding(4)
+                }
+                .padding(.horizontal)
             }
+        }
+    }
+
+    private func projectTimeAgo(from date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        switch interval {
+        case ..<3600:      return "\(Int(interval / 60))m ago"
+        case ..<86400:     return "\(Int(interval / 3600))h ago"
+        default:           return "\(Int(interval / 86400))d ago"
         }
     }
 

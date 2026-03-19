@@ -160,7 +160,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             burnRateService: burnRateService,
             usageService: usageService,
             liveStatsService: liveStatsService,
-            mcpHealthService: mcpHealthService
+            mcpHealthService: mcpHealthService,
+            projectService: projectService
         )
         mainWindowManager.show(content: analyticsView)
         // Close popover when opening the main window
