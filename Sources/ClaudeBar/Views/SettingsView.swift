@@ -7,6 +7,7 @@ struct SettingsView: View {
     var launchAtLoginService: LaunchAtLoginService
     var sessionService: SessionService
     var statsService: StatsService
+    var mcpHealthService: McpHealthService
 
     @State private var expandedPermissions = false
     @State private var expandedHooks = false
@@ -33,6 +34,9 @@ struct SettingsView: View {
                 } else {
                     loadingState
                 }
+
+                mcpSection
+                quickActionsSection
 
                 Spacer(minLength: 12)
             }
@@ -564,6 +568,144 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - MCP Servers
+
+    @ViewBuilder
+    private var mcpSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("MCP Servers", systemImage: "server.rack")
+                        .font(.subheadline)
+                    Spacer()
+                    Button {
+                        mcpHealthService.checkAll()
+                    } label: {
+                        if mcpHealthService.isChecking {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Check All", systemImage: "stethoscope")
+                                .font(.caption)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(mcpHealthService.isChecking)
+                }
+
+                if mcpHealthService.servers.isEmpty {
+                    Text("No MCP servers configured in ~/.claude.json")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    ForEach(mcpHealthService.servers) { server in
+                        HStack(spacing: 8) {
+                            // Status dot
+                            Circle()
+                                .fill(mcpStatusColor(server.status))
+                                .frame(width: 7, height: 7)
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                HStack(spacing: 4) {
+                                    Text(server.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Text(server.type)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.secondary.opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
+                                Text(server.endpoint)
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer()
+
+                            Text(server.status.label)
+                                .font(.caption2)
+                                .foregroundStyle(mcpStatusColor(server.status))
+                        }
+                    }
+                }
+            }
+            .padding(8)
+        } label: {
+            sectionLabel("MCP Servers (\(mcpHealthService.servers.count))")
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func mcpStatusColor(_ status: McpServerInfo.McpStatus) -> Color {
+        switch status {
+        case .unknown:    return .secondary
+        case .checking:   return .blue
+        case .healthy:    return .green
+        case .unhealthy:  return .red
+        }
+    }
+
+    // MARK: - Quick Actions
+
+    @ViewBuilder
+    private var quickActionsSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    quickActionButton(
+                        title: "settings.json",
+                        icon: "doc.text",
+                        action: { openInEditor("~/.claude/settings.json") }
+                    )
+                    quickActionButton(
+                        title: ".claude.json",
+                        icon: "gearshape.2",
+                        action: { openInEditor("~/.claude.json") }
+                    )
+                    quickActionButton(
+                        title: "Open ~/.claude",
+                        icon: "folder",
+                        action: {
+                            let path = NSString(string: "~/.claude").expandingTildeInPath
+                            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                        }
+                    )
+                }
+            }
+            .padding(8)
+        } label: {
+            sectionLabel("Quick Actions")
+        }
+        .padding(.horizontal, 12)
+    }
+
+    @ViewBuilder
+    private func quickActionButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                Text(title)
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    private func openInEditor(_ path: String) {
+        let expanded = NSString(string: path).expandingTildeInPath
+        NSWorkspace.shared.open(URL(fileURLWithPath: expanded))
+    }
+
     // MARK: - Helpers
 
     @ViewBuilder
@@ -620,7 +762,8 @@ struct SettingsView: View {
         notificationService: NotificationService(),
         launchAtLoginService: LaunchAtLoginService(),
         sessionService: SessionService(),
-        statsService: StatsService()
+        statsService: StatsService(),
+        mcpHealthService: McpHealthService()
     )
     .frame(width: 420, height: 480)
 }

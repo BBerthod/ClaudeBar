@@ -42,6 +42,7 @@ struct ContentView: View {
     var overlayManager: OverlayManager
     var desktopWidgetManager: DesktopWidgetManager
     var launchAtLoginService: LaunchAtLoginService
+    var mcpHealthService: McpHealthService
     var onRefresh: (() -> Void)?
 
     @State private var selectedTab: Tab = .dashboard
@@ -115,7 +116,8 @@ struct ContentView: View {
                         notificationService: notificationService,
                         launchAtLoginService: launchAtLoginService,
                         sessionService: sessionService,
-                        statsService: statsService
+                        statsService: statsService,
+                        mcpHealthService: mcpHealthService
                     )
                 }
             }
@@ -138,6 +140,7 @@ struct ContentView: View {
         liveStatsService: LiveStatsService(),
         overlayManager: OverlayManager(),
         desktopWidgetManager: DesktopWidgetManager(),
-        launchAtLoginService: LaunchAtLoginService()
+        launchAtLoginService: LaunchAtLoginService(),
+        mcpHealthService: McpHealthService()
     )
 }

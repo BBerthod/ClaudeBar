@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let overlayManager = OverlayManager()
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
+    let mcpHealthService = McpHealthService()
 
     private var refreshTimer: Timer?
 
@@ -75,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             overlayManager: overlayManager,
             desktopWidgetManager: desktopWidgetManager,
             launchAtLoginService: launchAtLoginService,
+            mcpHealthService: mcpHealthService,
             onRefresh: { [weak self] in self?.refreshAll() }
         )
 
