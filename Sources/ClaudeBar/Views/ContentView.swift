@@ -113,7 +113,9 @@ struct ContentView: View {
                         settingsService: settingsService,
                         hookHealthService: hookHealthService,
                         notificationService: notificationService,
-                        launchAtLoginService: launchAtLoginService
+                        launchAtLoginService: launchAtLoginService,
+                        sessionService: sessionService,
+                        statsService: statsService
                     )
                 }
             }

@@ -10,6 +10,7 @@ enum HistoryPeriod: String, CaseIterable {
 enum HistoryChart: String, CaseIterable {
     case cost     = "Cost"
     case activity = "Activity"
+    case hourly   = "Hourly"
 }
 
 struct HistoryView: View {
@@ -163,6 +164,8 @@ struct HistoryView: View {
             case .activity:
                 tokenChart
                 messagesAndToolCallsChart
+            case .hourly:
+                hourlyHeatmap
             }
         }
     }
@@ -274,6 +277,74 @@ struct HistoryView: View {
             }
             .frame(height: 120)
             .padding(.horizontal, 12)
+        }
+    }
+
+    // MARK: - Hourly Heatmap
+
+    /// Aggregated message counts by hour (0–23) from stats-cache hourCounts.
+    private var hourlyData: [(hour: Int, count: Int)] {
+        guard let hourCounts = statsService.stats?.hourCounts else { return [] }
+        return (0..<24).map { h in
+            (hour: h, count: hourCounts[String(h)] ?? 0)
+        }
+    }
+
+    @ViewBuilder
+    private var hourlyHeatmap: some View {
+        let data = hourlyData
+        let maxCount = data.map(\.count).max() ?? 1
+
+        if !data.isEmpty && maxCount > 0 {
+            sectionHeader("Activity by Hour")
+            Chart(data, id: \.hour) { point in
+                BarMark(
+                    x: .value("Hour", "\(point.hour)h"),
+                    y: .value("Messages", point.count)
+                )
+                .foregroundStyle(hourColor(intensity: Double(point.count) / Double(maxCount)))
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 12)) { value in
+                    AxisValueLabel()
+                        .font(.caption2)
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Int.self) {
+                            Text(v.abbreviatedTokenCount).font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 140)
+            .padding(.horizontal, 12)
+
+            // Peak hour callout
+            if let peak = data.max(by: { $0.count < $1.count }), peak.count > 0 {
+                HStack(spacing: 4) {
+                    Image(systemName: "flame")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("Peak: \(peak.hour)h (\(peak.count.abbreviatedTokenCount) msgs)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+            }
+        } else {
+            emptyState
+        }
+    }
+
+    private func hourColor(intensity: Double) -> Color {
+        switch intensity {
+        case ..<0.25: return .blue.opacity(0.4)
+        case ..<0.5:  return .blue.opacity(0.7)
+        case ..<0.75: return .orange.opacity(0.8)
+        default:      return .red.opacity(0.9)
         }
     }
 

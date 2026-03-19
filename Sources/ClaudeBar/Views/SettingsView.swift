@@ -5,10 +5,13 @@ struct SettingsView: View {
     var hookHealthService: HookHealthService
     var notificationService: NotificationService
     var launchAtLoginService: LaunchAtLoginService
+    var sessionService: SessionService
+    var statsService: StatsService
 
     @State private var expandedPermissions = false
     @State private var expandedHooks = false
     @State private var expandedHookHealth = false
+    @State private var staleCleaned = 0
 
     var body: some View {
         ScrollView {
@@ -71,10 +74,87 @@ struct SettingsView: View {
                 }
             }
             .padding(8)
+
+            Divider()
+
+            // Stats-cache freshness
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Label("Stats Cache", systemImage: "clock.arrow.circlepath")
+                        .font(.subheadline)
+                    Spacer()
+                    if let lastDate = statsService.stats?.lastComputedDate {
+                        let daysAgo = daysSince(lastDate)
+                        Text(daysAgo == 0 ? "fresh" : "\(daysAgo)d old")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(daysAgo > 1 ? .orange : .green)
+                    } else {
+                        Text("unavailable")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+                Text("Claude Code recalculates this automatically between sessions")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(8)
+
+            Divider()
+
+            // Stale session cleanup
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Label("Session Files", systemImage: "trash")
+                        .font(.subheadline)
+                    Spacer()
+                    Button("Clean Stale") {
+                        staleCleaned = cleanStaleSessions()
+                    }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                if staleCleaned > 0 {
+                    Text("Removed \(staleCleaned) stale session file\(staleCleaned == 1 ? "" : "s")")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                }
+            }
+            .padding(8)
         } label: {
             sectionLabel("App")
         }
         .padding(.horizontal, 12)
+    }
+
+    private func daysSince(_ dateStr: String) -> Int {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = f.date(from: dateStr) else { return 99 }
+        return Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+    }
+
+    private func cleanStaleSessions() -> Int {
+        let dir = NSString(string: "~/.claude/sessions").expandingTildeInPath
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(atPath: dir) else { return 0 }
+
+        var removed = 0
+        for file in files where file.hasSuffix(".json") {
+            let path = dir + "/" + file
+            guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  let session = try? JSONDecoder().decode(ActiveSession.self, from: data) else { continue }
+
+            // Check if process is dead
+            if kill(Int32(session.pid), 0) != 0 {
+                try? fm.removeItem(atPath: path)
+                removed += 1
+            }
+        }
+        return removed
     }
 
     // MARK: - Notifications
@@ -538,7 +618,9 @@ struct SettingsView: View {
         settingsService: SettingsService(),
         hookHealthService: HookHealthService(),
         notificationService: NotificationService(),
-        launchAtLoginService: LaunchAtLoginService()
+        launchAtLoginService: LaunchAtLoginService(),
+        sessionService: SessionService(),
+        statsService: StatsService()
     )
     .frame(width: 420, height: 480)
 }

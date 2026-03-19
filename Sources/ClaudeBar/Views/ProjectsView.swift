@@ -68,23 +68,69 @@ struct ProjectsView: View {
 
     // MARK: - Summary bar
 
-    private var summaryBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Projects")
-                    .font(.headline)
-                Text("\(projectService.totalProjects) tracked")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    /// Per-model cost breakdown across all time.
+    private var modelCostBreakdown: [(model: String, cost: Double)] {
+        guard let stats = statsService.stats else { return [] }
+        var costByModel: [String: Double] = [:]
+        for day in stats.dailyModelTokens {
+            for (modelId, tokenCount) in day.tokensByModel {
+                let p = CostCalculator.pricing(for: modelId)
+                let mTok = 1_000_000.0
+                if let usage = stats.modelUsage[modelId] {
+                    let io = usage.inputTokens + usage.outputTokens
+                    guard io > 0 else { continue }
+                    let frac = Double(tokenCount) / Double(io)
+                    let cost = (Double(usage.inputTokens) * frac / mTok * p.inputPerMTok +
+                                Double(usage.outputTokens) * frac / mTok * p.outputPerMTok +
+                                Double(usage.cacheReadInputTokens) * frac / mTok * p.cacheReadPerMTok +
+                                Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
+                    let displayName = StatsService.displayName(for: modelId)
+                    costByModel[displayName, default: 0] += cost
+                }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(CostCalculator.formatCost(statsService.totalCostEstimate))
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                Text("total cost")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        }
+        return costByModel.map { (model: $0.key, cost: $0.value) }.sorted { $0.cost > $1.cost }
+    }
+
+    private var summaryBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Projects")
+                        .font(.headline)
+                    Text("\(projectService.totalProjects) tracked")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(CostCalculator.formatCost(statsService.totalCostEstimate))
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text("total cost")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Model cost split
+            if !modelCostBreakdown.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(modelCostBreakdown, id: \.model) { entry in
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(Color.color(for: entry.model))
+                                .frame(width: 6, height: 6)
+                            Text(entry.model)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(CostCalculator.formatCost(entry.cost))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                    }
+                    Spacer()
+                }
             }
         }
     }
