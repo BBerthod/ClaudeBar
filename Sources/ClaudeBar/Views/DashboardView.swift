@@ -45,6 +45,20 @@ struct DashboardView: View {
         return formatter.string(from: Date())
     }
 
+    /// Human-readable time since the last data refresh.
+    private var lastRefreshTime: String? {
+        // Pick the most recent update timestamp across data sources
+        let candidates: [Date?] = [liveStatsService.lastParsed, usageService.lastFetched]
+        guard let latest = candidates.compactMap({ $0 }).max() else { return nil }
+
+        let seconds = Int(Date().timeIntervalSince(latest))
+        if seconds < 10 { return "just now" }
+        if seconds < 60 { return "\(seconds)s ago" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m ago" }
+        return "\(minutes / 60)h \(minutes % 60)m ago"
+    }
+
     /// Derives active provider information from available stats.
     private var providers: [ProviderInfo] {
         let claudeConfigured = statsService.todayTokens > 0 || statsService.totalCostEstimate > 0
@@ -113,9 +127,19 @@ struct DashboardView: View {
                                 .help("Refresh all data")
                             }
                         }
-                        Text(formattedDate)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Text(formattedDate)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if let lastUpdate = lastRefreshTime {
+                                Text("·")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                Text(lastUpdate)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
 
                     Spacer()
