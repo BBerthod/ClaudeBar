@@ -655,7 +655,8 @@ struct SettingsView: View {
     @ViewBuilder
     private var quickActionsSection: some View {
         GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                // File shortcuts
                 HStack(spacing: 8) {
                     quickActionButton(
                         title: "settings.json",
@@ -668,12 +669,59 @@ struct SettingsView: View {
                         action: { openInEditor("~/.claude.json") }
                     )
                     quickActionButton(
-                        title: "Open ~/.claude",
+                        title: "~/.claude",
                         icon: "folder",
                         action: {
                             let path = NSString(string: "~/.claude").expandingTildeInPath
                             NSWorkspace.shared.open(URL(fileURLWithPath: path))
                         }
+                    )
+                }
+
+                Divider()
+
+                // Claude launch shortcuts
+                Text("Launch Claude Code")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                    claudeLaunchButton(
+                        title: "claude",
+                        subtitle: "interactive",
+                        icon: "terminal",
+                        flags: []
+                    )
+                    claudeLaunchButton(
+                        title: "claude --continue",
+                        subtitle: "resume last",
+                        icon: "arrow.uturn.backward",
+                        flags: ["--continue"]
+                    )
+                    claudeLaunchButton(
+                        title: "claude --chrome",
+                        subtitle: "browser mode",
+                        icon: "globe",
+                        flags: ["--chrome"]
+                    )
+                    claudeLaunchButton(
+                        title: "claude YOLO",
+                        subtitle: "skip permissions",
+                        icon: "bolt.shield",
+                        flags: ["--dangerously-skip-permissions"]
+                    )
+                    claudeLaunchButton(
+                        title: "claude plan",
+                        subtitle: "plan mode",
+                        icon: "list.clipboard",
+                        flags: ["--permission-mode", "plan"]
+                    )
+                    claudeLaunchButton(
+                        title: "claude auto",
+                        subtitle: "auto mode",
+                        icon: "play.circle",
+                        flags: ["--permission-mode", "auto"]
                     )
                 }
             }
@@ -699,6 +747,69 @@ struct SettingsView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+    }
+
+    @ViewBuilder
+    private func claudeLaunchButton(title: String, subtitle: String, icon: String, flags: [String]) -> some View {
+        Button {
+            launchClaudeInTerminal(flags: flags)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    private func launchClaudeInTerminal(flags: [String]) {
+        let flagStr = flags.joined(separator: " ")
+        let command = "claude\(flagStr.isEmpty ? "" : " \(flagStr)")"
+
+        // Try iTerm2 first, then Ghostty, then Terminal.app
+        let iTermScript = """
+        tell application "iTerm2"
+            activate
+            tell current window
+                create tab with default profile
+                tell current session
+                    write text "\(command)"
+                end tell
+            end tell
+        end tell
+        """
+
+        let terminalScript = """
+        tell application "Terminal"
+            activate
+            do script "\(command)"
+        end tell
+        """
+
+        // Detect which terminal is available
+        let iTermRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: "com.googlecode.iterm2").isEmpty
+        let script = iTermRunning ? iTermScript : terminalScript
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
     }
 
     private func openInEditor(_ path: String) {
