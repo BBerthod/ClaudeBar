@@ -35,6 +35,12 @@ final class UsageService {
         return PaceLevel(utilization: window.utilization, elapsedFraction: elapsed)
     }
 
+    /// Fraction of the 5h window elapsed (0.0–1.0).
+    var fiveHourElapsedFraction: Double {
+        guard let window = usage?.fiveHour else { return 0 }
+        return elapsedFraction(for: window, windowHours: 5)
+    }
+
     /// Short summary for the menu bar label.
     var menuBarLabel: String? {
         guard let fiveHour = usage?.fiveHour else { return nil }

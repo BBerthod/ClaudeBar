@@ -163,15 +163,48 @@ struct DashboardView: View {
                         .padding(.horizontal, 12)
                 }
 
-                // Burn Rate indicator
+                // Burn Rate indicator + 5h projection
                 if let rate = burnRateService.burnRate {
-                    burnRateCard(rate)
-                        .padding(.horizontal, 12)
+                    VStack(alignment: .leading, spacing: 4) {
+                        burnRateCard(rate)
+
+                        // 5h window projection
+                        if let fiveHour = usageService.usage?.fiveHour,
+                           let pace = usageService.fiveHourPace {
+                            let projected = fiveHour.utilization / max(usageService.fiveHourElapsedFraction, 0.05)
+                            HStack(spacing: 4) {
+                                Text("5h projected: \(Int(min(projected, 999)))%")
+                                    .font(.caption2)
+                                    .foregroundStyle(projected > 100 ? .red : .secondary)
+                                Text("·")
+                                    .foregroundStyle(.tertiary)
+                                Text(pace.rawValue)
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(projected > 100 ? .red : .secondary)
+                            }
+                            .padding(.leading, 4)
+                        }
+                    }
+                    .padding(.horizontal, 12)
                 }
 
                 // Human cost comparison row
                 if effectiveCost > 0 && effectiveMessages > 0 {
                     humanCostRow
+                        .padding(.horizontal, 12)
+                }
+
+                // Extra Usage monthly cap (Max plan)
+                if let extra = usageService.usage?.extraUsage, extra.isEnabled,
+                   let limit = extra.monthlyLimit, let used = extra.usedCredits {
+                    extraUsageRow(used: used, limit: limit)
+                        .padding(.horizontal, 12)
+                }
+
+                // Speculation time saved
+                if let ms = statsService.stats?.totalSpeculationTimeSavedMs, ms > 0 {
+                    speculationRow(savedMs: ms)
                         .padding(.horizontal, 12)
                 }
 
@@ -182,6 +215,14 @@ struct DashboardView: View {
                             Text("Active Sessions")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
+
+                            // Longest session badge
+                            if let longest = sessionService.activeSessions.max(by: { $0.duration < $1.duration }) {
+                                Text("longest: \(longest.duration.formattedDuration)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+
                             Spacer()
                             Text("\(sessionService.activeSessions.count)")
                                 .font(.caption)
@@ -342,6 +383,65 @@ struct DashboardView: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(Color.primary.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Extra Usage Row
+
+    @ViewBuilder
+    private func extraUsageRow(used: Double, limit: Double) -> some View {
+        let pct = limit > 0 ? used / limit * 100 : 0
+        HStack(spacing: 8) {
+            Image(systemName: "creditcard")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            Text("Extra Usage")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(String(format: "$%.2f / $%.0f", used, limit))
+                .font(.caption)
+                .fontWeight(.medium)
+                .monospacedDigit()
+            Text("(\(Int(pct))%)")
+                .font(.caption2)
+                .foregroundStyle(pct > 80 ? .red : .secondary)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(Color.primary.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Speculation Time Row
+
+    @ViewBuilder
+    private func speculationRow(savedMs: Int) -> some View {
+        let seconds = savedMs / 1000
+        let formatted: String = {
+            if seconds >= 3600 {
+                return "\(seconds / 3600)h \((seconds % 3600) / 60)m"
+            } else if seconds >= 60 {
+                return "\(seconds / 60)m \(seconds % 60)s"
+            }
+            return "\(seconds)s"
+        }()
+
+        HStack(spacing: 8) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.yellow)
+            Text("Speculation saved")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(formatted)
+                .font(.caption)
+                .fontWeight(.medium)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(Color.yellow.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 

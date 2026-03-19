@@ -159,7 +159,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateStatusLabel() {
         guard let button = statusItem.button else { return }
-        // Keep the menu bar compact — icon only. All details live in the popover.
         button.title = ""
+
+        // Hover tooltip: quick glance without opening the popover
+        let msgs = statsService.todayMessages > 0 ? statsService.todayMessages : liveStatsService.todayMessages
+        let cost = statsService.todayCostEstimate > 0 ? statsService.todayCostEstimate : liveStatsService.todayCost
+        let sessions = sessionService.activeSessions.count
+        let pct = usageService.usage?.fiveHour.map { "\(Int($0.utilization))% 5h" } ?? ""
+
+        var parts: [String] = []
+        if msgs > 0 { parts.append("\(msgs) msgs") }
+        if cost > 0 { parts.append(CostCalculator.formatCost(cost)) }
+        if sessions > 0 { parts.append("\(sessions) active") }
+        if !pct.isEmpty { parts.append(pct) }
+
+        button.toolTip = parts.isEmpty ? "ClaudeBar — No activity today" : parts.joined(separator: " · ")
     }
 }
