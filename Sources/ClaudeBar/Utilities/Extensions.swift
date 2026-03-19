@@ -5,47 +5,12 @@ import SwiftUI
 
 extension Date {
 
-    /// `true` when the date falls on today's calendar day (in the current locale).
-    var isToday: Bool {
-        Calendar.current.isDateInToday(self)
-    }
-
-    /// Common date-format tokens for use with `formatted(as:)`.
-    enum DateFormatStyle {
-        /// "2026-03-17"
-        case iso
-        /// "Mar 17, 2026"
-        case medium
-        /// "Monday, March 17"
-        case longWeekday
-        /// "17 Mar"
-        case shortDayMonth
-        /// "14:32"
-        case time24
-        /// "2:32 PM"
-        case time12
-    }
-
-    /// Returns the date as a formatted string using the specified style.
-    func formatted(as style: DateFormatStyle) -> String {
+    /// Returns the date as a short time string (e.g. "2:32 PM").
+    var formattedTime: String {
         let f = DateFormatter()
         f.locale = Locale.current
-        switch style {
-        case .iso:
-            f.dateFormat = "yyyy-MM-dd"
-        case .medium:
-            f.dateStyle = .medium
-            f.timeStyle = .none
-        case .longWeekday:
-            f.dateFormat = "EEEE, MMMM d"
-        case .shortDayMonth:
-            f.dateFormat = "d MMM"
-        case .time24:
-            f.dateFormat = "HH:mm"
-        case .time12:
-            f.timeStyle = .short
-            f.dateStyle = .none
-        }
+        f.timeStyle = .short
+        f.dateStyle = .none
         return f.string(from: self)
     }
 }
@@ -53,16 +18,6 @@ extension Date {
 // MARK: - Int (number formatting)
 
 extension Int {
-
-    /// Formats the integer with locale-appropriate thousands separators.
-    ///
-    /// Example: `1_234_567` → `"1,234,567"`
-    var formattedWithSeparator: String {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.locale = Locale.current
-        return f.string(from: NSNumber(value: self)) ?? "\(self)"
-    }
 
     /// Abbreviates large token counts to a compact human-readable string.
     ///
@@ -76,7 +31,6 @@ extension Int {
             return "\(self)"
         case 1_000..<1_000_000:
             let k = value / 1_000.0
-            // Show one decimal place only when it adds information.
             if k >= 10 {
                 return "\(Int(k))K"
             }

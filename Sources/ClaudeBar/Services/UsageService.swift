@@ -216,7 +216,7 @@ final class UsageService {
             if !refreshed {
                 // Fallback: Claude Code might have refreshed it in the meantime
                 loadCredentials()
-                guard cachedToken != nil, !cachedToken!.isExpired else {
+                guard let refreshed = cachedToken, !refreshed.isExpired else {
                     lastError = "Token expired — refresh failed"
                     return
                 }

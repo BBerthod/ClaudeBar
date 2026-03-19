@@ -291,7 +291,7 @@ struct AnalyticsView: View {
                     Text(alert.title)
                         .font(.headline)
                     Spacer()
-                    Text(alert.timestamp.formatted(as: .time12))
+                    Text(alert.timestamp.formattedTime)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -1490,7 +1490,7 @@ struct AnalyticsView: View {
                         )
                         if let lastFetched = usageService.lastFetched {
                             Divider().padding(.horizontal, 8)
-                            systemInfoRow("Last API Fetch", value: lastFetched.formatted(as: .time12))
+                            systemInfoRow("Last API Fetch", value: lastFetched.formattedTime)
                         }
                         if let lastError = usageService.lastError {
                             Divider().padding(.horizontal, 8)
@@ -1701,15 +1701,33 @@ struct AnalyticsView: View {
     }
 
     private func launchClaudeInTerminal() {
-        let script = "tell application \"Terminal\" to do script \"claude\""
-        let appleScript = NSAppleScript(source: script)
-        appleScript?.executeAndReturnError(nil)
+        launchClaude(flags: [])
     }
 
     private func launchClaudeWithContinue() {
-        let script = "tell application \"Terminal\" to do script \"claude --continue\""
-        let appleScript = NSAppleScript(source: script)
-        appleScript?.executeAndReturnError(nil)
+        launchClaude(flags: ["--continue"])
+    }
+
+    /// Launches claude in Terminal.app using the safe ARGV pattern.
+    private func launchClaude(flags: [String]) {
+        var parts = ["claude"]
+        parts.append(contentsOf: flags)
+        let command = parts.joined(separator: " ")
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = [
+            "-e", "on run argv",
+            "-e", "tell application \"Terminal\"",
+            "-e", "    activate",
+            "-e", "    do script (item 1 of argv)",
+            "-e", "end tell",
+            "-e", "end run",
+            "--", command
+        ]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
     }
 
     // MARK: - System helpers
@@ -1770,10 +1788,3 @@ struct AnalyticsView: View {
     }
 }
 
-// MARK: - Private Date helper (static method workaround)
-
-private extension Date {
-    static func formatted(_ date: Date, as style: DateFormatStyle) -> String {
-        date.formatted(as: style)
-    }
-}

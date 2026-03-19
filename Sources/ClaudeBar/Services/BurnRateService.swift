@@ -41,32 +41,31 @@ final class BurnRateService {
         let projectedDailyTokens = todayTokens + Int(tokensPerHour * remainingHours)
         let projectedDailyCost = todayCost + costPerHour * remainingHours
 
-        // 4. Calculate averages from the last 30 days (excluding today)
-        let last30 = stats.last30DaysActivity
-        let last30Tokens = stats.last30DaysModelTokens
+        // 4. Calculate averages from the last 30 days (excluding today by date, not position)
+        let todayString: String = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            f.locale = Locale(identifier: "en_US_POSIX")
+            return f.string(from: now)
+        }()
+
+        let previousTokenDays = stats.last30DaysModelTokens.filter { $0.date != todayString }
 
         let avgTokens: Double
         let avgCost: Double
 
-        if last30.count > 1 {
-            // Exclude today from averages
-            let previousDays = Array(last30.dropLast())
-            let previousTokenDays = Array(last30Tokens.dropLast())
-
+        if !previousTokenDays.isEmpty {
             let totalPrevTokens = previousTokenDays.reduce(0) { sum, day in
                 sum + day.tokensByModel.values.reduce(0, +)
             }
-            avgTokens = previousTokenDays.isEmpty ? 0 : Double(totalPrevTokens) / Double(previousTokenDays.count)
+            avgTokens = Double(totalPrevTokens) / Double(previousTokenDays.count)
 
-            // Rough cost estimate: scale total cost by this day-average's proportion
             let allTimeTokens = stats.dailyModelTokens.reduce(0) { sum, day in
                 sum + day.tokensByModel.values.reduce(0, +)
             }
             avgCost = allTimeTokens > 0 && avgTokens > 0
                 ? statsService.totalCostEstimate * (avgTokens / Double(allTimeTokens))
                 : 0
-
-            _ = previousDays // silence unused-variable warning; avgMessages not used in BurnRate init
         } else {
             avgTokens = Double(todayTokens)
             avgCost = todayCost
