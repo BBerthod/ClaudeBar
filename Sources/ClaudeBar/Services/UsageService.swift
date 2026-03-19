@@ -223,10 +223,15 @@ final class UsageService {
             }
         }
 
+        guard let currentToken = cachedToken else {
+            lastError = "Token lost after refresh"
+            return
+        }
+
         let url = URL(string: "https://api.anthropic.com/api/oauth/usage")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("Bearer \(cachedToken!.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(currentToken.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 

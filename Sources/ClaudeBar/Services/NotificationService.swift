@@ -9,8 +9,8 @@ final class NotificationService {
     private(set) var costThreshold: Double = 50.0 // daily cost alert threshold in USD
     private(set) var lastDigestDate: String?
     private(set) var lastThresholdAlertDate: String?
-    private(set) var lastUsage80AlertKey: String?
-    private(set) var lastUsage95AlertKey: String?
+    private var lastUsage80AlertKey: String?
+    private var lastUsage95AlertKey: String?
 
     /// Set to `true` by the timer when the digest hour arrives.
     /// The app can observe this and call `sendDailyDigest(...)` then reset it.

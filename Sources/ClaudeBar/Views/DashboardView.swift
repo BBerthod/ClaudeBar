@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 struct DashboardView: View {
     var statsService: StatsService
@@ -82,15 +81,15 @@ struct DashboardView: View {
     // MARK: - Human cost (ROI)
 
     private var devHoursEquivalent: Double {
-        Double(effectiveMessages) * 3.0 / 60.0
+        HumanCostCalculator.estimateHumanHours(messages: effectiveMessages, toolCalls: effectiveToolCalls)
     }
 
     private var devCostEquivalent: Double {
-        devHoursEquivalent * 150.0
+        HumanCostCalculator.estimateHumanCost(messages: effectiveMessages, toolCalls: effectiveToolCalls)
     }
 
     private var roiMultiplier: Double {
-        devCostEquivalent / max(effectiveCost, 0.01)
+        HumanCostCalculator.roiMultiplier(humanCost: devCostEquivalent, claudeCost: effectiveCost)
     }
 
     var body: some View {
@@ -109,22 +108,8 @@ struct DashboardView: View {
 
                     Spacer()
 
-                    // Center: 7-day sparkline (only when data exists)
-                    if !sevenDaySparklineData.isEmpty {
-                        Chart {
-                            ForEach(sevenDaySparklineData.indices, id: \.self) { index in
-                                BarMark(
-                                    x: .value("Day", index),
-                                    y: .value("Messages", sevenDaySparklineData[index])
-                                )
-                                .foregroundStyle(Color.accentColor.opacity(0.6))
-                            }
-                        }
-                        .chartXAxis(.hidden)
-                        .chartYAxis(.hidden)
-                        .chartLegend(.hidden)
-                        .frame(width: 60, height: 30)
-                    }
+                    // Center: 7-day sparkline
+                    Sparkline(data: sevenDaySparklineData)
 
                     Spacer()
 
@@ -331,14 +316,16 @@ struct DashboardView: View {
 
             Spacer()
 
-            Text("×\(Int(roiMultiplier)) ROI")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.blue.opacity(0.1))
-                .clipShape(Capsule())
+            if roiMultiplier > 0 {
+                Text("×\(Int(roiMultiplier)) ROI")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.blue)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Capsule())
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
