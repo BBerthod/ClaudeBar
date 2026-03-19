@@ -6,7 +6,8 @@ final class BurnRateService {
     private(set) var burnRate: BurnRate?
 
     /// Call this when stats update to recalculate burn rate.
-    func update(statsService: StatsService) {
+    /// Falls back to `liveStatsService` when stats-cache has no entry for today.
+    func update(statsService: StatsService, liveStatsService: LiveStatsService? = nil) {
         guard let stats = statsService.stats else {
             burnRate = nil
             return
@@ -19,10 +20,16 @@ final class BurnRateService {
         let minuteInHour = calendar.component(.minute, from: now)
         let hoursActive = max(Double(currentHour) + Double(minuteInHour) / 60.0, 1.0)
 
-        // 2. Calculate current rates
-        let todayTokens = statsService.todayTokens
-        let todayMessages = statsService.todayMessages
-        let todayCost = statsService.todayCostEstimate
+        // 2. Calculate current rates (prefer stats-cache, fallback to live JSONL)
+        let todayTokens = statsService.todayTokens > 0
+            ? statsService.todayTokens
+            : (liveStatsService?.todayTokens ?? 0)
+        let todayMessages = statsService.todayMessages > 0
+            ? statsService.todayMessages
+            : (liveStatsService?.todayMessages ?? 0)
+        let todayCost = statsService.todayCostEstimate > 0
+            ? statsService.todayCostEstimate
+            : (liveStatsService?.todayCost ?? 0)
 
         let tokensPerHour = Double(todayTokens) / hoursActive
         let messagesPerHour = Double(todayMessages) / hoursActive

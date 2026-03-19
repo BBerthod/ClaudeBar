@@ -90,8 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(nil)
         } else {
+            // Activate BEFORE showing — .accessory apps lose focus instantly otherwise,
+            // causing the .transient popover to dismiss immediately.
+            NSApp.activate()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -100,7 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func loadInitialData() {
         projectService.reload(totalCostEstimate: statsService.totalCostEstimate)
         hookHealthService.analyze(settings: settingsService.settings)
-        burnRateService.update(statsService: statsService)
+        burnRateService.update(statsService: statsService, liveStatsService: liveStatsService)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self else { return }
