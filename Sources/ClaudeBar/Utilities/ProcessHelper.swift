@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 
 enum ProcessHelper {
     /// Attempt to bring the terminal window containing the given PID to the front.
@@ -32,23 +33,15 @@ enum ProcessHelper {
         }
     }
 
+    /// Returns the parent PID of the given process using sysctl KERN_PROC,
+    /// avoiding any subprocess spawn and blocking main-thread calls.
     private static func getParentPID(of pid: Int) -> Int? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/ps")
-        task.arguments = ["-o", "ppid=", "-p", "\(pid)"]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-
-        do {
-            try task.run()
-            task.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-               let ppid = Int(output) {
-                return ppid
-            }
-        } catch {}
-        return nil
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, Int32(pid)]
+        let result = sysctl(&mib, 4, &info, &size, nil, 0)
+        guard result == 0 else { return nil }
+        let ppid = Int(info.kp_eproc.e_ppid)
+        return ppid > 0 ? ppid : nil
     }
 }

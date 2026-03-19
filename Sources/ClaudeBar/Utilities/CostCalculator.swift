@@ -82,19 +82,6 @@ enum CostCalculator {
         return pricing["claude-opus-4-6"]!
     }
 
-    /// Estimates the USD cost for a single model's usage entry.
-    static func estimateCost(for usage: ModelUsageEntry, modelId: String) -> Double {
-        let p = pricing(for: modelId)
-        let mTok = 1_000_000.0
-
-        let inputCost  = Double(usage.inputTokens)              / mTok * p.inputPerMTok
-        let outputCost = Double(usage.outputTokens)             / mTok * p.outputPerMTok
-        let readCost   = Double(usage.cacheReadInputTokens)     / mTok * p.cacheReadPerMTok
-        let writeCost  = Double(usage.cacheCreationInputTokens) / mTok * p.cacheWritePerMTok
-
-        return inputCost + outputCost + readCost + writeCost
-    }
-
     /// Estimates the USD-equivalent API cost for a day given the per-model
     /// token totals and the cumulative model-usage table.
     ///

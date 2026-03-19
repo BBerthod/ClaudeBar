@@ -5,15 +5,6 @@ enum PacingZone: String, Sendable {
     case onTrack = "On Track"   // normal pace
     case hot = "Hot"            // above average, will exceed if continued
     case critical = "Critical"  // significantly above normal
-
-    var icon: String {
-        switch self {
-        case .chill:   return "snowflake"
-        case .onTrack: return "checkmark.circle"
-        case .hot:     return "flame"
-        case .critical: return "flame.fill"
-        }
-    }
 }
 
 struct BurnRate: Sendable {

@@ -20,7 +20,7 @@ struct TokenBar: View {
                         let width = geometry.size.width * fraction
 
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(colorForModel(segment.model))
+                            .fill(Color.color(for: segment.model))
                             .frame(width: max(width - 2, 0))
                             .overlay {
                                 if width > 28 {
@@ -34,14 +34,6 @@ struct TokenBar: View {
                 }
             }
         }
-    }
-
-    private func colorForModel(_ modelId: String) -> Color {
-        let name = StatsService.displayName(for: modelId).lowercased()
-        if name.contains("opus")   { return .opusColor }
-        if name.contains("sonnet") { return .sonnetColor }
-        if name.contains("haiku")  { return .haikuColor }
-        return Color.accentColor
     }
 
     private func abbreviate(_ tokens: Int) -> String {

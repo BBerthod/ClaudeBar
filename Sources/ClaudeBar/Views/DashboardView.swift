@@ -309,7 +309,7 @@ struct DashboardView: View {
                                 ForEach(effectiveTokensByModel, id: \.model) { entry in
                                     HStack(spacing: 4) {
                                         Circle()
-                                            .fill(modelColor(for: entry.model))
+                                            .fill(Color.color(for: entry.model))
                                             .frame(width: 8, height: 8)
                                         Text(StatsService.displayName(for: entry.model))
                                             .font(.caption2)
@@ -753,14 +753,6 @@ struct DashboardView: View {
     }
 
     // MARK: - Helpers
-
-    private func modelColor(for modelId: String) -> Color {
-        let name = StatsService.displayName(for: modelId).lowercased()
-        if name.contains("opus")   { return .opusColor }
-        if name.contains("sonnet") { return .sonnetColor }
-        if name.contains("haiku")  { return .haikuColor }
-        return .secondary
-    }
 
     private func zoneColor(_ zone: PacingZone) -> Color {
         switch zone {

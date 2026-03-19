@@ -1,4 +1,5 @@
 import SwiftUI
+import Darwin
 
 struct SettingsView: View {
     var settingsService: SettingsService
@@ -152,8 +153,12 @@ struct SettingsView: View {
             guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
                   let session = try? JSONDecoder().decode(ActiveSession.self, from: data) else { continue }
 
-            // Check if process is dead
-            if kill(Int32(session.pid), 0) != 0 {
+            // Check if process is dead.
+            // kill(pid, 0) returns -1 with errno == EPERM when the process exists but
+            // is owned by a different user — that is NOT a dead process.
+            // Only ESRCH means the process truly doesn't exist.
+            let rc = kill(Int32(session.pid), 0)
+            if rc != 0 && errno == ESRCH {
                 try? fm.removeItem(atPath: path)
                 removed += 1
             }
@@ -777,36 +782,45 @@ struct SettingsView: View {
     }
 
     private func launchClaudeInTerminal(flags: [String]) {
-        let flagStr = flags.joined(separator: " ")
-        let command = "claude\(flagStr.isEmpty ? "" : " \(flagStr)")"
-
-        // Try iTerm2 first, then Ghostty, then Terminal.app
-        let iTermScript = """
-        tell application "iTerm2"
-            activate
-            tell current window
-                create tab with default profile
-                tell current session
-                    write text "\(command)"
-                end tell
-            end tell
-        end tell
-        """
-
-        let terminalScript = """
-        tell application "Terminal"
-            activate
-            do script "\(command)"
-        end tell
-        """
+        var cmdParts = ["claude"]
+        cmdParts.append(contentsOf: flags)
+        let command = cmdParts.joined(separator: " ")
 
         // Detect which terminal is available
         let iTermRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: "com.googlecode.iterm2").isEmpty
-        let script = iTermRunning ? iTermScript : terminalScript
 
+        // Use the ARGV pattern to pass the command as an argument — no string interpolation
+        // into the AppleScript source, preventing injection via crafted flag values.
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
+
+        if iTermRunning {
+            process.arguments = [
+                "-e", "on run argv",
+                "-e", "tell application \"iTerm2\"",
+                "-e", "    activate",
+                "-e", "    tell current window",
+                "-e", "        create tab with default profile",
+                "-e", "        tell current session",
+                "-e", "            write text (item 1 of argv)",
+                "-e", "        end tell",
+                "-e", "    end tell",
+                "-e", "end tell",
+                "-e", "end run",
+                "--", command
+            ]
+        } else {
+            process.arguments = [
+                "-e", "on run argv",
+                "-e", "tell application \"Terminal\"",
+                "-e", "    activate",
+                "-e", "    do script (item 1 of argv)",
+                "-e", "end tell",
+                "-e", "end run",
+                "--", command
+            ]
+        }
+
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try? process.run()

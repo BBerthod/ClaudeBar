@@ -62,13 +62,4 @@ final class OverlayManager {
         self.panel = panel
     }
 
-    func updateSize(sessionCount: Int) {
-        guard let panel else { return }
-        let height = max(60, 40 + sessionCount * 30)
-        var frame = panel.frame
-        let oldHeight = frame.height
-        frame.size.height = CGFloat(height)
-        frame.origin.y += oldHeight - CGFloat(height) // Keep top edge fixed
-        panel.setFrame(frame, display: true, animate: true)
-    }
 }

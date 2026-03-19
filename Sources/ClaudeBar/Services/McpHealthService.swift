@@ -77,20 +77,37 @@ final class McpHealthService {
             servers[i].status = .checking
         }
 
+        // Snapshot the server list before leaving the actor to avoid data races.
+        let snapshot = servers
+
         Task {
-            for i in servers.indices {
-                let server = servers[i]
+            var results: [(index: Int, status: McpServerInfo.McpStatus)] = []
+
+            for i in snapshot.indices {
+                let server = snapshot[i]
                 let status: McpServerInfo.McpStatus
 
                 if server.type == "http" {
                     status = await checkHttp(url: server.endpoint)
                 } else {
-                    status = checkStdio(command: server.endpoint)
+                    // Run blocking Process work off the main actor to avoid UI hangs.
+                    let endpoint = server.endpoint
+                    status = await Task.detached(priority: .utility) {
+                        McpHealthService.checkStdioDetached(command: endpoint)
+                    }.value
                 }
 
-                servers[i].status = status
+                results.append((index: i, status: status))
             }
-            isChecking = false
+
+            await MainActor.run {
+                for result in results {
+                    if result.index < self.servers.count {
+                        self.servers[result.index].status = result.status
+                    }
+                }
+                self.isChecking = false
+            }
         }
     }
 
@@ -115,11 +132,13 @@ final class McpHealthService {
         }
     }
 
-    private func checkStdio(command: String) -> McpServerInfo.McpStatus {
+    /// Checks whether the stdio command binary exists.
+    /// Declared `nonisolated` and `static` so it can be safely called from
+    /// `Task.detached` without crossing the `@MainActor` boundary.
+    private nonisolated static func checkStdioDetached(command: String) -> McpServerInfo.McpStatus {
         let parts = command.split(separator: " ", maxSplits: 1)
         guard let cmd = parts.first else { return .unhealthy("No command") }
 
-        // Check if the command binary exists
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
         process.arguments = [String(cmd)]

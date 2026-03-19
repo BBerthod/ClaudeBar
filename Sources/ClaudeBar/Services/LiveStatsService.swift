@@ -17,7 +17,6 @@ final class LiveStatsService {
     private(set) var lastParsed: Date?
 
     private let projectsDir: String
-    private var knownMtimes: [String: TimeInterval] = [:]
     private var timer: Timer?
 
     init(claudeDir: String = "~/.claude") {
@@ -73,9 +72,10 @@ final class LiveStatsService {
             }
         }
 
-        // Parse all today's files, dedup by message ID
-        var messagesByID: [String: (model: String, usage: [String: Any])] = [:]
-        var toolCallCount = 0
+        // Parse all today's files, dedup by message ID.
+        // Tool call counts are stored per message ID so that streaming chunks
+        // for the same message don't inflate the total.
+        var messagesByID: [String: (model: String, usage: [String: Any], toolCalls: Int)] = [:]
 
         for path in jsonlFiles {
             autoreleasepool {
@@ -98,14 +98,15 @@ final class LiveStatsService {
                         // Skip synthetic messages
                         guard model != "<synthetic>" else { continue }
 
-                        messagesByID[msgID] = (model: model, usage: usage)
-
-                        // Count tool_use blocks inside message content
-                        if let content = message["content"] as? [[String: Any]] {
-                            for block in content where (block["type"] as? String) == "tool_use" {
-                                toolCallCount += 1
+                        // Count tool_use blocks for this message (last chunk wins on dedup)
+                        var toolCount = 0
+                        if let blocks = message["content"] as? [[String: Any]] {
+                            for block in blocks where (block["type"] as? String) == "tool_use" {
+                                toolCount += 1
                             }
                         }
+
+                        messagesByID[msgID] = (model: model, usage: usage, toolCalls: toolCount)
                     }
                 }
             }
@@ -117,8 +118,10 @@ final class LiveStatsService {
         var totalTokens = 0
         var totalCost = 0.0
         var modelTokenCounts: [String: Int] = [:]
+        var toolCallCount = 0
 
         for (_, entry) in messagesByID {
+            toolCallCount += entry.toolCalls
             let inp = entry.usage["input_tokens"] as? Int ?? 0
             let out = entry.usage["output_tokens"] as? Int ?? 0
             let cacheRead = entry.usage["cache_read_input_tokens"] as? Int ?? 0

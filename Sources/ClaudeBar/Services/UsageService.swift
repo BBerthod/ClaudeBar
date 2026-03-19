@@ -41,12 +41,6 @@ final class UsageService {
         return elapsedFraction(for: window, windowHours: 5)
     }
 
-    /// Short summary for the menu bar label.
-    var menuBarLabel: String? {
-        guard let fiveHour = usage?.fiveHour else { return nil }
-        return "\(Int(fiveHour.utilization))%"
-    }
-
     // MARK: - Polling
 
     private func startPolling() {

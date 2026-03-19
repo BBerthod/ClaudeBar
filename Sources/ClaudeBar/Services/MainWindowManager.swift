@@ -5,7 +5,17 @@ import SwiftUI
 @MainActor
 final class MainWindowManager {
     private var window: NSWindow?
+    // @ObservationIgnored + nonisolated(unsafe) lets deinit access this without
+    // crossing the @MainActor boundary. It is only written on the main thread.
+    @ObservationIgnored
+    private nonisolated(unsafe) var closeObserver: (any NSObjectProtocol)?
     private(set) var isVisible = false
+
+    deinit {
+        if let observer = closeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
 
     func toggle(content: some View) {
         if isVisible { hide() } else { show(content: content) }
@@ -24,6 +34,12 @@ final class MainWindowManager {
     }
 
     private func createWindow(content: some View) {
+        // Remove any previous observer before creating a new window.
+        if let observer = closeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            closeObserver = nil
+        }
+
         let hostingView = NSHostingView(rootView: AnyView(content))
 
         let window = NSWindow(
@@ -40,13 +56,15 @@ final class MainWindowManager {
         window.center()
         window.setFrameAutosaveName("com.claudebar.mainwindow")
 
-        // Track close via notification
-        NotificationCenter.default.addObserver(
+        // Store the observer token so it can be removed later.
+        closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: window,
             queue: .main
         ) { [weak self] _ in
-            self?.isVisible = false
+            Task { @MainActor [weak self] in
+                self?.isVisible = false
+            }
         }
 
         self.window = window

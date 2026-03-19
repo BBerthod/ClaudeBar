@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct FloatingOverlayContent: View {
     var sessionService: SessionService

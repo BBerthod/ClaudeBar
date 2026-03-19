@@ -43,10 +43,6 @@ final class StatsService {
         )
     }
 
-    var todayCostFormatted: String {
-        CostCalculator.formatCost(todayCostEstimate)
-    }
-
     /// Sorted descending by token count.
     var tokensByModelToday: [(model: String, tokens: Int)] {
         guard let today = stats?.todayModelTokens else { return [] }
