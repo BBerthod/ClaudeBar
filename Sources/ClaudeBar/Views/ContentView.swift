@@ -44,6 +44,7 @@ struct ContentView: View {
     var launchAtLoginService: LaunchAtLoginService
     var mcpHealthService: McpHealthService
     var onRefresh: (() -> Void)?
+    var onOpenDashboard: (() -> Void)?
 
     @State private var selectedTab: Tab = .dashboard
 
@@ -82,6 +83,16 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .help(desktopWidgetManager.isVisible ? "Hide desktop widget" : "Show desktop widget")
+
+                if let onOpenDashboard {
+                    Button(action: onOpenDashboard) {
+                        Image(systemName: "macwindow.badge.plus")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open full analytics window")
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

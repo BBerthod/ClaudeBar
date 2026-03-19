@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
     let mcpHealthService = McpHealthService()
+    let mainWindowManager = MainWindowManager()
 
     private var refreshTimer: Timer?
 
@@ -77,7 +78,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             desktopWidgetManager: desktopWidgetManager,
             launchAtLoginService: launchAtLoginService,
             mcpHealthService: mcpHealthService,
-            onRefresh: { [weak self] in self?.refreshAll() }
+            onRefresh: { [weak self] in self?.refreshAll() },
+            onOpenDashboard: { [weak self] in self?.openAnalytics() }
         )
 
         popover = NSPopover()
@@ -148,6 +150,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    /// Opens the full analytics window.
+    func openAnalytics() {
+        let analyticsView = AnalyticsView(
+            statsService: statsService,
+            sessionService: sessionService,
+            burnRateService: burnRateService,
+            usageService: usageService,
+            liveStatsService: liveStatsService,
+            mcpHealthService: mcpHealthService
+        )
+        mainWindowManager.show(content: analyticsView)
+        // Close popover when opening the main window
+        popover?.performClose(nil)
     }
 
     /// Manual refresh — triggers the same update cycle as the 30s timer.
