@@ -182,7 +182,7 @@ struct HistoryView: View {
             }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    AxisValueLabel(format: .dateTime.day().month(.narrow))
                         .font(.caption2)
                 }
             }
@@ -223,7 +223,7 @@ struct HistoryView: View {
             .chartForegroundStyleScale { modelId in Color.color(for: modelId) }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    AxisValueLabel(format: .dateTime.day().month(.narrow))
                         .font(.caption2)
                 }
             }
@@ -268,7 +268,7 @@ struct HistoryView: View {
             ])
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    AxisValueLabel(format: .dateTime.day().month(.narrow))
                         .font(.caption2)
                 }
             }

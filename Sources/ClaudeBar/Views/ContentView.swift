@@ -49,7 +49,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Tab picker + overlay toggle
             HStack(spacing: 6) {
-                Picker("Tab", selection: $selectedTab) {
+                Picker("", selection: $selectedTab) {
                     ForEach(Tab.allCases, id: \.self) { tab in
                         Label(tab.shortLabel, systemImage: tab.icon)
                             .tag(tab)

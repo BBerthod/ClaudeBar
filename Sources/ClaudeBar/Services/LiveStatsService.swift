@@ -99,11 +99,13 @@ final class LiveStatsService {
                         guard model != "<synthetic>" else { continue }
 
                         messagesByID[msgID] = (model: model, usage: usage)
-                    }
 
-                    // Count tool use
-                    if type == "tool_use" || type == "tool_result" {
-                        toolCallCount += 1
+                        // Count tool_use blocks inside message content
+                        if let content = message["content"] as? [[String: Any]] {
+                            for block in content where (block["type"] as? String) == "tool_use" {
+                                toolCallCount += 1
+                            }
+                        }
                     }
                 }
             }
@@ -136,7 +138,7 @@ final class LiveStatsService {
         // Update published properties
         todayMessages = messagesByID.count
         todayTokens = totalTokens
-        todayToolCalls = toolCallCount / 2  // tool_use + tool_result = 1 logical call
+        todayToolCalls = toolCallCount
         todayCost = totalCost
         tokensByModel = modelTokenCounts
             .map { (model: $0.key, tokens: $0.value) }
