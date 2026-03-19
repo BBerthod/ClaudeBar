@@ -6,6 +6,7 @@ struct DashboardView: View {
     var burnRateService: BurnRateService
     var usageService: UsageService
     var liveStatsService: LiveStatsService
+    var onRefresh: (() -> Void)?
 
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
 
@@ -97,10 +98,21 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 // Header: Today label | 7-day sparkline | cost + 5h gauge
                 HStack(alignment: .center, spacing: 8) {
-                    // Left: date label
+                    // Left: date label + refresh
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Today")
-                            .font(.headline)
+                        HStack(spacing: 4) {
+                            Text("Today")
+                                .font(.headline)
+                            if let onRefresh {
+                                Button(action: onRefresh) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Refresh all data")
+                            }
+                        }
                         Text(formattedDate)
                             .font(.caption)
                             .foregroundStyle(.secondary)

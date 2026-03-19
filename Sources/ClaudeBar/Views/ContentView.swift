@@ -42,6 +42,7 @@ struct ContentView: View {
     var overlayManager: OverlayManager
     var desktopWidgetManager: DesktopWidgetManager
     var launchAtLoginService: LaunchAtLoginService
+    var onRefresh: (() -> Void)?
 
     @State private var selectedTab: Tab = .dashboard
 
@@ -95,7 +96,8 @@ struct ContentView: View {
                         sessionService: sessionService,
                         burnRateService: burnRateService,
                         usageService: usageService,
-                        liveStatsService: liveStatsService
+                        liveStatsService: liveStatsService,
+                        onRefresh: onRefresh
                     )
                 case .history:
                     HistoryView(statsService: statsService)

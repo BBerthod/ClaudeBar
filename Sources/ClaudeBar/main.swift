@@ -74,7 +74,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             liveStatsService: liveStatsService,
             overlayManager: overlayManager,
             desktopWidgetManager: desktopWidgetManager,
-            launchAtLoginService: launchAtLoginService
+            launchAtLoginService: launchAtLoginService,
+            onRefresh: { [weak self] in self?.refreshAll() }
         )
 
         popover = NSPopover()
@@ -145,6 +146,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    /// Manual refresh — triggers the same update cycle as the 30s timer.
+    func refreshAll() {
+        liveStatsService.updateIfNeeded(statsService: statsService)
+        burnRateService.update(statsService: statsService, liveStatsService: liveStatsService)
+        projectService.reload(totalCostEstimate: statsService.totalCostEstimate)
+        notificationService.checkCostThreshold(currentCost: statsService.todayCostEstimate)
+        Task { await usageService.fetchUsage() }
     }
 
     private func updateStatusLabel() {
