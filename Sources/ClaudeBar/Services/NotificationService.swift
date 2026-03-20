@@ -6,9 +6,7 @@ import UserNotifications
 final class NotificationService {
     private(set) var isAuthorized = false
     private(set) var dailyDigestTime: Int = 18 // hour (0–23), default 6 pm
-    private(set) var costThreshold: Double = 50.0 // daily cost alert threshold in USD
     private(set) var lastDigestDate: String?
-    private(set) var lastThresholdAlertDate: String?
     private var lastUsage80AlertKey: String?
     private var lastUsage95AlertKey: String?
 
@@ -22,7 +20,6 @@ final class NotificationService {
 
     private enum DefaultsKey {
         static let dailyDigestTime = "claudebar.dailyDigestTime"
-        static let costThreshold   = "claudebar.costThreshold"
     }
 
     init() {
@@ -30,9 +27,6 @@ final class NotificationService {
         let defaults = UserDefaults.standard
         if defaults.object(forKey: DefaultsKey.dailyDigestTime) != nil {
             dailyDigestTime = defaults.integer(forKey: DefaultsKey.dailyDigestTime)
-        }
-        if defaults.object(forKey: DefaultsKey.costThreshold) != nil {
-            costThreshold = defaults.double(forKey: DefaultsKey.costThreshold)
         }
 
         startDigestTimer()
@@ -68,26 +62,6 @@ final class NotificationService {
         dailyDigestTime = max(0, min(23, hour))
         UserDefaults.standard.set(dailyDigestTime, forKey: DefaultsKey.dailyDigestTime)
         startDigestTimer()
-    }
-
-    func setCostThreshold(_ amount: Double) {
-        costThreshold = amount
-        UserDefaults.standard.set(costThreshold, forKey: DefaultsKey.costThreshold)
-    }
-
-    // MARK: - Cost Threshold Alert
-
-    func checkCostThreshold(currentCost: Double) {
-        let today = todayString()
-        guard currentCost >= costThreshold,
-              lastThresholdAlertDate != today else { return }
-
-        lastThresholdAlertDate = today
-        sendNotification(
-            title: "Cost Alert",
-            body: "Today's estimated cost has reached \(CostCalculator.formatCost(currentCost)) (threshold: \(CostCalculator.formatCost(costThreshold)))",
-            identifier: "cost-threshold-\(today)"
-        )
     }
 
     // MARK: - Usage Threshold Alert

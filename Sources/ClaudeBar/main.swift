@@ -112,7 +112,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self else { return }
             self.liveStatsService.updateIfNeeded(statsService: self.statsService)
-            self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
             if let fiveHour = self.usageService.usage?.fiveHour {
                 self.notificationService.checkUsageThreshold(
                     fiveHourUtilization: fiveHour.utilization,
@@ -128,7 +127,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             Task { @MainActor in
                 self.burnRateService.update(statsService: self.statsService, liveStatsService: self.liveStatsService)
-                self.notificationService.checkCostThreshold(currentCost: self.statsService.todayCostEstimate)
                 if let fiveHour = self.usageService.usage?.fiveHour {
                     self.notificationService.checkUsageThreshold(
                         fiveHourUtilization: fiveHour.utilization,
@@ -173,7 +171,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         liveStatsService.updateIfNeeded(statsService: statsService)
         burnRateService.update(statsService: statsService, liveStatsService: liveStatsService)
         projectService.reload(totalCostEstimate: statsService.totalCostEstimate)
-        notificationService.checkCostThreshold(currentCost: statsService.todayCostEstimate)
         Task { await usageService.fetchUsage() }
     }
 

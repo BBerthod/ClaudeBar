@@ -22,6 +22,8 @@ struct SettingsView: View {
                     errorBanner(error)
                 }
 
+                quickActionsSection
+
                 appSection()
 
                 if let settings = settingsService.settings {
@@ -37,7 +39,6 @@ struct SettingsView: View {
                 }
 
                 mcpSection
-                quickActionsSection
 
                 Spacer(minLength: 12)
             }
@@ -200,22 +201,7 @@ struct SettingsView: View {
                     .frame(width: 100)
                 }
 
-                Divider()
 
-                // Cost threshold
-                HStack {
-                    Label("Cost alert", systemImage: "dollarsign.circle")
-                        .font(.subheadline)
-                    Spacer()
-                    Text("$")
-                        .font(.subheadline)
-                    TextField("", value: Binding(
-                        get: { notificationService.costThreshold },
-                        set: { notificationService.setCostThreshold($0) }
-                    ), format: .number.precision(.fractionLength(0)))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                }
             }
             .padding(8)
         } label: {
@@ -858,12 +844,6 @@ struct SettingsView: View {
     }
 
     private func maskedValue(_ value: String) -> String {
-        guard value.count > 4 else { return "••••" }
-        let lower = value.lowercased()
-        let looksSecret = lower.contains("key") || lower.contains("token") || lower.contains("secret") || value.count > 20
-        if looksSecret {
-            return "••••" + String(value.suffix(4))
-        }
         return value
     }
 }

@@ -146,6 +146,7 @@ struct DashboardView: View {
 
                     // Center: 7-day sparkline
                     Sparkline(data: sevenDaySparklineData)
+                        .help("Message count trend over the last 7 days")
 
                     Spacer()
 
@@ -156,6 +157,7 @@ struct DashboardView: View {
                                 .font(.title3)
                                 .fontWeight(.semibold)
                                 .foregroundStyle(.primary)
+                                .help("API-equivalent cost (not what you pay on Max subscription)")
                             HStack(spacing: 3) {
                                 if liveStatsService.isStale {
                                     Image(systemName: "bolt.fill")
@@ -165,12 +167,14 @@ struct DashboardView: View {
                                 Text(liveStatsService.isStale ? "live estimate" : "estimated cost")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
+                                    .help(liveStatsService.isStale ? "Computed from JSONL files — stats-cache hasn't updated yet" : "Estimated API-equivalent cost for today")
                             }
                         }
 
                         // 5h circular arc gauge (only when data available)
                         if let fiveHour = usageService.usage?.fiveHour {
                             fiveHourArcGauge(utilization: fiveHour.utilization)
+                                .help("Anthropic rate limit — resets every 5 hours")
                         }
                     }
                 }
@@ -191,6 +195,7 @@ struct DashboardView: View {
                 if let rate = burnRateService.burnRate {
                     VStack(alignment: .leading, spacing: 4) {
                         burnRateCard(rate)
+                            .help("Compares today's projected cost to your 30-day average")
 
                         // 5h window projection
                         if let fiveHour = usageService.usage?.fiveHour,
@@ -402,6 +407,7 @@ struct DashboardView: View {
                     .padding(.vertical, 2)
                     .background(Color.blue.opacity(0.1))
                     .clipShape(Capsule())
+                    .help("How many times cheaper Claude is vs equivalent developer time")
             }
         }
         .padding(.vertical, 6)

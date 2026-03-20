@@ -66,9 +66,22 @@ final class HookHealthService {
 
     // MARK: - Private helpers
 
-    /// Extracts the first absolute file path from a shell command string.
+    /// Extracts the first absolute script path from a shell command string.
     /// Returns nil for pure inline commands (pipes, one-liners without a script file).
+    ///
+    /// Only paths that look like runnable scripts are returned — files with non-executable
+    /// extensions (e.g. `.aiff`, `.json`, `.png`) are ignored even if their path is absolute,
+    /// to avoid false "not executable" warnings for resource files that appear in command args.
     private func extractScriptPath(from command: String) -> String? {
+        // Extensions that are definitely not scripts
+        let nonScriptExtensions: Set<String> = [
+            "aiff", "mp3", "wav", "m4a",
+            "json", "plist", "yaml", "yml",
+            "png", "jpg", "jpeg", "gif", "svg", "icns", "ico",
+            "txt", "md", "log",
+            "zip", "tar", "gz",
+        ]
+
         let tokens = command.components(separatedBy: .whitespaces)
         for token in tokens {
             guard !token.isEmpty else { continue }
@@ -81,12 +94,18 @@ final class HookHealthService {
                   !expanded.contains(">"),
                   !expanded.contains("<") else { continue }
 
-            let lastComponent = URL(fileURLWithPath: expanded).lastPathComponent
-            // Treat as a script path if the file exists, or if it has a dot extension (.sh, .py, etc.)
+            let url = URL(fileURLWithPath: expanded)
+            let ext = url.pathExtension.lowercased()
+
+            // Skip known non-script file types
+            if !ext.isEmpty && nonScriptExtensions.contains(ext) { continue }
+
+            // Treat as a script path if it exists on disk or has a script-like extension
             if FileManager.default.fileExists(atPath: expanded) {
                 return expanded
             }
-            if lastComponent.contains(".") {
+            // No extension or a dot-extension that isn't blacklisted → potential script
+            if !ext.isEmpty {
                 return expanded
             }
         }

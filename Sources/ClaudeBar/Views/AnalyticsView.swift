@@ -1250,6 +1250,7 @@ struct AnalyticsView: View {
                             Text(CostCalculator.formatCost(max(saved, 0)))
                                 .font(.system(size: 48, weight: .bold))
                                 .foregroundStyle(.green)
+                                .help("Difference between API pricing and your Max subscription cost")
 
                             Text("×\(Int(multiplier)) return on your Max subscription")
                                 .font(.subheadline)

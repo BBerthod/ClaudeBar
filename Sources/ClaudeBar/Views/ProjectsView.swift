@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct ProjectsView: View {
     var projectService: ProjectService
@@ -59,6 +60,10 @@ struct ProjectsView: View {
                         projectCard(project)
                             .padding(.horizontal, 12)
                     }
+
+                    // Work distribution chart
+                    workDistributionChart
+                        .padding(.horizontal, 12)
                 }
 
                 Spacer(minLength: 12)
@@ -202,6 +207,51 @@ struct ProjectsView: View {
         .padding(.vertical, 3)
         .background(Color.secondary.opacity(0.12))
         .clipShape(Capsule())
+    }
+
+    // MARK: - Work distribution chart
+
+    private var top10BySessions: [ProjectStats] {
+        projectService.projects
+            .sorted { $0.sessionCount > $1.sessionCount }
+            .prefix(10)
+            .filter { $0.sessionCount > 0 }
+            .map { $0 }
+    }
+
+    private var workDistributionChart: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                if top10BySessions.isEmpty {
+                    Text("No session data")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(8)
+                } else {
+                    Chart(top10BySessions) { project in
+                        BarMark(
+                            x: .value("Sessions", project.sessionCount),
+                            y: .value("Project", project.projectName)
+                        )
+                        .foregroundStyle(costColor(for: project.estimatedCost).gradient)
+                        .annotation(position: .trailing) {
+                            Text("\(project.sessionCount)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .chartXAxis(.hidden)
+                    .frame(height: CGFloat(top10BySessions.count) * 28)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 4)
+                }
+            }
+            .padding(4)
+        } label: {
+            Text("Work Distribution (sessions)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+        }
     }
 
     // MARK: - Empty state
