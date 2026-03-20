@@ -14,6 +14,7 @@ final class UsageService {
     private var refreshTimer: Timer?
     private var cachedToken: KeychainCredentials.OAuthTokens?
     private var keychainServiceName: String?
+    private var retryAfter: Date?
 
     init() {
         loadCredentials()
@@ -44,8 +45,8 @@ final class UsageService {
     // MARK: - Polling
 
     private func startPolling() {
-        // Poll every 60 seconds for usage data
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        // Poll every 5 minutes — the usage endpoint is rate-limited by Anthropic
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.fetchUsage()
@@ -205,6 +206,9 @@ final class UsageService {
     // MARK: - API
 
     func fetchUsage() async {
+        // Respect backoff from a previous 429
+        if let until = retryAfter, Date() < until { return }
+
         guard let token = cachedToken else {
             lastError = "No OAuth token found"
             return
@@ -247,6 +251,13 @@ final class UsageService {
                 // Token might be stale — reload from Keychain and retry once
                 loadCredentials()
                 lastError = "Auth failed (401)"
+                return
+            }
+
+            if httpResponse.statusCode == 429 {
+                // Back off for 10 minutes when rate-limited
+                retryAfter = Date().addingTimeInterval(600)
+                lastError = "Rate limited — retrying in 10 min"
                 return
             }
 
