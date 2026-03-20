@@ -37,20 +37,13 @@ struct HistoryView: View {
         }
     }
 
-    private static let isoDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     // MARK: - Cost series
 
     /// Per-day estimated cost for the current period filter.
     private var costSeries: [(date: Date, cost: Double)] {
         guard let stats = statsService.stats else { return [] }
         return filteredTokens.compactMap { day in
-            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
+            guard let date = DateFormatter.isoDate.date(from: day.date) else { return nil }
             let cost = CostCalculator.estimateDailyCost(
                 tokens: day.tokensByModel,
                 modelUsage: stats.modelUsage
@@ -69,7 +62,7 @@ struct HistoryView: View {
     /// Flat list of (date, model, tokens) for the token line chart.
     private var tokenSeries: [(date: Date, model: String, tokens: Int)] {
         filteredTokens.flatMap { day in
-            let date = Self.isoDateFormatter.date(from: day.date) ?? Date()
+            let date = DateFormatter.isoDate.date(from: day.date) ?? Date()
             return day.tokensByModel.map { (model, tokens) in
                 (date: date, model: StatsService.displayName(for: model), tokens: tokens)
             }
@@ -83,7 +76,7 @@ struct HistoryView: View {
     /// Activity data with parsed dates — messages and tool calls combined.
     private var activityWithDates: [(date: Date, messages: Int, toolCalls: Int)] {
         filteredActivity.compactMap { day in
-            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
+            guard let date = DateFormatter.isoDate.date(from: day.date) else { return nil }
             return (date: date, messages: day.messageCount, toolCalls: day.toolCallCount)
         }
     }

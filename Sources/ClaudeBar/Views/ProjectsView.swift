@@ -71,25 +71,7 @@ struct ProjectsView: View {
     /// Per-model cost breakdown across all time.
     private var modelCostBreakdown: [(model: String, cost: Double)] {
         guard let stats = statsService.stats else { return [] }
-        var costByModel: [String: Double] = [:]
-        for day in stats.dailyModelTokens {
-            for (modelId, tokenCount) in day.tokensByModel {
-                let p = CostCalculator.pricing(for: modelId)
-                let mTok = 1_000_000.0
-                if let usage = stats.modelUsage[modelId] {
-                    let io = usage.inputTokens + usage.outputTokens
-                    guard io > 0 else { continue }
-                    let frac = Double(tokenCount) / Double(io)
-                    let cost = (Double(usage.inputTokens) * frac / mTok * p.inputPerMTok +
-                                Double(usage.outputTokens) * frac / mTok * p.outputPerMTok +
-                                Double(usage.cacheReadInputTokens) * frac / mTok * p.cacheReadPerMTok +
-                                Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
-                    let displayName = StatsService.displayName(for: modelId)
-                    costByModel[displayName, default: 0] += cost
-                }
-            }
-        }
-        return costByModel.map { (model: $0.key, cost: $0.value) }.sorted { $0.cost > $1.cost }
+        return CostCalculator.modelCostBreakdown(stats: stats)
     }
 
     private var summaryBar: some View {
@@ -170,7 +152,7 @@ struct ProjectsView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     if let lastActive = project.lastActive {
-                        Text(timeAgo(from: lastActive))
+                        Text(lastActive.timeAgoString)
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
@@ -255,15 +237,6 @@ struct ProjectsView: View {
         }
     }
 
-    private func timeAgo(from date: Date) -> String {
-        let interval = Date().timeIntervalSince(date)
-        switch interval {
-        case ..<60:        return "just now"
-        case ..<3600:      return "\(Int(interval / 60))m ago"
-        case ..<86400:     return "\(Int(interval / 3600))h ago"
-        default:           return "\(Int(interval / 86400))d ago"
-        }
-    }
 }
 
 #Preview {

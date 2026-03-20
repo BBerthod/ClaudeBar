@@ -42,12 +42,7 @@ final class BurnRateService {
         let projectedDailyCost = todayCost + costPerHour * remainingHours
 
         // 4. Calculate averages from the last 30 days (excluding today by date, not position)
-        let todayString: String = {
-            let f = DateFormatter()
-            f.dateFormat = "yyyy-MM-dd"
-            f.locale = Locale(identifier: "en_US_POSIX")
-            return f.string(from: now)
-        }()
+        let todayString = DateFormatter.isoDate.string(from: now)
 
         let previousTokenDays = stats.last30DaysModelTokens.filter { $0.date != todayString }
 

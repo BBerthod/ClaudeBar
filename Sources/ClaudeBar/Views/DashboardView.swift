@@ -548,7 +548,7 @@ struct DashboardView: View {
                     Text(pace.rawValue)
                         .font(.caption2)
                         .fontWeight(.medium)
-                        .foregroundStyle(paceColor(pace))
+                        .foregroundStyle(pace.color)
                 }
             }
 
@@ -568,7 +568,7 @@ struct DashboardView: View {
                     Text(pace.rawValue)
                         .font(.caption2)
                         .fontWeight(.medium)
-                        .foregroundStyle(paceColor(pace))
+                        .foregroundStyle(pace.color)
                 }
                 Text("\(Int(utilization))%")
                     .font(.caption)
@@ -605,17 +605,6 @@ struct DashboardView: View {
         }
     }
 
-    private func paceColor(_ pace: PaceLevel) -> Color {
-        switch pace {
-        case .comfortable: return .green
-        case .onTrack:     return .blue
-        case .warming:     return .yellow
-        case .pressing:    return .orange
-        case .critical:    return .red
-        case .runaway:     return .red
-        }
-    }
-
     // MARK: - Burn Rate Card
 
     @ViewBuilder
@@ -623,7 +612,7 @@ struct DashboardView: View {
         HStack(spacing: 10) {
             // Zone icon + label
             HStack(spacing: 5) {
-                Image(systemName: zoneIcon(rate.zone))
+                Image(systemName: rate.zone.icon)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(zoneColor(rate.zone))
                 Text(rate.zone.rawValue)
@@ -763,15 +752,8 @@ struct DashboardView: View {
         }
     }
 
-    private func zoneIcon(_ zone: PacingZone) -> String {
-        switch zone {
-        case .chill:    return "snowflake"
-        case .onTrack:  return "checkmark.circle"
-        case .hot:      return "flame"
-        case .critical: return "flame.fill"
-        }
-    }
 }
+
 
 #Preview {
     DashboardView(

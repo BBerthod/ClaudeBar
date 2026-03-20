@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Represents one configured MCP server and its health status.
 struct McpServerInfo: Identifiable, Sendable {
@@ -27,6 +28,16 @@ struct McpServerInfo: Identifiable, Sendable {
         var isHealthy: Bool {
             if case .healthy = self { return true }
             return false
+        }
+
+        /// SwiftUI color associated with this MCP status.
+        var color: Color {
+            switch self {
+            case .unknown:    return .secondary
+            case .checking:   return .blue
+            case .healthy:    return .green
+            case .unhealthy:  return .red
+            }
         }
     }
 }

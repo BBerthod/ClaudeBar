@@ -167,7 +167,7 @@ struct DesktopWidgetView: View {
                         .foregroundStyle(.tertiary)
                     Text(pace.rawValue)
                         .font(.caption2)
-                        .foregroundStyle(paceColor(pace))
+                        .foregroundStyle(pace.color)
                 }
 
                 if let remaining = fiveHour.timeRemaining {
@@ -196,17 +196,8 @@ struct DesktopWidgetView: View {
         }
     }
 
-    private func paceColor(_ pace: PaceLevel) -> Color {
-        switch pace {
-        case .comfortable:  return .green
-        case .onTrack:      return .blue
-        case .warming:      return .yellow
-        case .pressing:     return .orange
-        case .critical:     return .red
-        case .runaway:      return .red
-        }
-    }
 }
+
 
 #Preview {
     DesktopWidgetView(

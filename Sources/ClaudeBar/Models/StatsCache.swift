@@ -91,10 +91,9 @@ struct StatsCache: Codable, Sendable {
         guard let cutoff = calendar.date(byAdding: .day, value: -29, to: today) else {
             return []
         }
-        let formatter = Self.dateFormatter()
         return dailyActivity
             .filter { entry in
-                guard let date = formatter.date(from: entry.date) else { return false }
+                guard let date = DateFormatter.isoDate.date(from: entry.date) else { return false }
                 return date >= cutoff
             }
             .sorted { $0.date < $1.date }
@@ -108,10 +107,9 @@ struct StatsCache: Codable, Sendable {
         guard let cutoff = calendar.date(byAdding: .day, value: -29, to: today) else {
             return []
         }
-        let formatter = Self.dateFormatter()
         return dailyModelTokens
             .filter { entry in
-                guard let date = formatter.date(from: entry.date) else { return false }
+                guard let date = DateFormatter.isoDate.date(from: entry.date) else { return false }
                 return date >= cutoff
             }
             .sorted { $0.date < $1.date }
@@ -120,14 +118,6 @@ struct StatsCache: Codable, Sendable {
     // MARK: Private helpers
 
     private static func todayString() -> String {
-        dateFormatter().string(from: Date())
-    }
-
-    private static func dateFormatter() -> DateFormatter {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f
+        DateFormatter.isoDate.string(from: Date())
     }
 }

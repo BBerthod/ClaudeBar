@@ -171,10 +171,7 @@ struct AnalyticsView: View {
 
         // Stats-cache staleness
         if let lastDate = statsService.stats?.lastComputedDate {
-            let f = DateFormatter()
-            f.dateFormat = "yyyy-MM-dd"
-            f.locale = Locale(identifier: "en_US_POSIX")
-            if let date = f.date(from: lastDate) {
+            if let date = DateFormatter.isoDate.date(from: lastDate) {
                 let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
                 if days > 1 {
                     alerts.append(AlertItem(
@@ -313,15 +310,6 @@ struct AnalyticsView: View {
         }
     }
 
-    // MARK: - Shared date formatter
-
-    private static let isoDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
 
     private var effectiveMessages: Int {
@@ -349,7 +337,7 @@ struct AnalyticsView: View {
     private var dailyCosts: [(date: Date, cost: Double)] {
         guard let stats = statsService.stats else { return [] }
         return stats.last30DaysModelTokens.compactMap { day in
-            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
+            guard let date = DateFormatter.isoDate.date(from: day.date) else { return nil }
             let cost = CostCalculator.estimateDailyCost(tokens: day.tokensByModel, modelUsage: stats.modelUsage)
             return (date: date, cost: cost)
         }
@@ -357,7 +345,7 @@ struct AnalyticsView: View {
 
     private var dailyMessages: [(date: Date, messages: Int)] {
         statsService.last30DaysActivity.compactMap { day in
-            guard let date = Self.isoDateFormatter.date(from: day.date) else { return nil }
+            guard let date = DateFormatter.isoDate.date(from: day.date) else { return nil }
             return (date: date, messages: day.messageCount)
         }
     }
@@ -591,24 +579,7 @@ struct AnalyticsView: View {
 
     private var modelCosts: [(model: String, cost: Double)] {
         guard let stats = statsService.stats else { return [] }
-        var costByModel: [String: Double] = [:]
-        for day in stats.dailyModelTokens {
-            for (modelId, tokenCount) in day.tokensByModel {
-                let p = CostCalculator.pricing(for: modelId)
-                let mTok = 1_000_000.0
-                if let usage = stats.modelUsage[modelId] {
-                    let io = usage.inputTokens + usage.outputTokens
-                    guard io > 0 else { continue }
-                    let frac = Double(tokenCount) / Double(io)
-                    let cost = (Double(usage.inputTokens) * frac / mTok * p.inputPerMTok +
-                                Double(usage.outputTokens) * frac / mTok * p.outputPerMTok +
-                                Double(usage.cacheReadInputTokens) * frac / mTok * p.cacheReadPerMTok +
-                                Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
-                    costByModel[StatsService.displayName(for: modelId), default: 0] += cost
-                }
-            }
-        }
-        return costByModel.map { (model: $0.key, cost: $0.value) }.sorted { $0.cost > $1.cost }
+        return CostCalculator.modelCostBreakdown(stats: stats)
     }
 
     private var modelBreakdownChart: some View {
@@ -956,7 +927,7 @@ struct AnalyticsView: View {
                     .font(.subheadline)
                     .lineLimit(1)
                 if let lastActive = project.lastActive {
-                    Text(projectTimeAgo(from: lastActive))
+                    Text(lastActive.timeAgoString)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -1024,14 +995,6 @@ struct AnalyticsView: View {
         }
     }
 
-    private func projectTimeAgo(from date: Date) -> String {
-        let interval = Date().timeIntervalSince(date)
-        switch interval {
-        case ..<3600:  return "\(Int(interval / 60))m ago"
-        case ..<86400: return "\(Int(interval / 3600))h ago"
-        default:       return "\(Int(interval / 86400))d ago"
-        }
-    }
 
     // MARK: - Sessions Panel
 
@@ -1365,7 +1328,7 @@ struct AnalyticsView: View {
     private func buildMonthlyMap(stats: StatsCache) -> [String: Double] {
         var monthlyMap: [String: Double] = [:]
         for day in stats.dailyModelTokens {
-            guard Self.isoDateFormatter.date(from: day.date) != nil else { continue }
+            guard DateFormatter.isoDate.date(from: day.date) != nil else { continue }
             let monthKey = String(day.date.prefix(7)) // "yyyy-MM"
             let cost = CostCalculator.estimateDailyCost(tokens: day.tokensByModel, modelUsage: stats.modelUsage)
             monthlyMap[monthKey, default: 0] += cost
@@ -1647,7 +1610,7 @@ struct AnalyticsView: View {
     private func mcpServerRow(_ server: McpServerInfo) -> some View {
         HStack(spacing: 10) {
             Circle()
-                .fill(mcpStatusColor(server.status))
+                .fill(server.status.color)
                 .frame(width: 8, height: 8)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -1664,10 +1627,10 @@ struct AnalyticsView: View {
 
             Text(server.status.label)
                 .font(.caption)
-                .foregroundStyle(mcpStatusColor(server.status))
+                .foregroundStyle(server.status.color)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(mcpStatusColor(server.status).opacity(0.1))
+                .background(server.status.color.opacity(0.1))
                 .clipShape(Capsule())
 
             Text(server.type)
@@ -1678,14 +1641,6 @@ struct AnalyticsView: View {
         .padding(.vertical, 6)
     }
 
-    private func mcpStatusColor(_ status: McpServerInfo.McpStatus) -> Color {
-        switch status {
-        case .healthy:    return .green
-        case .unhealthy:  return .red
-        case .checking:   return .orange
-        case .unknown:    return .secondary
-        }
-    }
 
     @ViewBuilder
     private func quickActionButton(_ label: String, icon: String, path: String) -> some View {
@@ -1766,10 +1721,7 @@ struct AnalyticsView: View {
     }
 
     private func statsCacheStaleness(_ dateString: String) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = f.date(from: dateString) else { return "Unknown" }
+        guard let date = DateFormatter.isoDate.date(from: dateString) else { return "Unknown" }
         let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
         if days == 0 { return "Fresh (today)" }
         if days == 1 { return "1 day old" }
@@ -1777,10 +1729,7 @@ struct AnalyticsView: View {
     }
 
     private func statsCacheStalenessColor(_ dateString: String) -> Color {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = f.date(from: dateString) else { return .secondary }
+        guard let date = DateFormatter.isoDate.date(from: dateString) else { return .secondary }
         let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
         if days == 0 { return .green }
         if days == 1 { return .orange }

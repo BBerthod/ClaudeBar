@@ -126,4 +126,33 @@ enum CostCalculator {
     static func formatCost(_ cost: Double) -> String {
         String(format: "$%.2f", cost)
     }
+
+    /// Computes per-model cost breakdown across all recorded days in `stats`.
+    ///
+    /// Returns an array sorted by cost descending; model names are the
+    /// human-readable display names from `StatsService.displayName(for:)`.
+    ///
+    /// Marked `@MainActor` because `StatsService.displayName(for:)` is main-actor isolated.
+    @MainActor
+    static func modelCostBreakdown(stats: StatsCache) -> [(model: String, cost: Double)] {
+        var costByModel: [String: Double] = [:]
+        let mTok = 1_000_000.0
+        for day in stats.dailyModelTokens {
+            for (modelId, tokenCount) in day.tokensByModel {
+                let p = pricing(for: modelId)
+                if let usage = stats.modelUsage[modelId] {
+                    let io = usage.inputTokens + usage.outputTokens
+                    guard io > 0 else { continue }
+                    let frac = Double(tokenCount) / Double(io)
+                    let cost = (Double(usage.inputTokens)              * frac / mTok * p.inputPerMTok
+                              + Double(usage.outputTokens)             * frac / mTok * p.outputPerMTok
+                              + Double(usage.cacheReadInputTokens)     * frac / mTok * p.cacheReadPerMTok
+                              + Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
+                    let displayName = StatsService.displayName(for: modelId)
+                    costByModel[displayName, default: 0] += cost
+                }
+            }
+        }
+        return costByModel.map { (model: $0.key, cost: $0.value) }.sorted { $0.cost > $1.cost }
+    }
 }

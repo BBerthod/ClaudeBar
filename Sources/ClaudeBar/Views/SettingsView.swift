@@ -135,10 +135,7 @@ struct SettingsView: View {
     }
 
     private func daysSince(_ dateStr: String) -> Int {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = f.date(from: dateStr) else { return 99 }
+        guard let date = DateFormatter.isoDate.date(from: dateStr) else { return 99 }
         return Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
     }
 
@@ -608,7 +605,7 @@ struct SettingsView: View {
                         HStack(spacing: 8) {
                             // Status dot
                             Circle()
-                                .fill(mcpStatusColor(server.status))
+                                .fill(server.status.color)
                                 .frame(width: 7, height: 7)
 
                             VStack(alignment: .leading, spacing: 1) {
@@ -634,7 +631,7 @@ struct SettingsView: View {
 
                             Text(server.status.label)
                                 .font(.caption2)
-                                .foregroundStyle(mcpStatusColor(server.status))
+                                .foregroundStyle(server.status.color)
                         }
                     }
                 }
@@ -644,15 +641,6 @@ struct SettingsView: View {
             sectionLabel("MCP Servers (\(mcpHealthService.servers.count))")
         }
         .padding(.horizontal, 12)
-    }
-
-    private func mcpStatusColor(_ status: McpServerInfo.McpStatus) -> Color {
-        switch status {
-        case .unknown:    return .secondary
-        case .checking:   return .blue
-        case .healthy:    return .green
-        case .unhealthy:  return .red
-        }
     }
 
     // MARK: - Quick Actions

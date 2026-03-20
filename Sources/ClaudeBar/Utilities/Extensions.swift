@@ -1,6 +1,24 @@
 import Foundation
 import SwiftUI
 
+// MARK: - DateFormatter
+
+extension DateFormatter {
+
+    /// Shared ISO date formatter for "yyyy-MM-dd" strings.
+    ///
+    /// Uses `en_US_POSIX` locale (required for fixed-format date strings) and
+    /// `TimeZone.current` so comparisons against calendar-day boundaries are
+    /// consistent with the local clock.
+    static let isoDate: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
+}
+
 // MARK: - Date
 
 extension Date {
@@ -12,6 +30,23 @@ extension Date {
         f.timeStyle = .short
         f.dateStyle = .none
         return f.string(from: self)
+    }
+
+    /// Returns a human-readable "time ago" string relative to now.
+    ///
+    /// Examples:
+    /// - < 60 s  → `"just now"`
+    /// - < 1 h   → `"5m ago"`
+    /// - < 1 day → `"3h ago"`
+    /// - ≥ 1 day → `"2d ago"`
+    var timeAgoString: String {
+        let interval = Date().timeIntervalSince(self)
+        switch interval {
+        case ..<60:        return "just now"
+        case ..<3_600:     return "\(Int(interval / 60))m ago"
+        case ..<86_400:    return "\(Int(interval / 3_600))h ago"
+        default:           return "\(Int(interval / 86_400))d ago"
+        }
     }
 }
 
@@ -92,5 +127,22 @@ extension Color {
         if lower.contains("opus")   { return .opusColor }
         if lower.contains("haiku")  { return .haikuColor }
         return .sonnetColor
+    }
+}
+
+// MARK: - PaceLevel color
+
+extension PaceLevel {
+
+    /// SwiftUI color associated with this pacing level.
+    var color: Color {
+        switch self {
+        case .comfortable: return .green
+        case .onTrack:     return .blue
+        case .warming:     return .yellow
+        case .pressing:    return .orange
+        case .critical:    return .red
+        case .runaway:     return .red
+        }
     }
 }
