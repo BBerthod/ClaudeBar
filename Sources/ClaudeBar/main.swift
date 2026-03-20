@@ -150,18 +150,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Opens the full analytics window.
+    /// Opens the full window — same content as the popover but in a persistent, resizable window.
     func openAnalytics() {
-        let analyticsView = AnalyticsView(
+        let contentView = ContentView(
             statsService: statsService,
             sessionService: sessionService,
+            settingsService: settingsService,
+            projectService: projectService,
+            hookHealthService: hookHealthService,
             burnRateService: burnRateService,
+            notificationService: notificationService,
             usageService: usageService,
             liveStatsService: liveStatsService,
+            overlayManager: overlayManager,
+            desktopWidgetManager: desktopWidgetManager,
+            launchAtLoginService: launchAtLoginService,
             mcpHealthService: mcpHealthService,
-            projectService: projectService
+            onRefresh: { [weak self] in self?.refreshAll() }
         )
-        mainWindowManager.show(content: analyticsView)
+        mainWindowManager.show(content: contentView)
         // Close popover when opening the main window
         popover?.performClose(nil)
     }
