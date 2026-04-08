@@ -6,6 +6,7 @@ struct DashboardView: View {
     var burnRateService: BurnRateService
     var usageService: UsageService
     var liveStatsService: LiveStatsService
+    var mcpHealthService: McpHealthService
     var onRefresh: (() -> Void)?
 
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
@@ -72,7 +73,7 @@ struct DashboardView: View {
             details: nil
         )
 
-        let hasGemini = statsService.tokensByModelToday.contains {
+        let hasGemini = mcpHealthService.hasGeminiConfigured || statsService.tokensByModelToday.contains {
             $0.model.lowercased().contains("gemini")
         }
         let geminiProvider = ProviderInfo(
@@ -767,7 +768,8 @@ struct DashboardView: View {
         sessionService: SessionService(),
         burnRateService: BurnRateService(),
         usageService: UsageService(),
-        liveStatsService: LiveStatsService()
+        liveStatsService: LiveStatsService(),
+        mcpHealthService: McpHealthService()
     )
     .frame(width: 420, height: 480)
 }

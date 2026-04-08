@@ -80,6 +80,16 @@ final class McpHealthService {
         }.sorted { $0.name < $1.name }
     }
 
+    // MARK: - Derived Properties
+
+    /// Returns `true` if any configured MCP server has "gemini" in its name or endpoint.
+    var hasGeminiConfigured: Bool {
+        servers.contains {
+            $0.name.lowercased().contains("gemini") ||
+            $0.endpoint.lowercased().contains("gemini")
+        }
+    }
+
     // MARK: - Health Check
 
     func checkAll() {

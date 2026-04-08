@@ -131,6 +131,7 @@ struct ContentView: View {
                         burnRateService: burnRateService,
                         usageService: usageService,
                         liveStatsService: liveStatsService,
+                        mcpHealthService: mcpHealthService,
                         onRefresh: onRefresh
                     )
                 case .history:
