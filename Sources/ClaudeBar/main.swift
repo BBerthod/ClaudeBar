@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let launchAtLoginService = LaunchAtLoginService()
     let mcpHealthService = McpHealthService()
     let mainWindowManager = MainWindowManager()
+    let anomalyService = AnomalyService()
 
     private var refreshTimer: Timer?
 
@@ -134,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
                 self.updateStatusLabel()
+                self.anomalyService.check(burnRateService: self.burnRateService, notificationService: self.notificationService)
 
                 if self.notificationService.digestPending {
                     self.notificationService.sendDailyDigest(

@@ -108,6 +108,15 @@ final class NotificationService {
         }
     }
 
+    // MARK: - Cost Anomaly Alert
+
+    func sendCostAnomalyAlert(projectedCost: Double, averageCost: Double, factor: Int) {
+        let body = String(format: "Projected daily cost %@ is %d× your average (%@). Check burn rate.",
+                          CostCalculator.formatCost(projectedCost), factor, CostCalculator.formatCost(averageCost))
+        sendNotification(title: "Unusual Spend Detected", body: body, identifier: "anomaly-\(todayString())")
+        if soundEnabled { NSSound.beep() }
+    }
+
     // MARK: - Daily Digest
 
     func sendDailyDigest(
