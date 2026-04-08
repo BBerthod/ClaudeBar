@@ -754,6 +754,23 @@ struct SettingsView: View {
                         flags: ["--permission-mode", "auto"]
                     )
                 }
+
+                Divider()
+
+                // Data export
+                Menu {
+                    Button("Export as CSV") {
+                        ExportService.export(statsService: statsService, format: .csv)
+                    }
+                    Button("Export as JSON") {
+                        ExportService.export(statsService: statsService, format: .json)
+                    }
+                } label: {
+                    Label("Export Data", systemImage: "square.and.arrow.up")
+                        .font(.subheadline)
+                }
+                .menuStyle(.borderlessButton)
+                .disabled(statsService.stats == nil)
             }
             .padding(8)
         } label: {
