@@ -551,6 +551,11 @@ struct DashboardView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                if let eta = etaToLimit(window: fiveHour, windowHours: 5) {
+                    Text(eta)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
                 if let pace {
                     Text(pace.rawValue)
                         .font(.caption2)
@@ -749,6 +754,32 @@ struct DashboardView: View {
     }
 
     // MARK: - Helpers
+
+    /// Estimates time until the rate limit window reaches 100%, based on the
+    /// current utilization velocity (utilization consumed per elapsed hour).
+    private func etaToLimit(window: UsageWindow, windowHours: Double) -> String? {
+        guard window.utilization > 0, window.utilization < 95 else { return nil }
+        guard let resetDate = window.resetDate else { return nil }
+
+        let windowStart = resetDate.addingTimeInterval(-windowHours * 3600)
+        let elapsed = max(Date().timeIntervalSince(windowStart), 1)
+        let elapsedHours = elapsed / 3600
+
+        let ratePerHour = window.utilization / elapsedHours
+        guard ratePerHour > 0 else { return nil }
+
+        let remainingPct = 100.0 - window.utilization
+        let hoursToFull = remainingPct / ratePerHour
+
+        if hoursToFull > 48 { return nil }
+
+        let h = Int(hoursToFull)
+        let m = Int((hoursToFull - Double(h)) * 60)
+        if h > 0 {
+            return "~full in \(h)h \(m)m"
+        }
+        return "~full in \(m)m"
+    }
 
     private func zoneColor(_ zone: PacingZone) -> Color {
         switch zone {
