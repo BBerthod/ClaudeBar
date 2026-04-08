@@ -7,9 +7,10 @@ enum HistoryPeriod: String, CaseIterable {
 }
 
 enum HistoryChart: String, CaseIterable {
-    case cost     = "Cost"
-    case activity = "Activity"
-    case hourly   = "Hourly"
+    case cost      = "Cost"
+    case modelCost = "By Model"
+    case activity  = "Activity"
+    case hourly    = "Hourly"
 }
 
 struct HistoryView: View {
@@ -52,6 +53,40 @@ struct HistoryView: View {
     /// Total cost summed over the current period.
     private var periodCost: Double {
         costSeries.reduce(0.0) { $0 + $1.cost }
+    }
+
+    // MARK: - Model cost series
+
+    /// Per-day cost broken down by model for the stacked chart.
+    private var modelCostSeries: [(date: Date, model: String, cost: Double)] {
+        guard let stats = statsService.stats else { return [] }
+        return filteredTokens.flatMap { day -> [(date: Date, model: String, cost: Double)] in
+            guard let date = DateFormatter.isoDate.date(from: day.date) else { return [] }
+            let mTok = 1_000_000.0
+            return day.tokensByModel.compactMap { (modelId, tokenCount) -> (date: Date, model: String, cost: Double)? in
+                let p = CostCalculator.pricing(for: modelId)
+                let displayName = StatsService.displayName(for: modelId)
+                if let usage = stats.modelUsage[modelId] {
+                    let io = usage.inputTokens + usage.outputTokens
+                    guard io > 0 else { return nil }
+                    let frac = Double(tokenCount) / Double(io)
+                    let cost = (Double(usage.inputTokens)              * frac / mTok * p.inputPerMTok
+                              + Double(usage.outputTokens)             * frac / mTok * p.outputPerMTok
+                              + Double(usage.cacheReadInputTokens)     * frac / mTok * p.cacheReadPerMTok
+                              + Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
+                    guard cost > 0 else { return nil }
+                    return (date: date, model: displayName, cost: cost)
+                } else {
+                    let cost = Double(tokenCount) / mTok * p.inputPerMTok
+                    guard cost > 0 else { return nil }
+                    return (date: date, model: displayName, cost: cost)
+                }
+            }
+        }
+    }
+
+    private var modelCostModels: [String] {
+        Array(Set(modelCostSeries.map(\.model))).sorted()
     }
 
     // MARK: - Activity series
@@ -151,6 +186,8 @@ struct HistoryView: View {
             switch chartType {
             case .cost:
                 costChartSection
+            case .modelCost:
+                modelCostChart
             case .activity:
                 tokenChart
                 messagesAndToolCallsChart
@@ -173,6 +210,46 @@ struct HistoryView: View {
                 )
                 .foregroundStyle(Color.accentColor.gradient)
             }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
+                    AxisValueLabel(format: .dateTime.day().month(.narrow))
+                        .font(.caption2)
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(String(format: "$%.2f", v)).font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 150)
+            .padding(.horizontal, 12)
+        }
+    }
+
+    // MARK: - Model cost chart (stacked)
+
+    @ViewBuilder
+    private var modelCostChart: some View {
+        if !modelCostSeries.isEmpty {
+            sectionHeader("Daily Cost by Model")
+            Chart {
+                ForEach(modelCostModels, id: \.self) { model in
+                    let modelData = modelCostSeries.filter { $0.model == model }
+                    ForEach(modelData.indices, id: \.self) { idx in
+                        let point = modelData[idx]
+                        BarMark(
+                            x: .value("Date", point.date, unit: .day),
+                            y: .value("Cost", point.cost)
+                        )
+                        .foregroundStyle(by: .value("Model", model))
+                    }
+                }
+            }
+            .chartForegroundStyleScale { modelId in Color.color(for: modelId) }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
                     AxisValueLabel(format: .dateTime.day().month(.narrow))
