@@ -55,6 +55,13 @@ final class ProjectService {
             sum + entries.reduce(0) { $0 + ($1.messageCount ?? 0) }
         }
 
+        // Precompute last-7-day date boundaries for sparkline
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let sparklineDays = (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: -(6 - offset), to: today)
+        }
+
         // Build ProjectStats per projectPath
         var result: [ProjectStats] = []
 
@@ -93,6 +100,19 @@ final class ProjectService {
                 estimatedCost = 0
             }
 
+            // Compute last-7-day message distribution from session modified timestamps.
+            // Each session that was modified on a given day contributes its messageCount.
+            var dailyCounts = [Int](repeating: 0, count: 7)
+            for entry in entries {
+                guard let modStr = entry.modified,
+                      let date = isoFormatter.date(from: modStr) ?? isoFormatterBasic.date(from: modStr)
+                else { continue }
+                let dayStart = calendar.startOfDay(for: date)
+                if let idx = sparklineDays.firstIndex(of: dayStart) {
+                    dailyCounts[idx] += entry.messageCount ?? 1
+                }
+            }
+
             result.append(ProjectStats(
                 projectPath: projectPath,
                 projectName: projectName,
@@ -100,7 +120,8 @@ final class ProjectService {
                 totalMessages: totalMessages,
                 branches: branches,
                 lastActive: lastActive,
-                estimatedCost: estimatedCost
+                estimatedCost: estimatedCost,
+                dailyMessageCounts: dailyCounts
             ))
         }
 
