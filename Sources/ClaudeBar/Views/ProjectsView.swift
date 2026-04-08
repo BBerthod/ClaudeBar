@@ -6,6 +6,7 @@ struct ProjectsView: View {
     var statsService: StatsService
 
     @State private var sortBy: ProjectSort = .cost
+    @State private var searchText: String = ""
 
     enum ProjectSort: String, CaseIterable {
         case cost = "Cost"
@@ -14,13 +15,14 @@ struct ProjectsView: View {
     }
 
     private var sortedProjects: [ProjectStats] {
+        let base: [ProjectStats]
         switch sortBy {
         case .cost:
-            return projectService.projects.sorted { $0.estimatedCost > $1.estimatedCost }
+            base = projectService.projects.sorted { $0.estimatedCost > $1.estimatedCost }
         case .sessions:
-            return projectService.projects.sorted { $0.sessionCount > $1.sessionCount }
+            base = projectService.projects.sorted { $0.sessionCount > $1.sessionCount }
         case .recent:
-            return projectService.projects.sorted { lhs, rhs in
+            base = projectService.projects.sorted { lhs, rhs in
                 switch (lhs.lastActive, rhs.lastActive) {
                 case let (l?, r?): return l > r
                 case (nil, _?):    return false
@@ -29,6 +31,8 @@ struct ProjectsView: View {
                 }
             }
         }
+        guard !searchText.isEmpty else { return base }
+        return base.filter { $0.projectName.localizedCaseInsensitiveContains(searchText) }
     }
 
     private var totalEstimatedCost: Double {
@@ -42,6 +46,13 @@ struct ProjectsView: View {
                 summaryBar
                     .padding(.horizontal, 12)
                     .padding(.top, 12)
+
+                // Search field (only when there are enough projects)
+                if projectService.projects.count > 5 {
+                    TextField("Search projects…", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal, 12)
+                }
 
                 // Sort picker
                 Picker("Sort by", selection: $sortBy) {
@@ -212,7 +223,7 @@ struct ProjectsView: View {
     // MARK: - Work distribution chart
 
     private var top10BySessions: [ProjectStats] {
-        projectService.projects
+        sortedProjects
             .sorted { $0.sessionCount > $1.sessionCount }
             .prefix(10)
             .filter { $0.sessionCount > 0 }
