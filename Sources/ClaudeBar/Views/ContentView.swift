@@ -50,6 +50,28 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Keyboard shortcuts
+            Group {
+                Button("") { onRefresh?() }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .hidden()
+                Button("") { selectedTab = .dashboard }
+                    .keyboardShortcut("1", modifiers: .command)
+                    .hidden()
+                Button("") { selectedTab = .history }
+                    .keyboardShortcut("2", modifiers: .command)
+                    .hidden()
+                Button("") { selectedTab = .projects }
+                    .keyboardShortcut("3", modifiers: .command)
+                    .hidden()
+                Button("") { selectedTab = .sessions }
+                    .keyboardShortcut("4", modifiers: .command)
+                    .hidden()
+                Button("") { selectedTab = .settings }
+                    .keyboardShortcut("5", modifiers: .command)
+                    .hidden()
+            }
+
             // Tab picker + overlay toggle
             HStack(spacing: 6) {
                 Picker("", selection: $selectedTab) {
