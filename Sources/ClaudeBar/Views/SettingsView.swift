@@ -469,6 +469,34 @@ struct SettingsView: View {
 
                     Divider()
 
+                    // Stats-cache status
+                    HStack {
+                        Label("Stats Cache", systemImage: "doc.text")
+                            .font(.caption)
+                        Spacer()
+                        Text(hookHealthService.statsCacheStatus.rawValue)
+                            .font(.caption)
+                            .foregroundStyle(cacheStatusColor(hookHealthService.statsCacheStatus))
+                        Circle()
+                            .fill(cacheStatusColor(hookHealthService.statsCacheStatus))
+                            .frame(width: 6, height: 6)
+                    }
+
+                    // OAuth credential status
+                    HStack {
+                        Label("OAuth Credentials", systemImage: "key")
+                            .font(.caption)
+                        Spacer()
+                        Text(hookHealthService.hasOAuthCredentials ? "Found" : "Not found")
+                            .font(.caption)
+                            .foregroundStyle(hookHealthService.hasOAuthCredentials ? .green : .red)
+                        Circle()
+                            .fill(hookHealthService.hasOAuthCredentials ? .green : .red)
+                            .frame(width: 6, height: 6)
+                    }
+
+                    Divider()
+
                     // Per-entry list
                     ForEach(hookHealthService.hookEntries) { entry in
                         hookEntryRow(entry)
@@ -567,6 +595,15 @@ struct SettingsView: View {
         case .missing:       return .red
         case .notExecutable: return .yellow
         case .inline:        return .secondary
+        }
+    }
+
+    private func cacheStatusColor(_ status: HookHealthService.CacheStatus) -> Color {
+        switch status {
+        case .fresh:   return .green
+        case .stale:   return .orange
+        case .missing: return .red
+        case .unknown: return .secondary
         }
     }
 

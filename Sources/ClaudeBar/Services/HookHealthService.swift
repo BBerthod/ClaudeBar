@@ -1,9 +1,22 @@
 import Foundation
+import Security
 
 @Observable
 @MainActor
 final class HookHealthService {
     private(set) var hookEntries: [HookHealthEntry] = []
+
+    // MARK: - Enhanced Diagnostics
+
+    enum CacheStatus: String, Sendable {
+        case unknown = "Unknown"
+        case fresh = "Fresh"
+        case stale = "Stale"
+        case missing = "Missing"
+    }
+
+    private(set) var statsCacheStatus: CacheStatus = .unknown
+    private(set) var hasOAuthCredentials = false
 
     var totalHookTypes: Int { hookEntries.count }
 
@@ -25,6 +38,12 @@ final class HookHealthService {
             hookEntries = []
             return
         }
+
+        // Check stats-cache freshness
+        checkStatsCacheStatus()
+
+        // Check OAuth credentials in Keychain
+        checkOAuthCredentials()
 
         var entries: [HookHealthEntry] = []
 
@@ -121,5 +140,39 @@ final class HookHealthService {
             return .notExecutable
         }
         return .ok
+    }
+
+    // MARK: - Stats Cache Check
+
+    private func checkStatsCacheStatus() {
+        let path = NSString(string: "~/.claude/stats-cache.json").expandingTildeInPath
+        let fm = FileManager.default
+
+        guard fm.fileExists(atPath: path) else {
+            statsCacheStatus = .missing
+            return
+        }
+
+        guard let attrs = try? fm.attributesOfItem(atPath: path),
+              let mtime = attrs[.modificationDate] as? Date else {
+            statsCacheStatus = .unknown
+            return
+        }
+
+        let age = Date().timeIntervalSince(mtime)
+        statsCacheStatus = age < 3600 ? .fresh : .stale
+    }
+
+    // MARK: - OAuth Credentials Check
+
+    private func checkOAuthCredentials() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "Claude Code-credentials",
+            kSecReturnData as String: false,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        hasOAuthCredentials = (status == errSecSuccess)
     }
 }
