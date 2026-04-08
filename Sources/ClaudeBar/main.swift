@@ -183,7 +183,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateStatusLabel() {
         guard let button = statusItem.button else { return }
-        button.title = ""
 
         // Hover tooltip: quick glance without opening the popover
         let msgs = statsService.todayMessages > 0 ? statsService.todayMessages : liveStatsService.todayMessages
@@ -198,5 +197,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !pct.isEmpty { parts.append(pct) }
 
         button.toolTip = parts.isEmpty ? "ClaudeBar — No activity today" : parts.joined(separator: " · ")
+
+        // Micro-indicator next to the brain icon: cost > 0, or active session dot, or nothing
+        if cost > 0 {
+            button.title = CostCalculator.formatCost(cost)
+        } else if sessions > 0 {
+            button.title = "●"
+        } else {
+            button.title = ""
+        }
     }
 }

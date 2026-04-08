@@ -2,9 +2,8 @@ import SwiftUI
 import Charts
 
 enum HistoryPeriod: String, CaseIterable {
-    case week   = "7 days"
-    case month  = "30 days"
-    case all    = "All time"
+    case week  = "7 days"
+    case month = "30 days"
 }
 
 enum HistoryChart: String, CaseIterable {
@@ -24,7 +23,6 @@ struct HistoryView: View {
         switch period {
         case .week:  return Array(all.suffix(7))
         case .month: return all
-        case .all:   return all
         }
     }
 
@@ -33,7 +31,6 @@ struct HistoryView: View {
         switch period {
         case .week:  return Array(all.suffix(7))
         case .month: return all
-        case .all:   return all
         }
     }
 
