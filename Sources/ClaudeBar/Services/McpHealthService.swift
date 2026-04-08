@@ -90,6 +90,14 @@ final class McpHealthService {
         }
     }
 
+    /// Returns `true` if any configured MCP server has "codex" in its name or endpoint.
+    var hasCodexConfigured: Bool {
+        servers.contains {
+            $0.name.lowercased().contains("codex") ||
+            $0.endpoint.lowercased().contains("codex")
+        }
+    }
+
     // MARK: - Health Check
 
     func checkAll() {

@@ -92,7 +92,19 @@ struct DashboardView: View {
             details: hasGemini ? nil : "Not tracked"
         )
 
-        return [claudeProvider, geminiProvider]
+        let hasCodex = mcpHealthService.hasCodexConfigured || statsService.tokensByModelToday.contains {
+            $0.model.lowercased().contains("codex") || $0.model.lowercased().contains("gpt")
+        }
+        let codexProvider = ProviderInfo(
+            name: "Codex",
+            icon: "chevron.left.forwardslash.chevron.right",
+            isConfigured: hasCodex,
+            totalTokens: nil,
+            estimatedCost: nil,
+            details: hasCodex ? nil : "Not tracked"
+        )
+
+        return [claudeProvider, geminiProvider, codexProvider]
     }
 
     // MARK: - 7-day sparkline data
