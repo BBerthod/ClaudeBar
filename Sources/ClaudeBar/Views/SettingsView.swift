@@ -844,7 +844,8 @@ struct SettingsView: View {
     }
 
     private func maskedValue(_ value: String) -> String {
-        return value
+        guard value.count > 4 else { return String(repeating: "•", count: value.count) }
+        return String(repeating: "•", count: value.count - 4) + value.suffix(4)
     }
 }
 
