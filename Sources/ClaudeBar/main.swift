@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let notificationService = NotificationService()
     let usageService = UsageService()
     let liveStatsService = LiveStatsService()
+    let ledgerService = LedgerService()
     let overlayManager = OverlayManager()
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
@@ -32,14 +33,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let anomalyService = AnomalyService()
 
     private var refreshTimer: Timer?
+    private var globalHotkeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         setupPopover()
         loadInitialData()
         startRefreshTimer()
+        setupGlobalHotkey()
         // Hide dock icon AFTER status item is created
         NSApp.setActivationPolicy(.accessory)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let monitor = globalHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalHotkeyMonitor = nil
+        }
     }
 
     // MARK: - Status Item
@@ -75,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notificationService: notificationService,
             usageService: usageService,
             liveStatsService: liveStatsService,
+            ledgerService: ledgerService,
             overlayManager: overlayManager,
             desktopWidgetManager: desktopWidgetManager,
             launchAtLoginService: launchAtLoginService,
@@ -100,6 +111,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // causing the .transient popover to dismiss immediately.
             NSApp.activate()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
+    }
+
+    // MARK: - Global Hotkey
+
+    private func setupGlobalHotkey() {
+        // Cmd+Shift+C (keyCode 8 = 'c')
+        globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.modifierFlags.contains([.command, .shift]),
+                  event.keyCode == 8 else { return }
+            Task { @MainActor in
+                self?.togglePopover()
+            }
         }
     }
 
@@ -164,6 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notificationService: notificationService,
             usageService: usageService,
             liveStatsService: liveStatsService,
+            ledgerService: ledgerService,
             overlayManager: overlayManager,
             desktopWidgetManager: desktopWidgetManager,
             launchAtLoginService: launchAtLoginService,
