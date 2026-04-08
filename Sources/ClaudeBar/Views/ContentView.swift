@@ -4,6 +4,7 @@ enum Tab: String, CaseIterable {
     case dashboard = "Dashboard"
     case history   = "History"
     case projects  = "Projects"
+    case ledger    = "Ledger"
     case sessions  = "Sessions"
     case settings  = "Settings"
 
@@ -12,6 +13,7 @@ enum Tab: String, CaseIterable {
         case .dashboard: "gauge.with.dots.needle.33percent"
         case .history:   "chart.xyaxis.line"
         case .projects:  "folder"
+        case .ledger:    "list.bullet.clipboard"
         case .sessions:  "terminal"
         case .settings:  "gearshape"
         }
@@ -23,6 +25,7 @@ enum Tab: String, CaseIterable {
         case .dashboard: "Dash"
         case .history:   "History"
         case .projects:  "Projects"
+        case .ledger:    "Ledger"
         case .sessions:  "Sessions"
         case .settings:  "Settings"
         }
@@ -39,6 +42,7 @@ struct ContentView: View {
     var notificationService: NotificationService
     var usageService: UsageService
     var liveStatsService: LiveStatsService
+    var ledgerService: LedgerService
     var overlayManager: OverlayManager
     var desktopWidgetManager: DesktopWidgetManager
     var launchAtLoginService: LaunchAtLoginService
@@ -64,11 +68,14 @@ struct ContentView: View {
                 Button("") { selectedTab = .projects }
                     .keyboardShortcut("3", modifiers: .command)
                     .hidden()
-                Button("") { selectedTab = .sessions }
+                Button("") { selectedTab = .ledger }
                     .keyboardShortcut("4", modifiers: .command)
                     .hidden()
-                Button("") { selectedTab = .settings }
+                Button("") { selectedTab = .sessions }
                     .keyboardShortcut("5", modifiers: .command)
+                    .hidden()
+                Button("") { selectedTab = .settings }
+                    .keyboardShortcut("6", modifiers: .command)
                     .hidden()
             }
 
@@ -141,6 +148,11 @@ struct ContentView: View {
                         projectService: projectService,
                         statsService: statsService
                     )
+                case .ledger:
+                    LedgerView(
+                        ledgerService: ledgerService,
+                        statsService: statsService
+                    )
                 case .sessions:
                     SessionsView(sessionService: sessionService)
                 case .settings:
@@ -171,6 +183,7 @@ struct ContentView: View {
         notificationService: NotificationService(),
         usageService: UsageService(),
         liveStatsService: LiveStatsService(),
+        ledgerService: LedgerService(),
         overlayManager: OverlayManager(),
         desktopWidgetManager: DesktopWidgetManager(),
         launchAtLoginService: LaunchAtLoginService(),
