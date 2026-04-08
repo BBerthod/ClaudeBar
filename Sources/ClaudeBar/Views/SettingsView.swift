@@ -201,7 +201,21 @@ struct SettingsView: View {
                     .frame(width: 100)
                 }
 
+                Divider()
 
+                // Sound alerts
+                Toggle(isOn: Binding(
+                    get: { notificationService.soundEnabled },
+                    set: { notificationService.setSoundEnabled($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sound Alerts")
+                            .font(.subheadline)
+                        Text("Play a sound when usage thresholds are crossed")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .padding(8)
         } label: {
