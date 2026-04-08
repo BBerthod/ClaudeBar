@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let img = NSImage(systemSymbolName: "brain", accessibilityDescription: "ClaudeBar") {
             img.size = NSSize(width: 18, height: 18)
-            img.isTemplate = true
+            img.isTemplate = false   // allow custom tint based on utilization
             button.image = img
         } else {
             button.title = "CB"
@@ -205,6 +205,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.title = "●"
         } else {
             button.title = ""
+        }
+
+        // Update icon tint based on 5h rate limit utilization
+        let util = usageService.usage?.fiveHour?.utilization ?? 0
+        button.contentTintColor = iconColor(for: util)
+    }
+
+    private func iconColor(for utilization: Double) -> NSColor {
+        switch utilization {
+        case ..<50:   return NSColor.controlTextColor          // neutral (follows dark/light)
+        case 50..<80: return NSColor.systemOrange
+        default:      return NSColor.systemRed
         }
     }
 }
