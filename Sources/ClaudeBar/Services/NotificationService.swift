@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import UserNotifications
 
@@ -6,6 +7,7 @@ import UserNotifications
 final class NotificationService {
     private(set) var isAuthorized = false
     private(set) var dailyDigestTime: Int = 18 // hour (0–23), default 6 pm
+    private(set) var soundEnabled: Bool = false
     private(set) var lastDigestDate: String?
     private var lastUsage80AlertKey: String?
     private var lastUsage95AlertKey: String?
@@ -20,6 +22,7 @@ final class NotificationService {
 
     private enum DefaultsKey {
         static let dailyDigestTime = "claudebar.dailyDigestTime"
+        static let soundEnabled    = "claudebar.soundEnabled"
     }
 
     init() {
@@ -27,6 +30,9 @@ final class NotificationService {
         let defaults = UserDefaults.standard
         if defaults.object(forKey: DefaultsKey.dailyDigestTime) != nil {
             dailyDigestTime = defaults.integer(forKey: DefaultsKey.dailyDigestTime)
+        }
+        if defaults.object(forKey: DefaultsKey.soundEnabled) != nil {
+            soundEnabled = defaults.bool(forKey: DefaultsKey.soundEnabled)
         }
 
         startDigestTimer()
@@ -64,6 +70,11 @@ final class NotificationService {
         startDigestTimer()
     }
 
+    func setSoundEnabled(_ value: Bool) {
+        soundEnabled = value
+        UserDefaults.standard.set(value, forKey: DefaultsKey.soundEnabled)
+    }
+
     // MARK: - Usage Threshold Alert
 
     /// Fires a notification at 80 % and/or 95 % of the 5-hour rate-limit window.
@@ -83,6 +94,7 @@ final class NotificationService {
                 body: "5-hour window at \(Int(fiveHourUtilization))% utilization",
                 identifier: alertKey
             )
+            if soundEnabled { NSSound.beep() }
         } else if fiveHourUtilization >= 80 {
             let alertKey = "usage-80-\(resetKey)"
             guard lastUsage80AlertKey != alertKey else { return }
@@ -92,6 +104,7 @@ final class NotificationService {
                 body: "5-hour window at \(Int(fiveHourUtilization))% utilization",
                 identifier: alertKey
             )
+            if soundEnabled { NSSound.beep() }
         }
     }
 
