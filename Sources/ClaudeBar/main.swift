@@ -199,16 +199,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.toolTip = parts.isEmpty ? "ClaudeBar — No activity today" : parts.joined(separator: " · ")
 
         // Micro-indicator next to the brain icon: cost > 0, or active session dot, or nothing
-        if cost > 0 {
-            button.title = CostCalculator.formatCost(cost)
-        } else if sessions > 0 {
-            button.title = "●"
-        } else {
-            button.title = ""
-        }
-
-        // Update icon tint based on 5h rate limit utilization
         let util = usageService.usage?.fiveHour?.utilization ?? 0
+        let alert = util >= 80 ? " ⚠" : ""
+
+        if cost > 0 {
+            button.title = CostCalculator.formatCost(cost) + alert
+        } else if sessions > 0 {
+            button.title = "●" + alert
+        } else {
+            button.title = alert.isEmpty ? "" : alert
+        }
         button.contentTintColor = iconColor(for: util)
     }
 
