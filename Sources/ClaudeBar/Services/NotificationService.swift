@@ -9,8 +9,7 @@ final class NotificationService {
     private(set) var dailyDigestTime: Int = 18 // hour (0–23), default 6 pm
     private(set) var soundEnabled: Bool = false
     private(set) var lastDigestDate: String?
-    private var lastUsage80AlertKey: String?
-    private var lastUsage95AlertKey: String?
+    private var lastAlertKeyByThreshold: [Double: String] = [:]
     private var lastCostAlertDay: Date?
 
     /// Set to `true` by the timer when the digest hour arrives.
@@ -86,23 +85,28 @@ final class NotificationService {
     ///     ISO timestamp of the window's reset time). Used to deduplicate alerts so only one
     ///     notification fires per threshold per window.
     func checkUsageThreshold(fiveHourUtilization: Double, resetKey: String) {
-        if fiveHourUtilization >= 95 {
-            let alertKey = "usage-95-\(resetKey)"
-            guard lastUsage95AlertKey != alertKey else { return }
-            lastUsage95AlertKey = alertKey
+        let defaults = UserDefaults.standard
+        let thresholds: [(enabled: Bool, value: Double)] = [
+            (defaults.bool(forKey: "claudebar.alertThreshold1Enabled", defaultValue: true),
+             defaults.double(forKey: "claudebar.alertThreshold1Value", defaultValue: 0.25)),
+            (defaults.bool(forKey: "claudebar.alertThreshold2Enabled", defaultValue: true),
+             defaults.double(forKey: "claudebar.alertThreshold2Value", defaultValue: 0.50)),
+            (defaults.bool(forKey: "claudebar.alertThreshold3Enabled", defaultValue: true),
+             defaults.double(forKey: "claudebar.alertThreshold3Value", defaultValue: 0.75)),
+            (defaults.bool(forKey: "claudebar.alertThreshold4Enabled", defaultValue: true),
+             defaults.double(forKey: "claudebar.alertThreshold4Value", defaultValue: 0.90)),
+        ]
+
+        let utilization = fiveHourUtilization / 100.0
+
+        for threshold in thresholds where threshold.enabled && utilization >= threshold.value {
+            let alertKey = "alert_\(threshold.value)_\(resetKey)"
+            guard lastAlertKeyByThreshold[threshold.value] != alertKey else { continue }
+            lastAlertKeyByThreshold[threshold.value] = alertKey
+            let pct = Int(threshold.value * 100)
             sendNotification(
-                title: "Rate Limit Critical",
-                body: "5-hour window at \(Int(fiveHourUtilization))% utilization",
-                identifier: alertKey
-            )
-            if soundEnabled { NSSound.beep() }
-        } else if fiveHourUtilization >= 80 {
-            let alertKey = "usage-80-\(resetKey)"
-            guard lastUsage80AlertKey != alertKey else { return }
-            lastUsage80AlertKey = alertKey
-            sendNotification(
-                title: "Rate Limit Warning",
-                body: "5-hour window at \(Int(fiveHourUtilization))% utilization",
+                title: pct >= 90 ? "Rate Limit Critical" : "Rate Limit Warning",
+                body: "5-hour window at \(Int(fiveHourUtilization))% (threshold: \(pct)%)",
                 identifier: alertKey
             )
             if soundEnabled { NSSound.beep() }
@@ -225,5 +229,14 @@ final class NotificationService {
 
     private func todayString() -> String {
         DateFormatter.isoDate.string(from: Date())
+    }
+}
+
+private extension UserDefaults {
+    func bool(forKey key: String, defaultValue: Bool) -> Bool {
+        object(forKey: key) != nil ? bool(forKey: key) : defaultValue
+    }
+    func double(forKey key: String, defaultValue: Double) -> Double {
+        object(forKey: key) != nil ? double(forKey: key) : defaultValue
     }
 }
