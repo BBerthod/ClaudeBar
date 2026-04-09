@@ -39,6 +39,9 @@ struct Sparkline: View {
             .chartYAxis(.hidden)
             .chartLegend(.hidden)
             .frame(maxWidth: .infinity, minHeight: 32)
+            .accessibilityElement()
+            .accessibilityLabel("Activity sparkline")
+            .accessibilityValue("\(data.count) data points, latest \(data.last ?? 0)")
         }
     }
 }

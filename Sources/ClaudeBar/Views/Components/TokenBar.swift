@@ -34,6 +34,9 @@ struct TokenBar: View {
                 }
             }
         }
+        .accessibilityElement()
+        .accessibilityLabel("Token distribution")
+        .accessibilityValue(segments.map { "\($0.model): \($0.tokens.abbreviatedTokenCount)" }.joined(separator: ", "))
     }
 
     private func abbreviate(_ tokens: Int) -> String {
