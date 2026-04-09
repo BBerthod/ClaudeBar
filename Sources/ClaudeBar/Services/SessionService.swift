@@ -29,61 +29,83 @@ final class SessionService {
     // MARK: - Active Sessions
 
     private func loadActiveSessions() {
-        let fm = FileManager.default
-        guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else {
-            activeSessions = []
-            return
+        let sessionsDir = self.sessionsDir
+        let projectsDir = self.projectsDir
+
+        Task.detached(priority: .userInitiated) {
+            let fm = FileManager.default
+            guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else {
+                await MainActor.run {
+                    self.activeSessions = []
+                    self.contextEstimates = [:]
+                }
+                return
+            }
+
+            let decoder = JSONDecoder()
+            var sessions: [ActiveSession] = []
+
+            for filename in files {
+                let filePath = sessionsDir + "/" + filename
+                guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
+                guard let session = try? decoder.decode(ActiveSession.self, from: data) else { continue }
+                guard kill(Int32(session.pid), 0) == 0 else { continue }
+                sessions.append(session)
+            }
+
+            let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
+
+            let estimates = Dictionary(
+                uniqueKeysWithValues: sorted.map { session in
+                    (session.sessionId, SessionService.estimateContext(for: session, projectsDir: projectsDir))
+                }
+            )
+
+            await MainActor.run {
+                self.contextEstimates = estimates
+                self.activeSessions = sorted
+            }
         }
-
-        let decoder = JSONDecoder()
-        var sessions: [ActiveSession] = []
-
-        for filename in files {
-            let filePath = sessionsDir + "/" + filename
-            guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
-            guard let session = try? decoder.decode(ActiveSession.self, from: data) else { continue }
-            guard isProcessRunning(pid: session.pid) else { continue }
-            sessions.append(session)
-        }
-
-        let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
-
-        var estimates: [String: Double] = [:]
-        for session in sorted {
-            estimates[session.sessionId] = estimateContext(for: session)
-        }
-        contextEstimates = estimates
-        activeSessions = sorted
     }
 
     // MARK: - Recent Sessions
 
     private func loadRecentSessions() {
-        let fm = FileManager.default
-        guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else {
-            recentSessions = []
-            return
+        let projectsDir = self.projectsDir
+
+        Task.detached(priority: .userInitiated) {
+            let fm = FileManager.default
+            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else {
+                await MainActor.run {
+                    self.recentSessions = []
+                }
+                return
+            }
+
+            let decoder = JSONDecoder()
+            var allEntries: [SessionIndexEntry] = []
+
+            for projectDir in projectDirs {
+                let indexPath = projectsDir + "/" + projectDir + "/sessions-index.json"
+                guard let data = try? Data(contentsOf: URL(fileURLWithPath: indexPath)) else { continue }
+                guard let index = try? decoder.decode(SessionIndex.self, from: data) else { continue }
+                allEntries.append(contentsOf: index.entries)
+            }
+
+            // Sort by modified date descending, then take the most recent 50
+            allEntries.sort { lhs, rhs in
+                // Treat nil modified as oldest possible
+                guard let lhsMod = lhs.modified else { return false }
+                guard let rhsMod = rhs.modified else { return true }
+                return lhsMod > rhsMod
+            }
+
+            let result = Array(allEntries.prefix(50))
+
+            await MainActor.run {
+                self.recentSessions = result
+            }
         }
-
-        let decoder = JSONDecoder()
-        var allEntries: [SessionIndexEntry] = []
-
-        for projectDir in projectDirs {
-            let indexPath = projectsDir + "/" + projectDir + "/sessions-index.json"
-            guard let data = try? Data(contentsOf: URL(fileURLWithPath: indexPath)) else { continue }
-            guard let index = try? decoder.decode(SessionIndex.self, from: data) else { continue }
-            allEntries.append(contentsOf: index.entries)
-        }
-
-        // Sort by modified date descending, then take the most recent 50
-        allEntries.sort { lhs, rhs in
-            // Treat nil modified as oldest possible
-            guard let lhsMod = lhs.modified else { return false }
-            guard let rhsMod = rhs.modified else { return true }
-            return lhsMod > rhsMod
-        }
-
-        recentSessions = Array(allEntries.prefix(50))
     }
 
     // MARK: - Polling
@@ -110,7 +132,10 @@ final class SessionService {
     ///
     /// Reads the session's JSONL transcript and estimates tokens from file size.
     /// Rough heuristic: ~4 chars per token, JSON overhead ~2×, so tokens ≈ fileSize / 8.
-    func estimateContext(for session: ActiveSession) -> Double {
+    ///
+    /// The `projectsDir` parameter allows this method to be called from off-actor
+    /// contexts (e.g. detached tasks) without capturing `self`.
+    nonisolated static func estimateContext(for session: ActiveSession, projectsDir: String) -> Double {
         // ~/.claude/projects/{encoded-cwd}/{sessionId}.jsonl
         let encodedCwd = session.cwd.replacingOccurrences(of: "/", with: "-")
         let jsonlPath = projectsDir + "/" + encodedCwd + "/" + session.sessionId + ".jsonl"
@@ -130,9 +155,8 @@ final class SessionService {
         return min(estimatedTokens / contextWindow, 1.0)
     }
 
-    // MARK: - Helpers
-
-    private func isProcessRunning(pid: Int) -> Bool {
-        kill(Int32(pid), 0) == 0
+    /// Instance wrapper preserving the original public interface.
+    func estimateContext(for session: ActiveSession) -> Double {
+        SessionService.estimateContext(for: session, projectsDir: projectsDir)
     }
 }
