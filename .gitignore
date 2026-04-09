@@ -5,5 +5,12 @@ build/
 xcuserdata/
 DerivedData/
 .DS_Store
-build/
 ClaudeBar.app
+
+# Claude Code configuration (private)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+
+# Internal planning documents
+docs/plans/

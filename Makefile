@@ -15,7 +15,7 @@ app: release
 	@mkdir -p build/ClaudeBar.app/Contents/MacOS
 	@mkdir -p build/ClaudeBar.app/Contents/Resources
 	@cp .build/release/ClaudeBar build/ClaudeBar.app/Contents/MacOS/
-	@/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.billyberthod.claudebar" \
+	@/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string io.github.claudebar" \
 		-c "Add :CFBundleName string ClaudeBar" \
 		-c "Add :CFBundleDisplayName string ClaudeBar" \
 		-c "Add :CFBundleVersion string 1.0.0" \

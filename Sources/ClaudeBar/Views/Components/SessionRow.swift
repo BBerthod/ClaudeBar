@@ -50,13 +50,13 @@ struct SessionRow: View {
     VStack(spacing: 8) {
         SessionRow(
             projectName: "my-laravel-app",
-            detail: "/Users/billy/Dev/my-laravel-app",
+            detail: "/Users/username/Dev/my-laravel-app",
             duration: "2h 15m",
             isActive: true
         )
         SessionRow(
             projectName: "ClaudeBar",
-            detail: "/Users/billy/Dev/ClaudeBar",
+            detail: "/Users/username/Dev/ClaudeBar",
             duration: "45m",
             isActive: false
         )
