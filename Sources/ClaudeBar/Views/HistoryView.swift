@@ -19,6 +19,7 @@ struct HistoryView: View {
 
     @State private var period: HistoryPeriod = .month
     @State private var chartType: HistoryChart = .cost
+    @State private var contributionMetric: ContributionMetric = .tokens
 
     private var filteredActivity: [DailyActivity] {
         let all = statsService.last30DaysActivity
@@ -122,11 +123,33 @@ struct HistoryView: View {
         filteredActivity.reduce(0) { $0 + $1.sessionCount }
     }
 
+    // MARK: - Contribution graph
+
+    private var contributionSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if yearlyHistoryService.isLoading {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(.tertiary)
+                    .frame(height: 80)
+                    .overlay { ProgressView() }
+                    .padding(.horizontal, 12)
+            } else {
+                ContributionGraph(
+                    dayStats: yearlyHistoryService.dayStats,
+                    metric: $contributionMetric
+                )
+                .padding(.horizontal, 12)
+            }
+        }
+        .padding(.top, 12)
+    }
+
     // MARK: - Body
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                contributionSection
                 periodPicker
                 chartTypePicker
                 summaryCards
