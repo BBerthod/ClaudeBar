@@ -1,4 +1,4 @@
-.PHONY: build release app run install uninstall clean update
+.PHONY: build release app run install uninstall clean update icon
 
 # Development build
 build:
@@ -8,6 +8,14 @@ build:
 release:
 	swift build -c release
 
+# Generate app icon (requires macOS with AppKit)
+icon:
+	@echo "Generating app icon..."
+	@mkdir -p Resources/AppIcon.iconset
+	@swift scripts/generate_icon.swift
+	@iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
+	@echo "✓ Resources/AppIcon.icns generated"
+
 # Create .app bundle
 app: release
 	@echo "Bundling ClaudeBar.app..."
@@ -15,6 +23,7 @@ app: release
 	@mkdir -p build/ClaudeBar.app/Contents/MacOS
 	@mkdir -p build/ClaudeBar.app/Contents/Resources
 	@cp .build/release/ClaudeBar build/ClaudeBar.app/Contents/MacOS/
+	@if [ -f Resources/AppIcon.icns ]; then cp Resources/AppIcon.icns build/ClaudeBar.app/Contents/Resources/; fi
 	@/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string io.github.claudebar" \
 		-c "Add :CFBundleName string ClaudeBar" \
 		-c "Add :CFBundleDisplayName string ClaudeBar" \
@@ -25,6 +34,7 @@ app: release
 		-c "Add :LSUIElement bool true" \
 		-c "Add :LSMinimumSystemVersion string 14.0" \
 		-c "Add :NSHighResolutionCapable bool true" \
+		-c "Add :CFBundleIconFile string AppIcon" \
 		build/ClaudeBar.app/Contents/Info.plist
 	@echo "✓ build/ClaudeBar.app created"
 

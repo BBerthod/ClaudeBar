@@ -11,6 +11,7 @@ final class NotificationService {
     private(set) var lastDigestDate: String?
     private var lastUsage80AlertKey: String?
     private var lastUsage95AlertKey: String?
+    private var lastCostAlertDay: Date?
 
     /// Set to `true` by the timer when the digest hour arrives.
     /// The app can observe this and call `sendDailyDigest(...)` then reset it.
@@ -106,6 +107,28 @@ final class NotificationService {
             )
             if soundEnabled { NSSound.beep() }
         }
+    }
+
+    // MARK: - Cost Alert Threshold
+
+    /// Sends a cost alert notification if the threshold is crossed and not already sent today.
+    func sendCostAlertIfNeeded(cost: Double, threshold: Double) {
+        let today = Calendar.current.startOfDay(for: Date())
+        // Only alert once per day per threshold crossing
+        if let lastAlertDay = lastCostAlertDay, lastAlertDay >= today { return }
+        lastCostAlertDay = today
+
+        let content = UNMutableNotificationContent()
+        content.title = "ClaudeBar — Cost Alert"
+        content.body = "Daily cost reached \(CostCalculator.formatCost(cost)) (threshold: \(CostCalculator.formatCost(threshold)))"
+        content.sound = soundEnabled ? .default : nil
+
+        let request = UNNotificationRequest(
+            identifier: "cost-alert-\(today.timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
     // MARK: - Cost Anomaly Alert

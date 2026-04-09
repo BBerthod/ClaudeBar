@@ -14,6 +14,10 @@ struct SettingsView: View {
     @State private var expandedHooks = false
     @State private var expandedHookHealth = false
     @State private var staleCleaned = 0
+    @AppStorage("claudebar.refreshInterval") private var refreshInterval: Double = 30
+    @AppStorage("claudebar.showStatusBarIndicator") private var showStatusBarIndicator: Bool = false
+    @AppStorage("claudebar.showIconTinting") private var showIconTinting: Bool = true
+    @AppStorage("claudebar.costAlertThreshold") private var costAlertThreshold: Double = 0
 
     var body: some View {
         ScrollView {
@@ -21,6 +25,8 @@ struct SettingsView: View {
                 if let error = settingsService.lastError {
                     errorBanner(error)
                 }
+
+                displaySection()
 
                 quickActionsSection
 
@@ -44,6 +50,61 @@ struct SettingsView: View {
             }
             .padding(.top, 12)
         }
+    }
+
+    // MARK: - Display & Alerts
+
+    @ViewBuilder
+    private func displaySection() -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                // Status bar indicator toggle
+                Toggle(isOn: $showStatusBarIndicator) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Status bar indicator")
+                            .font(.subheadline)
+                        Text("Show cost or session dot next to the menu bar icon")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Divider()
+
+                // Icon tinting toggle
+                Toggle(isOn: $showIconTinting) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Usage-based icon tinting")
+                            .font(.subheadline)
+                        Text("Color the brain icon orange/red when API usage is high")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Divider()
+
+                // Cost alert threshold
+                HStack {
+                    Label("Daily cost alert", systemImage: "dollarsign.circle")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("", selection: $costAlertThreshold) {
+                        Text("Off").tag(0.0)
+                        Text("$1").tag(1.0)
+                        Text("$5").tag(5.0)
+                        Text("$10").tag(10.0)
+                        Text("$25").tag(25.0)
+                        Text("$50").tag(50.0)
+                    }
+                    .frame(width: 80)
+                }
+            }
+            .padding(8)
+        } label: {
+            sectionLabel("Display & Alerts")
+        }
+        .padding(.horizontal, 12)
     }
 
     // MARK: - App
@@ -127,6 +188,29 @@ struct SettingsView: View {
                         .font(.caption2)
                         .foregroundStyle(.green)
                 }
+            }
+            .padding(8)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Label("Refresh interval", systemImage: "clock.arrow.2.circlepath")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("", selection: $refreshInterval) {
+                        Text("30 sec").tag(30.0)
+                        Text("1 min").tag(60.0)
+                        Text("5 min").tag(300.0)
+                        Text("10 min").tag(600.0)
+                        Text("30 min").tag(1800.0)
+                        Text("1 hour").tag(3600.0)
+                    }
+                    .frame(width: 110)
+                }
+                Text("How often ClaudeBar updates the burn rate and status")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
             .padding(8)
         } label: {
