@@ -155,7 +155,7 @@ struct QuickResumeBar: View {
             created: nil,
             modified: "2026-03-17T10:00:00Z",
             gitBranch: "feature/auth",
-            projectPath: "/Users/billy/Dev/my-laravel-app",
+            projectPath: "/Users/username/Dev/my-laravel-app",
             isSidechain: nil
         ),
         SessionIndexEntry(
@@ -168,7 +168,7 @@ struct QuickResumeBar: View {
             created: nil,
             modified: "2026-03-16T15:30:00Z",
             gitBranch: "hotfix/payment",
-            projectPath: "/Users/billy/Dev/shop-backend",
+            projectPath: "/Users/username/Dev/shop-backend",
             isSidechain: nil
         ),
     ]
