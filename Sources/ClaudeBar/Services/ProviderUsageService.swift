@@ -58,11 +58,23 @@ final class ProviderUsageService {
             return
         }
 
-        let rows = await Task.detached(priority: .utility) {
-            ProviderUsageService.queryCodexDb(at: dbPath)
+        // Compute local-timezone start-of-day to avoid SQLite's UTC strftime
+        let localCutoff = Int(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970)
+
+        let result = await Task.detached(priority: .utility) {
+            ProviderUsageService.queryCodexDb(at: dbPath, startOfDayEpoch: localCutoff)
         }.value
 
-        let parsed = rows.compactMap { Self.parseCodexRow($0) }
+        guard result.success else {
+            isCodexAvailable = false
+            codexSessionsToday = 0
+            codexTokensToday = 0
+            codexLastModel = nil
+            codexContextLimitHitsToday = 0
+            return
+        }
+
+        let parsed = result.rows.compactMap { Self.parseCodexRow($0) }
 
         var sessionMap: [String: (maxTokens: Int, model: String, limitHit: Bool)] = [:]
         for entry in parsed {
@@ -86,8 +98,9 @@ final class ProviderUsageService {
         codexTokensToday = sessions.reduce(0) { $0 + $1.maxTokens }
         codexContextLimitHitsToday = sessions.filter { $0.limitHit }.count
 
-        if let lastEntry = parsed.last {
-            codexLastModel = sessionMap[lastEntry.processUUID]?.model
+        // Query is ORDER BY ts DESC — parsed.first is the most recent entry.
+        if let newestEntry = parsed.first {
+            codexLastModel = sessionMap[newestEntry.processUUID]?.model
         } else {
             codexLastModel = nil
         }
@@ -134,12 +147,15 @@ final class ProviderUsageService {
         return value.isEmpty ? nil : value
     }
 
-    private nonisolated static func queryCodexDb(at dbPath: String) -> [String] {
+    private nonisolated static func queryCodexDb(
+        at dbPath: String,
+        startOfDayEpoch: Int
+    ) -> (success: Bool, rows: [String]) {
         let query = """
         SELECT process_uuid, ts, feedback_log_body \
         FROM logs \
         WHERE feedback_log_body LIKE '%total_usage_tokens%' \
-          AND ts >= strftime('%s', 'now', 'start of day') \
+          AND ts >= \(startOfDayEpoch) \
         ORDER BY ts DESC \
         LIMIT 500
         """
@@ -152,12 +168,16 @@ final class ProviderUsageService {
         do {
             try process.run()
             process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                return (success: false, rows: [])
+            }
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8)?
+            let rows = String(data: data, encoding: .utf8)?
                 .components(separatedBy: "\n")
                 .filter { !$0.isEmpty } ?? []
+            return (success: true, rows: rows)
         } catch {
-            return []
+            return (success: false, rows: [])
         }
     }
 
