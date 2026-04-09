@@ -117,18 +117,11 @@ final class NotificationService {
         // Only alert once per day per threshold crossing
         if let lastAlertDay = lastCostAlertDay, lastAlertDay >= today { return }
         lastCostAlertDay = today
-
-        let content = UNMutableNotificationContent()
-        content.title = "ClaudeBar — Cost Alert"
-        content.body = "Daily cost reached \(CostCalculator.formatCost(cost)) (threshold: \(CostCalculator.formatCost(threshold)))"
-        content.sound = soundEnabled ? .default : nil
-
-        let request = UNNotificationRequest(
-            identifier: "cost-alert-\(today.timeIntervalSince1970)",
-            content: content,
-            trigger: nil
+        sendNotification(
+            title: "ClaudeBar — Cost Alert",
+            body: "Daily cost reached \(CostCalculator.formatCost(cost)) (threshold: \(CostCalculator.formatCost(threshold)))",
+            identifier: "cost-alert-\(today.timeIntervalSince1970)"
         )
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
     // MARK: - Cost Anomaly Alert
