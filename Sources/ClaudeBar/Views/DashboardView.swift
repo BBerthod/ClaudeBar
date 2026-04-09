@@ -15,6 +15,7 @@ struct DashboardView: View {
     @Environment(LiveStatsService.self) private var liveStatsService
     @Environment(McpHealthService.self) private var mcpHealthService
     @Environment(ProviderUsageService.self) private var providerUsageService
+    @Environment(UpdateCheckService.self) private var updateCheckService
     var onRefresh: (() -> Void)?
 
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
@@ -213,6 +214,29 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                // Update banner
+                if updateCheckService.updateAvailable, let version = updateCheckService.latestVersion {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .foregroundStyle(.blue)
+                        Text("ClaudeBar \(version) available")
+                            .font(.caption)
+                        Spacer()
+                        if let url = updateCheckService.releaseURL.flatMap({ URL(string: $0) }) {
+                            Button("View") {
+                                NSWorkspace.shared.open(url)
+                            }
+                            .font(.caption)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, 12)
+                }
+
                 // Header: cost + date row
                 HStack(alignment: .center, spacing: 8) {
                     // Left: date label + refresh

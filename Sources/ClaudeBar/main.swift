@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
     let yearlyHistoryService = YearlyHistoryService()
+    let updateCheckService = UpdateCheckService()
 
     private var refreshTimer: Timer?
     private var globalHotkeyMonitor: Any?
@@ -151,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environment(mcpHealthService)
         .environment(providerUsageService)
         .environment(yearlyHistoryService)
+        .environment(updateCheckService)
 
         popover = NSPopover()
         popover.contentSize = NSSize(width: 420, height: 520)
@@ -261,6 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environment(mcpHealthService)
         .environment(providerUsageService)
         .environment(yearlyHistoryService)
+        .environment(updateCheckService)
         mainWindowManager.show(content: contentView)
         // Close popover when opening the main window
         popover?.performClose(nil)
