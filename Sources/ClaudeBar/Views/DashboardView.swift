@@ -306,10 +306,12 @@ struct DashboardView: View {
                         burnRateCard(rate)
                             .help("Compares today's projected cost to your 30-day average")
 
-                        // 5h window projection
+                        // 5h window projection — only shown after 10% of the window has elapsed
+                        // to avoid wildly misleading projections at window start.
                         if let fiveHour = usageService.usage?.fiveHour,
-                           let pace = usageService.fiveHourPace {
-                            let projected = fiveHour.utilization / max(usageService.fiveHourElapsedFraction, 0.05)
+                           let pace = usageService.fiveHourPace,
+                           usageService.fiveHourElapsedFraction >= 0.10 {
+                            let projected = fiveHour.utilization / usageService.fiveHourElapsedFraction
                             HStack(spacing: 4) {
                                 Text("5h projected: \(Int(min(projected, 999)))%")
                                     .font(.caption2)
@@ -322,6 +324,7 @@ struct DashboardView: View {
                                     .foregroundStyle(projected > 100 ? .red : .secondary)
                             }
                             .padding(.leading, 4)
+                            .help("Extrapolation based on current pace — only shown after 10% of the 5h window has elapsed")
                         }
                     }
                     .padding(.horizontal, 12)
@@ -389,6 +392,7 @@ struct DashboardView: View {
                                 if let ctx = sessionService.contextEstimates[session.sessionId],
                                    ctx > 0 {
                                     ContextGauge(percentage: ctx, compact: true)
+                                        .help("Estimated context window usage (approximation based on JSONL file size — actual usage may differ)")
                                 }
                             }
                             .padding(.horizontal, 12)
