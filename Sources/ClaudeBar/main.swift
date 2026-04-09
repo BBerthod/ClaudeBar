@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.currentEvent?.type == .rightMouseUp {
             let menu = NSMenu()
             let relaunch = NSMenuItem(
-                title: "Relancer ClaudeBar",
+                title: "Relaunch ClaudeBar",
                 action: #selector(relaunchApp),
                 keyEquivalent: ""
             )
@@ -92,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(relaunch)
             menu.addItem(NSMenuItem.separator())
             let quit = NSMenuItem(
-                title: "Quitter ClaudeBar",
+                title: "Quit ClaudeBar",
                 action: #selector(quitApp),
                 keyEquivalent: ""
             )
