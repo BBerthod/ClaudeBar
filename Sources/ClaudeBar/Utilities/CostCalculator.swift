@@ -140,16 +140,23 @@ enum CostCalculator {
         for day in stats.dailyModelTokens {
             for (modelId, tokenCount) in day.tokensByModel {
                 let p = pricing(for: modelId)
+                let displayName = StatsService.displayName(for: modelId)
                 if let usage = stats.modelUsage[modelId] {
                     let io = usage.inputTokens + usage.outputTokens
-                    guard io > 0 else { continue }
+                    guard io > 0 else {
+                        // io is 0 but tokens exist — use input-only pricing as fallback
+                        costByModel[displayName, default: 0] += Double(tokenCount) / mTok * p.inputPerMTok
+                        continue
+                    }
                     let frac = Double(tokenCount) / Double(io)
                     let cost = (Double(usage.inputTokens)              * frac / mTok * p.inputPerMTok
                               + Double(usage.outputTokens)             * frac / mTok * p.outputPerMTok
                               + Double(usage.cacheReadInputTokens)     * frac / mTok * p.cacheReadPerMTok
                               + Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
-                    let displayName = StatsService.displayName(for: modelId)
                     costByModel[displayName, default: 0] += cost
+                } else {
+                    // No detailed usage — use input-only pricing (matches estimateDailyCost fallback)
+                    costByModel[displayName, default: 0] += Double(tokenCount) / mTok * p.inputPerMTok
                 }
             }
         }
