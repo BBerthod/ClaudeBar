@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import UserNotifications
+import os
 
 @Observable
 @MainActor
@@ -58,6 +59,7 @@ final class NotificationService {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             Task { @MainActor in
                 self.isAuthorized = granted
+                Log.notifications.info("Notification authorization: \(granted ? "granted" : "denied")")
             }
         }
     }
@@ -192,6 +194,7 @@ final class NotificationService {
 
     private func sendNotification(title: String, body: String, identifier: String) {
         guard isAuthorized else { return }
+        Log.notifications.info("Sending notification: \(title)")
 
         if usesOsascriptFallback {
             sendViaOsascript(title: title, body: body)

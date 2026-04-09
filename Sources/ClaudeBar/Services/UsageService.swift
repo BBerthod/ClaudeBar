@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import os
 
 /// Fetches real-time usage/rate-limit data from the Anthropic OAuth API.
 @Observable
@@ -191,6 +192,7 @@ final class UsageService {
             )
 
             cachedToken = newOAuthTokens
+            Log.usage.info("OAuth token refreshed successfully")
 
             // Persist to Keychain using the service name captured at load time
             if let service = keychainServiceName {
@@ -259,6 +261,7 @@ final class UsageService {
                 // Back off for 10 minutes when rate-limited
                 retryAfter = Date().addingTimeInterval(600)
                 lastError = "Rate limited — retrying in 10 min"
+                Log.usage.error("Usage API rate limited (429) — backing off 10 min")
                 return
             }
 
@@ -271,6 +274,7 @@ final class UsageService {
             usage = try decoder.decode(UsageResponse.self, from: data)
             lastError = nil
             lastFetched = Date()
+            Log.usage.info("Usage fetched — 5h: \(self.usage?.fiveHour?.utilization ?? 0, format: .fixed(precision: 1))%")
         } catch {
             lastError = error.localizedDescription
         }

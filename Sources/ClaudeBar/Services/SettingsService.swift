@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 @Observable
 @MainActor
@@ -30,6 +31,7 @@ final class SettingsService {
             lastError = nil
         } catch {
             lastError = error.localizedDescription
+            Log.settings.error("Failed to load settings: \(error.localizedDescription)")
         }
     }
 
@@ -61,21 +63,36 @@ final class SettingsService {
         guard let idx = plugins.firstIndex(where: { $0.name == name }) else { return }
         plugins[idx].enabled = enabled
         current.plugins = plugins
-        do { try saveSettings(current) } catch { lastError = error.localizedDescription }
+        do {
+            try saveSettings(current)
+        } catch {
+            lastError = error.localizedDescription
+            Log.settings.error("Failed to save settings: \(error.localizedDescription)")
+        }
     }
 
     /// Set the effort level (e.g. "low", "medium", "high").
     func setEffortLevel(_ level: String) {
         var current = settings ?? ClaudeSettings()
         current.effortLevel = level
-        do { try saveSettings(current) } catch { lastError = error.localizedDescription }
+        do {
+            try saveSettings(current)
+        } catch {
+            lastError = error.localizedDescription
+            Log.settings.error("Failed to save settings: \(error.localizedDescription)")
+        }
     }
 
     /// Enable or disable the "always thinking" model behaviour.
     func setThinkingEnabled(_ enabled: Bool) {
         var current = settings ?? ClaudeSettings()
         current.alwaysThinkingEnabled = enabled
-        do { try saveSettings(current) } catch { lastError = error.localizedDescription }
+        do {
+            try saveSettings(current)
+        } catch {
+            lastError = error.localizedDescription
+            Log.settings.error("Failed to save settings: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - File Watching

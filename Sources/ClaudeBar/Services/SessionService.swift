@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import os
 
 @Observable
 @MainActor
@@ -62,8 +63,12 @@ final class SessionService {
             )
 
             await MainActor.run {
+                let previousCount = self.activeSessions.count
                 self.contextEstimates = estimates
                 self.activeSessions = sorted
+                if sorted.count != previousCount {
+                    Log.sessions.info("Active sessions: \(sorted.count)")
+                }
             }
         }
     }

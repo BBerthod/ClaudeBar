@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 @Observable
 @MainActor
@@ -141,12 +142,14 @@ final class StatsService {
             let decoder = JSONDecoder()
             stats = try decoder.decode(StatsCache.self, from: data)
             lastError = nil
+            Log.stats.info("Stats loaded — \(self.todayTokens) tokens today")
         } catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileNoSuchFileError {
             // File doesn't exist yet — not an error, just no data
             stats = nil
             lastError = nil
         } catch {
             lastError = error.localizedDescription
+            Log.stats.error("Failed to load stats: \(error.localizedDescription)")
         }
     }
 

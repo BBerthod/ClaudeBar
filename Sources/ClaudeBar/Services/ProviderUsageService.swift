@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 @Observable
 @MainActor
@@ -66,6 +67,7 @@ final class ProviderUsageService {
         }.value
 
         guard result.success else {
+            Log.providers.error("Codex DB query failed at \(dbPath, privacy: .private)")
             isCodexAvailable = false
             codexSessionsToday = 0
             codexTokensToday = 0
