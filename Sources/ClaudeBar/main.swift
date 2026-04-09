@@ -24,11 +24,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let notificationService = NotificationService()
     let usageService = UsageService()
     let liveStatsService = LiveStatsService()
-    let ledgerService = LedgerService()
     let overlayManager = OverlayManager()
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
     let mcpHealthService = McpHealthService()
+    let providerUsageService = ProviderUsageService()
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
 
@@ -40,6 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupPopover()
         loadInitialData()
         startRefreshTimer()
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            // queue: .main guarantees we are already on the main actor
+            MainActor.assumeIsolated {
+                self.restartRefreshTimer()
+            }
+        }
         setupGlobalHotkey()
         // Hide dock icon AFTER status item is created
         NSApp.setActivationPolicy(.accessory)
@@ -68,8 +75,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.title = "CB"
         }
 
-        button.action = #selector(togglePopover)
+        button.action = #selector(handleStatusItemClick(_:))
         button.target = self
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            let menu = NSMenu()
+            let relaunch = NSMenuItem(
+                title: "Relancer ClaudeBar",
+                action: #selector(relaunchApp),
+                keyEquivalent: ""
+            )
+            relaunch.target = self
+            menu.addItem(relaunch)
+            menu.addItem(NSMenuItem.separator())
+            let quit = NSMenuItem(
+                title: "Quitter ClaudeBar",
+                action: #selector(quitApp),
+                keyEquivalent: ""
+            )
+            quit.target = self
+            menu.addItem(quit)
+            statusItem.menu = menu
+            statusItem.button?.performClick(nil)
+            statusItem.menu = nil
+        } else {
+            togglePopover()
+        }
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
+    }
+
+    @objc private func relaunchApp() {
+        guard let execPath = Bundle.main.executablePath else {
+            NSApp.terminate(nil)
+            return
+        }
+        let process = Process()
+        let bundlePath = Bundle.main.bundlePath
+        if bundlePath.hasSuffix(".app") {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            process.arguments = [bundlePath]
+        } else {
+            process.executableURL = URL(fileURLWithPath: execPath)
+            process.arguments = []
+        }
+        try? process.run()
+        NSApp.terminate(nil)
     }
 
     // MARK: - Popover
@@ -85,11 +141,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notificationService: notificationService,
             usageService: usageService,
             liveStatsService: liveStatsService,
-            ledgerService: ledgerService,
             overlayManager: overlayManager,
             desktopWidgetManager: desktopWidgetManager,
             launchAtLoginService: launchAtLoginService,
             mcpHealthService: mcpHealthService,
+            providerUsageService: providerUsageService,
             onRefresh: { [weak self] in self?.refreshAll() },
             onOpenDashboard: { [weak self] in self?.openAnalytics() }
         )
@@ -148,7 +204,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startRefreshTimer() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        let interval = UserDefaults.standard.double(forKey: "claudebar.refreshInterval")
+        let effectiveInterval = interval > 0 ? interval : 30
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: effectiveInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.burnRateService.update(statsService: self.statsService, liveStatsService: self.liveStatsService)
@@ -176,6 +234,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func restartRefreshTimer() {
+        refreshTimer?.invalidate()
+        startRefreshTimer()
+    }
+
     /// Opens the full window — same content as the popover but in a persistent, resizable window.
     func openAnalytics() {
         let contentView = ContentView(
@@ -188,11 +251,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notificationService: notificationService,
             usageService: usageService,
             liveStatsService: liveStatsService,
-            ledgerService: ledgerService,
             overlayManager: overlayManager,
             desktopWidgetManager: desktopWidgetManager,
             launchAtLoginService: launchAtLoginService,
             mcpHealthService: mcpHealthService,
+            providerUsageService: providerUsageService,
             onRefresh: { [weak self] in self?.refreshAll() }
         )
         mainWindowManager.show(content: contentView)
@@ -211,7 +274,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusLabel() {
         guard let button = statusItem.button else { return }
 
-        // Hover tooltip: quick glance without opening the popover
         let msgs = statsService.todayMessages > 0 ? statsService.todayMessages : liveStatsService.todayMessages
         let cost = statsService.todayCostEstimate > 0 ? statsService.todayCostEstimate : liveStatsService.todayCost
         let sessions = sessionService.activeSessions.count
@@ -225,23 +287,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         button.toolTip = parts.isEmpty ? "ClaudeBar — No activity today" : parts.joined(separator: " · ")
 
-        // Micro-indicator next to the brain icon: cost > 0, or active session dot, or nothing
-        let util = usageService.usage?.fiveHour?.utilization ?? 0
-        let alert = util >= 80 ? " ⚠" : ""
-
-        if cost > 0 {
-            button.title = CostCalculator.formatCost(cost) + alert
-        } else if sessions > 0 {
-            button.title = "●" + alert
+        // Status bar indicator (opt-in, default off)
+        if UserDefaults.standard.bool(forKey: "claudebar.showStatusBarIndicator") {
+            let util = usageService.usage?.fiveHour?.utilization ?? 0
+            let alert = util >= 80 ? " ⚠" : ""
+            if cost > 0 {
+                button.title = CostCalculator.formatCost(cost) + alert
+            } else if sessions > 0 {
+                button.title = "●" + alert
+            } else {
+                button.title = alert.isEmpty ? "" : alert
+            }
         } else {
-            button.title = alert.isEmpty ? "" : alert
+            button.title = ""
         }
+
+        let util = usageService.usage?.fiveHour?.utilization ?? 0
         button.contentTintColor = iconColor(for: util)
+
+        // Cost alert threshold check
+        let threshold = UserDefaults.standard.double(forKey: "claudebar.costAlertThreshold")
+        if threshold > 0 && cost >= threshold {
+            notificationService.sendCostAlertIfNeeded(cost: cost, threshold: threshold)
+        }
     }
 
     private func iconColor(for utilization: Double) -> NSColor {
+        // Default true — only disable if explicitly set to false
+        let tintingEnabled = UserDefaults.standard.object(forKey: "claudebar.showIconTinting") as? Bool ?? true
+        guard tintingEnabled else { return NSColor.controlTextColor }
         switch utilization {
-        case ..<50:   return NSColor.controlTextColor          // neutral (follows dark/light)
+        case ..<50:   return NSColor.controlTextColor
         case 50..<80: return NSColor.systemOrange
         default:      return NSColor.systemRed
         }

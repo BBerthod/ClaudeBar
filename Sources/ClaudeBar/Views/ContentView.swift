@@ -4,7 +4,6 @@ enum Tab: String, CaseIterable {
     case dashboard = "Dashboard"
     case history   = "History"
     case projects  = "Projects"
-    case ledger    = "Ledger"
     case sessions  = "Sessions"
     case settings  = "Settings"
 
@@ -13,7 +12,6 @@ enum Tab: String, CaseIterable {
         case .dashboard: "gauge.with.dots.needle.33percent"
         case .history:   "chart.xyaxis.line"
         case .projects:  "folder"
-        case .ledger:    "list.bullet.clipboard"
         case .sessions:  "terminal"
         case .settings:  "gearshape"
         }
@@ -25,7 +23,6 @@ enum Tab: String, CaseIterable {
         case .dashboard: "Dash"
         case .history:   "History"
         case .projects:  "Projects"
-        case .ledger:    "Ledger"
         case .sessions:  "Sessions"
         case .settings:  "Settings"
         }
@@ -42,11 +39,11 @@ struct ContentView: View {
     var notificationService: NotificationService
     var usageService: UsageService
     var liveStatsService: LiveStatsService
-    var ledgerService: LedgerService
     var overlayManager: OverlayManager
     var desktopWidgetManager: DesktopWidgetManager
     var launchAtLoginService: LaunchAtLoginService
     var mcpHealthService: McpHealthService
+    var providerUsageService: ProviderUsageService
     var onRefresh: (() -> Void)?
     var onOpenDashboard: (() -> Void)?
 
@@ -68,14 +65,11 @@ struct ContentView: View {
                 Button("") { selectedTab = .projects }
                     .keyboardShortcut("3", modifiers: .command)
                     .hidden()
-                Button("") { selectedTab = .ledger }
+                Button("") { selectedTab = .sessions }
                     .keyboardShortcut("4", modifiers: .command)
                     .hidden()
-                Button("") { selectedTab = .sessions }
-                    .keyboardShortcut("5", modifiers: .command)
-                    .hidden()
                 Button("") { selectedTab = .settings }
-                    .keyboardShortcut("6", modifiers: .command)
+                    .keyboardShortcut("5", modifiers: .command)
                     .hidden()
             }
 
@@ -88,16 +82,6 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-
-                Button {
-                    overlayManager.toggle(sessionService: sessionService)
-                } label: {
-                    Image(systemName: overlayManager.isVisible ? "pip.fill" : "pip")
-                        .font(.system(size: 13))
-                        .foregroundStyle(overlayManager.isVisible ? Color.accentColor : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help(overlayManager.isVisible ? "Hide floating overlay" : "Show floating overlay")
 
                 Button {
                     desktopWidgetManager.toggle(
@@ -139,6 +123,7 @@ struct ContentView: View {
                         usageService: usageService,
                         liveStatsService: liveStatsService,
                         mcpHealthService: mcpHealthService,
+                        providerUsageService: providerUsageService,
                         onRefresh: onRefresh
                     )
                 case .history:
@@ -146,11 +131,6 @@ struct ContentView: View {
                 case .projects:
                     ProjectsView(
                         projectService: projectService,
-                        statsService: statsService
-                    )
-                case .ledger:
-                    LedgerView(
-                        ledgerService: ledgerService,
                         statsService: statsService
                     )
                 case .sessions:
@@ -183,10 +163,10 @@ struct ContentView: View {
         notificationService: NotificationService(),
         usageService: UsageService(),
         liveStatsService: LiveStatsService(),
-        ledgerService: LedgerService(),
         overlayManager: OverlayManager(),
         desktopWidgetManager: DesktopWidgetManager(),
         launchAtLoginService: LaunchAtLoginService(),
-        mcpHealthService: McpHealthService()
+        mcpHealthService: McpHealthService(),
+        providerUsageService: ProviderUsageService()
     )
 }

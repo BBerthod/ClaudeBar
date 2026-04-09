@@ -7,6 +7,8 @@ struct ProviderInfo: Identifiable, Sendable {
     var totalTokens: Int?
     var estimatedCost: Double?
     var details: String?           // e.g. "via gemini-delegate MCP"
+    var sessionCount: Int?
+    var contextLimitHits: Int?
 
     var id: String { name }
 }

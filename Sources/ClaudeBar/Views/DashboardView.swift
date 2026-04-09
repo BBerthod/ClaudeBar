@@ -14,6 +14,7 @@ struct DashboardView: View {
     var usageService: UsageService
     var liveStatsService: LiveStatsService
     var mcpHealthService: McpHealthService
+    var providerUsageService: ProviderUsageService
     var onRefresh: (() -> Void)?
 
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
@@ -77,7 +78,9 @@ struct DashboardView: View {
             isConfigured: true,
             totalTokens: claudeTokens > 0 ? claudeTokens : nil,
             estimatedCost: claudeConfigured ? statsService.todayCostEstimate : nil,
-            details: nil
+            details: nil,
+            sessionCount: nil,
+            contextLimitHits: nil
         )
 
         let hasGemini = mcpHealthService.hasGeminiConfigured || statsService.tokensByModelToday.contains {
@@ -86,10 +89,14 @@ struct DashboardView: View {
         let geminiProvider = ProviderInfo(
             name: "Gemini",
             icon: "sparkles",
-            isConfigured: hasGemini,
+            isConfigured: hasGemini || providerUsageService.isGeminiAuthenticated,
             totalTokens: nil,
             estimatedCost: nil,
-            details: hasGemini ? nil : "Not tracked"
+            details: providerUsageService.isGeminiAuthenticated
+                ? (providerUsageService.geminiTokenValid ? nil : "Token expired")
+                : "Not configured",
+            sessionCount: nil,
+            contextLimitHits: nil
         )
 
         let hasCodex = mcpHealthService.hasCodexConfigured || statsService.tokensByModelToday.contains {
@@ -98,10 +105,12 @@ struct DashboardView: View {
         let codexProvider = ProviderInfo(
             name: "Codex",
             icon: "chevron.left.forwardslash.chevron.right",
-            isConfigured: hasCodex,
-            totalTokens: nil,
+            isConfigured: hasCodex || providerUsageService.isCodexAvailable,
+            totalTokens: providerUsageService.isCodexAvailable ? providerUsageService.codexTokensToday : nil,
             estimatedCost: nil,
-            details: hasCodex ? nil : "Not tracked"
+            details: (hasCodex || providerUsageService.isCodexAvailable) ? nil : "Not tracked",
+            sessionCount: providerUsageService.isCodexAvailable ? providerUsageService.codexSessionsToday : nil,
+            contextLimitHits: providerUsageService.codexContextLimitHitsToday > 0 ? providerUsageService.codexContextLimitHitsToday : nil
         )
 
         return [claudeProvider, geminiProvider, codexProvider]
@@ -204,7 +213,7 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                // Header: Today label | 7-day sparkline | cost + 5h gauge
+                // Header: cost + date row
                 HStack(alignment: .center, spacing: 8) {
                     // Left: date label + refresh
                     VStack(alignment: .leading, spacing: 2) {
@@ -238,13 +247,7 @@ struct DashboardView: View {
 
                     Spacer()
 
-                    // Center: 7-day sparkline
-                    Sparkline(data: sevenDaySparklineData)
-                        .help("Message count trend over the last 7 days")
-
-                    Spacer()
-
-                    // Right: cost + 5h gauge stacked
+                    // Right: cost + 5h gauge
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(CostCalculator.formatCost(effectiveCost))
@@ -274,6 +277,12 @@ struct DashboardView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 12)
+
+                // Full-width 7-day sparkline
+                Sparkline(data: sevenDaySparklineData)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .padding(.horizontal, 12)
+                    .help("Message count trend over the last 7 days")
 
                 // Provider summary pills
                 providerSummary
@@ -864,19 +873,55 @@ struct DashboardView: View {
 
     @ViewBuilder
     private func providerPill(_ provider: ProviderInfo) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: provider.icon)
-                .font(.system(size: 10))
-                .foregroundStyle(provider.isConfigured ? .primary : .secondary)
+        let hasUsageData = provider.sessionCount != nil || provider.totalTokens != nil
 
-            Text(provider.name)
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundStyle(provider.isConfigured ? .primary : .secondary)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: provider.icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(provider.isConfigured ? .primary : .secondary)
 
-            Circle()
-                .fill(provider.isConfigured ? Color.green : Color.secondary.opacity(0.4))
-                .frame(width: 5, height: 5)
+                Text(provider.name)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(provider.isConfigured ? .primary : .secondary)
+
+                Circle()
+                    .fill(provider.isConfigured ? Color.green : Color.secondary.opacity(0.4))
+                    .frame(width: 5, height: 5)
+            }
+
+            if hasUsageData {
+                HStack(spacing: 3) {
+                    if let sessions = provider.sessionCount, sessions > 0 {
+                        Text("\(sessions) sess")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if provider.sessionCount != nil, provider.totalTokens != nil {
+                        Text("·")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    if let tokens = provider.totalTokens, tokens > 0 {
+                        Text(tokens.abbreviatedTokenCount)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let hits = provider.contextLimitHits {
+                        Text("·")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Text("\(hits)⚠")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            } else if let details = provider.details {
+                Text(details)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
@@ -885,9 +930,9 @@ struct DashboardView: View {
                 ? Color.green.opacity(0.1)
                 : Color.secondary.opacity(0.08)
         )
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: 8)
                 .stroke(
                     provider.isConfigured
                         ? Color.green.opacity(0.3)
@@ -965,7 +1010,8 @@ struct DashboardView: View {
         burnRateService: BurnRateService(),
         usageService: UsageService(),
         liveStatsService: LiveStatsService(),
-        mcpHealthService: McpHealthService()
+        mcpHealthService: McpHealthService(),
+        providerUsageService: ProviderUsageService()
     )
     .frame(width: 420, height: 480)
 }
