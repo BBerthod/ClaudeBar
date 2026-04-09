@@ -15,6 +15,7 @@ enum HistoryChart: String, CaseIterable {
 
 struct HistoryView: View {
     var statsService: StatsService
+    var yearlyHistoryService: YearlyHistoryService
 
     @State private var period: HistoryPeriod = .month
     @State private var chartType: HistoryChart = .cost
@@ -133,6 +134,7 @@ struct HistoryView: View {
                 Spacer(minLength: 12)
             }
         }
+        .task { await yearlyHistoryService.load() }
     }
 
     // MARK: - Pickers
@@ -415,6 +417,6 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView(statsService: StatsService())
+    HistoryView(statsService: StatsService(), yearlyHistoryService: YearlyHistoryService())
         .frame(width: 420, height: 480)
 }

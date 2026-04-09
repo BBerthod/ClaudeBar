@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let providerUsageService = ProviderUsageService()
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
+    let yearlyHistoryService = YearlyHistoryService()
 
     private var refreshTimer: Timer?
     private var globalHotkeyMonitor: Any?
@@ -146,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launchAtLoginService: launchAtLoginService,
             mcpHealthService: mcpHealthService,
             providerUsageService: providerUsageService,
+            yearlyHistoryService: yearlyHistoryService,
             onRefresh: { [weak self] in self?.refreshAll() },
             onOpenDashboard: { [weak self] in self?.openAnalytics() }
         )
@@ -256,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launchAtLoginService: launchAtLoginService,
             mcpHealthService: mcpHealthService,
             providerUsageService: providerUsageService,
+            yearlyHistoryService: yearlyHistoryService,
             onRefresh: { [weak self] in self?.refreshAll() }
         )
         mainWindowManager.show(content: contentView)

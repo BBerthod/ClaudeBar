@@ -44,6 +44,7 @@ struct ContentView: View {
     var launchAtLoginService: LaunchAtLoginService
     var mcpHealthService: McpHealthService
     var providerUsageService: ProviderUsageService
+    var yearlyHistoryService: YearlyHistoryService
     var onRefresh: (() -> Void)?
     var onOpenDashboard: (() -> Void)?
 
@@ -127,7 +128,10 @@ struct ContentView: View {
                         onRefresh: onRefresh
                     )
                 case .history:
-                    HistoryView(statsService: statsService)
+                    HistoryView(
+                        statsService: statsService,
+                        yearlyHistoryService: yearlyHistoryService
+                    )
                 case .projects:
                     ProjectsView(
                         projectService: projectService,
@@ -167,6 +171,7 @@ struct ContentView: View {
         desktopWidgetManager: DesktopWidgetManager(),
         launchAtLoginService: LaunchAtLoginService(),
         mcpHealthService: McpHealthService(),
-        providerUsageService: ProviderUsageService()
+        providerUsageService: ProviderUsageService(),
+        yearlyHistoryService: YearlyHistoryService()
     )
 }
