@@ -18,6 +18,14 @@ struct SettingsView: View {
     @AppStorage("claudebar.showStatusBarIndicator") private var showStatusBarIndicator: Bool = false
     @AppStorage("claudebar.showIconTinting") private var showIconTinting: Bool = true
     @AppStorage("claudebar.costAlertThreshold") private var costAlertThreshold: Double = 0
+    @AppStorage("claudebar.alertThreshold1Enabled") private var threshold1Enabled: Bool = true
+    @AppStorage("claudebar.alertThreshold1Value")   private var threshold1Value: Double = 0.25
+    @AppStorage("claudebar.alertThreshold2Enabled") private var threshold2Enabled: Bool = true
+    @AppStorage("claudebar.alertThreshold2Value")   private var threshold2Value: Double = 0.50
+    @AppStorage("claudebar.alertThreshold3Enabled") private var threshold3Enabled: Bool = true
+    @AppStorage("claudebar.alertThreshold3Value")   private var threshold3Value: Double = 0.75
+    @AppStorage("claudebar.alertThreshold4Enabled") private var threshold4Enabled: Bool = true
+    @AppStorage("claudebar.alertThreshold4Value")   private var threshold4Value: Double = 0.90
 
     var body: some View {
         ScrollView {
@@ -34,6 +42,7 @@ struct SettingsView: View {
 
                 if let settings = settingsService.settings {
                     notificationsSection()
+                    rateLimitAlertsSection()
                     modelBehaviorSection(settings)
                     pluginsSection(settings)
                     envVarsSection(settings)
@@ -316,6 +325,45 @@ struct SettingsView: View {
         components.minute = 0
         let date = Calendar.current.date(from: components) ?? Date()
         return f.string(from: date)
+    }
+
+    // MARK: - Rate Limit Alerts
+
+    @ViewBuilder
+    private func rateLimitAlertsSection() -> some View {
+        GroupBox("Rate Limit Alerts") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Notify when the 5-hour window reaches:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                thresholdRow(enabled: $threshold1Enabled, value: $threshold1Value)
+                Divider()
+                thresholdRow(enabled: $threshold2Enabled, value: $threshold2Value)
+                Divider()
+                thresholdRow(enabled: $threshold3Enabled, value: $threshold3Value)
+                Divider()
+                thresholdRow(enabled: $threshold4Enabled, value: $threshold4Value)
+            }
+            .padding(.vertical, 4)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    @ViewBuilder
+    private func thresholdRow(enabled: Binding<Bool>, value: Binding<Double>) -> some View {
+        HStack {
+            Toggle("", isOn: enabled)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            Text("At \(Int(value.wrappedValue * 100))%")
+                .frame(width: 44, alignment: .leading)
+            Spacer()
+            Stepper("", value: value, in: 0.05...0.95, step: 0.05)
+                .labelsHidden()
+                .frame(width: 80)
+        }
     }
 
     // MARK: - Model & Behavior
@@ -996,8 +1044,8 @@ struct SettingsView: View {
     }
 
     private func maskedValue(_ value: String) -> String {
-        guard value.count > 4 else { return String(repeating: "•", count: value.count) }
-        return String(repeating: "•", count: value.count - 4) + value.suffix(4)
+        guard value.count > 12 else { return String(repeating: "•", count: value.count) }
+        return String(repeating: "•", count: value.count - 3) + value.suffix(3)
     }
 }
 
