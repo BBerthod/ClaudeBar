@@ -133,24 +133,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupPopover() {
         let contentView = ContentView(
-            statsService: statsService,
-            sessionService: sessionService,
-            settingsService: settingsService,
-            projectService: projectService,
-            hookHealthService: hookHealthService,
-            burnRateService: burnRateService,
-            notificationService: notificationService,
-            usageService: usageService,
-            liveStatsService: liveStatsService,
-            overlayManager: overlayManager,
-            desktopWidgetManager: desktopWidgetManager,
-            launchAtLoginService: launchAtLoginService,
-            mcpHealthService: mcpHealthService,
-            providerUsageService: providerUsageService,
-            yearlyHistoryService: yearlyHistoryService,
             onRefresh: { [weak self] in self?.refreshAll() },
             onOpenDashboard: { [weak self] in self?.openAnalytics() }
         )
+        .environment(statsService)
+        .environment(sessionService)
+        .environment(settingsService)
+        .environment(projectService)
+        .environment(hookHealthService)
+        .environment(burnRateService)
+        .environment(notificationService)
+        .environment(usageService)
+        .environment(liveStatsService)
+        .environment(overlayManager)
+        .environment(desktopWidgetManager)
+        .environment(launchAtLoginService)
+        .environment(mcpHealthService)
+        .environment(providerUsageService)
+        .environment(yearlyHistoryService)
 
         popover = NSPopover()
         popover.contentSize = NSSize(width: 420, height: 520)
@@ -244,23 +244,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opens the full window — same content as the popover but in a persistent, resizable window.
     func openAnalytics() {
         let contentView = ContentView(
-            statsService: statsService,
-            sessionService: sessionService,
-            settingsService: settingsService,
-            projectService: projectService,
-            hookHealthService: hookHealthService,
-            burnRateService: burnRateService,
-            notificationService: notificationService,
-            usageService: usageService,
-            liveStatsService: liveStatsService,
-            overlayManager: overlayManager,
-            desktopWidgetManager: desktopWidgetManager,
-            launchAtLoginService: launchAtLoginService,
-            mcpHealthService: mcpHealthService,
-            providerUsageService: providerUsageService,
-            yearlyHistoryService: yearlyHistoryService,
             onRefresh: { [weak self] in self?.refreshAll() }
         )
+        .environment(statsService)
+        .environment(sessionService)
+        .environment(settingsService)
+        .environment(projectService)
+        .environment(hookHealthService)
+        .environment(burnRateService)
+        .environment(notificationService)
+        .environment(usageService)
+        .environment(liveStatsService)
+        .environment(overlayManager)
+        .environment(desktopWidgetManager)
+        .environment(launchAtLoginService)
+        .environment(mcpHealthService)
+        .environment(providerUsageService)
+        .environment(yearlyHistoryService)
         mainWindowManager.show(content: contentView)
         // Close popover when opening the main window
         popover?.performClose(nil)

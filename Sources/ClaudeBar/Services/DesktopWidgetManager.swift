@@ -23,12 +23,10 @@ final class DesktopWidgetManager {
     }
 
     private func createPanel(usageService: UsageService, statsService: StatsService, sessionService: SessionService) {
-        let content = DesktopWidgetView(
-            usageService: usageService,
-            statsService: statsService,
-            sessionService: sessionService,
-            onClose: { [weak self] in self?.hide() }
-        )
+        let content = DesktopWidgetView(onClose: { [weak self] in self?.hide() })
+            .environment(usageService)
+            .environment(statsService)
+            .environment(sessionService)
 
         let hostingView = NSHostingView(rootView: content)
         hostingView.frame = NSRect(x: 0, y: 0, width: 200, height: 120)

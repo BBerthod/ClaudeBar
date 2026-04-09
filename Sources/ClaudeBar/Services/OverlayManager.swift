@@ -29,7 +29,8 @@ final class OverlayManager {
     }
 
     private func createPanel(sessionService: SessionService) {
-        let content = FloatingOverlayContent(sessionService: sessionService)
+        let content = FloatingOverlayContent()
+            .environment(sessionService)
         let hostingView = NSHostingView(rootView: content)
         hostingView.frame = NSRect(x: 0, y: 0, width: 180, height: 300)
 

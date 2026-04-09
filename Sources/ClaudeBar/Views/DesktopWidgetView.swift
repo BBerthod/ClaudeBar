@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct DesktopWidgetView: View {
-    var usageService: UsageService
-    var statsService: StatsService
-    var sessionService: SessionService
+    @Environment(UsageService.self) private var usageService
+    @Environment(StatsService.self) private var statsService
+    @Environment(SessionService.self) private var sessionService
     var onClose: () -> Void
 
     // MARK: - Computed
@@ -200,12 +200,10 @@ struct DesktopWidgetView: View {
 
 
 #Preview {
-    DesktopWidgetView(
-        usageService: UsageService(),
-        statsService: StatsService(),
-        sessionService: SessionService(),
-        onClose: {}
-    )
-    .padding()
-    .frame(width: 240)
+    DesktopWidgetView(onClose: {})
+        .environment(UsageService())
+        .environment(StatsService())
+        .environment(SessionService())
+        .padding()
+        .frame(width: 240)
 }

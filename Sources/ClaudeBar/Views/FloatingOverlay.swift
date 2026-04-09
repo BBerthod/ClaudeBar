@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FloatingOverlayContent: View {
-    var sessionService: SessionService
+    @Environment(SessionService.self) private var sessionService
     @State private var hoveredSession: String? // sessionId
 
     var body: some View {

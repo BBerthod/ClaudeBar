@@ -2,13 +2,13 @@ import SwiftUI
 import Darwin
 
 struct SettingsView: View {
-    var settingsService: SettingsService
-    var hookHealthService: HookHealthService
-    var notificationService: NotificationService
-    var launchAtLoginService: LaunchAtLoginService
-    var sessionService: SessionService
-    var statsService: StatsService
-    var mcpHealthService: McpHealthService
+    @Environment(SettingsService.self) private var settingsService
+    @Environment(HookHealthService.self) private var hookHealthService
+    @Environment(NotificationService.self) private var notificationService
+    @Environment(LaunchAtLoginService.self) private var launchAtLoginService
+    @Environment(SessionService.self) private var sessionService
+    @Environment(StatsService.self) private var statsService
+    @Environment(McpHealthService.self) private var mcpHealthService
 
     @State private var expandedPermissions = false
     @State private var expandedHooks = false
@@ -1050,14 +1050,13 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(
-        settingsService: SettingsService(),
-        hookHealthService: HookHealthService(),
-        notificationService: NotificationService(),
-        launchAtLoginService: LaunchAtLoginService(),
-        sessionService: SessionService(),
-        statsService: StatsService(),
-        mcpHealthService: McpHealthService()
-    )
-    .frame(width: 420, height: 480)
+    SettingsView()
+        .environment(SettingsService())
+        .environment(HookHealthService())
+        .environment(NotificationService())
+        .environment(LaunchAtLoginService())
+        .environment(SessionService())
+        .environment(StatsService())
+        .environment(McpHealthService())
+        .frame(width: 420, height: 480)
 }

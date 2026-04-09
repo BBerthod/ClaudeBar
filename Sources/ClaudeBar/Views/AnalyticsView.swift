@@ -23,13 +23,13 @@ enum AnalyticsSection: String, CaseIterable {
 }
 
 struct AnalyticsView: View {
-    var statsService: StatsService
-    var sessionService: SessionService
-    var burnRateService: BurnRateService
-    var usageService: UsageService
-    var liveStatsService: LiveStatsService
-    var mcpHealthService: McpHealthService
-    var projectService: ProjectService
+    @Environment(StatsService.self) private var statsService
+    @Environment(SessionService.self) private var sessionService
+    @Environment(BurnRateService.self) private var burnRateService
+    @Environment(UsageService.self) private var usageService
+    @Environment(LiveStatsService.self) private var liveStatsService
+    @Environment(McpHealthService.self) private var mcpHealthService
+    @Environment(ProjectService.self) private var projectService
 
     @State private var selectedSection: AnalyticsSection = .alerts
 

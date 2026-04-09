@@ -2,8 +2,8 @@ import SwiftUI
 import Charts
 
 struct ProjectsView: View {
-    var projectService: ProjectService
-    var statsService: StatsService
+    @Environment(ProjectService.self) private var projectService
+    @Environment(StatsService.self) private var statsService
 
     @State private var sortBy: ProjectSort = .cost
     @State private var searchText: String = ""
@@ -305,9 +305,8 @@ struct ProjectsView: View {
 }
 
 #Preview {
-    ProjectsView(
-        projectService: ProjectService(),
-        statsService: StatsService()
-    )
-    .frame(width: 420, height: 520)
+    ProjectsView()
+        .environment(ProjectService())
+        .environment(StatsService())
+        .frame(width: 420, height: 520)
 }

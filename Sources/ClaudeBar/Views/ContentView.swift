@@ -30,21 +30,10 @@ enum Tab: String, CaseIterable {
 }
 
 struct ContentView: View {
-    var statsService: StatsService
-    var sessionService: SessionService
-    var settingsService: SettingsService
-    var projectService: ProjectService
-    var hookHealthService: HookHealthService
-    var burnRateService: BurnRateService
-    var notificationService: NotificationService
-    var usageService: UsageService
-    var liveStatsService: LiveStatsService
-    var overlayManager: OverlayManager
-    var desktopWidgetManager: DesktopWidgetManager
-    var launchAtLoginService: LaunchAtLoginService
-    var mcpHealthService: McpHealthService
-    var providerUsageService: ProviderUsageService
-    var yearlyHistoryService: YearlyHistoryService
+    @Environment(StatsService.self) private var statsService
+    @Environment(SessionService.self) private var sessionService
+    @Environment(UsageService.self) private var usageService
+    @Environment(DesktopWidgetManager.self) private var desktopWidgetManager
     var onRefresh: (() -> Void)?
     var onOpenDashboard: (() -> Void)?
 
@@ -117,38 +106,15 @@ struct ContentView: View {
             Group {
                 switch selectedTab {
                 case .dashboard:
-                    DashboardView(
-                        statsService: statsService,
-                        sessionService: sessionService,
-                        burnRateService: burnRateService,
-                        usageService: usageService,
-                        liveStatsService: liveStatsService,
-                        mcpHealthService: mcpHealthService,
-                        providerUsageService: providerUsageService,
-                        onRefresh: onRefresh
-                    )
+                    DashboardView(onRefresh: onRefresh)
                 case .history:
-                    HistoryView(
-                        statsService: statsService,
-                        yearlyHistoryService: yearlyHistoryService
-                    )
+                    HistoryView()
                 case .projects:
-                    ProjectsView(
-                        projectService: projectService,
-                        statsService: statsService
-                    )
+                    ProjectsView()
                 case .sessions:
-                    SessionsView(sessionService: sessionService)
+                    SessionsView()
                 case .settings:
-                    SettingsView(
-                        settingsService: settingsService,
-                        hookHealthService: hookHealthService,
-                        notificationService: notificationService,
-                        launchAtLoginService: launchAtLoginService,
-                        sessionService: sessionService,
-                        statsService: statsService,
-                        mcpHealthService: mcpHealthService
-                    )
+                    SettingsView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -157,21 +123,20 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(
-        statsService: StatsService(),
-        sessionService: SessionService(),
-        settingsService: SettingsService(),
-        projectService: ProjectService(),
-        hookHealthService: HookHealthService(),
-        burnRateService: BurnRateService(),
-        notificationService: NotificationService(),
-        usageService: UsageService(),
-        liveStatsService: LiveStatsService(),
-        overlayManager: OverlayManager(),
-        desktopWidgetManager: DesktopWidgetManager(),
-        launchAtLoginService: LaunchAtLoginService(),
-        mcpHealthService: McpHealthService(),
-        providerUsageService: ProviderUsageService(),
-        yearlyHistoryService: YearlyHistoryService()
-    )
+    ContentView()
+        .environment(StatsService())
+        .environment(SessionService())
+        .environment(SettingsService())
+        .environment(ProjectService())
+        .environment(HookHealthService())
+        .environment(BurnRateService())
+        .environment(NotificationService())
+        .environment(UsageService())
+        .environment(LiveStatsService())
+        .environment(OverlayManager())
+        .environment(DesktopWidgetManager())
+        .environment(LaunchAtLoginService())
+        .environment(McpHealthService())
+        .environment(ProviderUsageService())
+        .environment(YearlyHistoryService())
 }

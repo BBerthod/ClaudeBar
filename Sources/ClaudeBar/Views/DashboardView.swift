@@ -8,13 +8,13 @@ struct OptimizationHint: Identifiable {
 }
 
 struct DashboardView: View {
-    var statsService: StatsService
-    var sessionService: SessionService
-    var burnRateService: BurnRateService
-    var usageService: UsageService
-    var liveStatsService: LiveStatsService
-    var mcpHealthService: McpHealthService
-    var providerUsageService: ProviderUsageService
+    @Environment(StatsService.self) private var statsService
+    @Environment(SessionService.self) private var sessionService
+    @Environment(BurnRateService.self) private var burnRateService
+    @Environment(UsageService.self) private var usageService
+    @Environment(LiveStatsService.self) private var liveStatsService
+    @Environment(McpHealthService.self) private var mcpHealthService
+    @Environment(ProviderUsageService.self) private var providerUsageService
     var onRefresh: (() -> Void)?
 
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
@@ -1008,14 +1008,13 @@ struct DashboardView: View {
 
 
 #Preview {
-    DashboardView(
-        statsService: StatsService(),
-        sessionService: SessionService(),
-        burnRateService: BurnRateService(),
-        usageService: UsageService(),
-        liveStatsService: LiveStatsService(),
-        mcpHealthService: McpHealthService(),
-        providerUsageService: ProviderUsageService()
-    )
-    .frame(width: 420, height: 480)
+    DashboardView()
+        .environment(StatsService())
+        .environment(SessionService())
+        .environment(BurnRateService())
+        .environment(UsageService())
+        .environment(LiveStatsService())
+        .environment(McpHealthService())
+        .environment(ProviderUsageService())
+        .frame(width: 420, height: 480)
 }

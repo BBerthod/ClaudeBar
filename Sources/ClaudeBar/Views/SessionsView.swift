@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct SessionsView: View {
-    var sessionService: SessionService
+    @Environment(SessionService.self) private var sessionService
 
     var body: some View {
         ScrollView {
@@ -224,6 +224,7 @@ struct SessionsView: View {
 }
 
 #Preview {
-    SessionsView(sessionService: SessionService())
+    SessionsView()
+        .environment(SessionService())
         .frame(width: 420, height: 480)
 }

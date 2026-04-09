@@ -14,8 +14,8 @@ enum HistoryChart: String, CaseIterable {
 }
 
 struct HistoryView: View {
-    var statsService: StatsService
-    var yearlyHistoryService: YearlyHistoryService
+    @Environment(StatsService.self) private var statsService
+    @Environment(YearlyHistoryService.self) private var yearlyHistoryService
 
     @State private var period: HistoryPeriod = .month
     @State private var chartType: HistoryChart = .cost
@@ -440,6 +440,8 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView(statsService: StatsService(), yearlyHistoryService: YearlyHistoryService())
+    HistoryView()
+        .environment(StatsService())
+        .environment(YearlyHistoryService())
         .frame(width: 420, height: 480)
 }
