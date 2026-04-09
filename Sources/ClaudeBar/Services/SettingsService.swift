@@ -55,27 +55,27 @@ final class SettingsService {
     }
 
     /// Enable or disable a named plugin. No-op if the plugin is not found.
-    func togglePlugin(name: String, enabled: Bool) throws {
+    func togglePlugin(name: String, enabled: Bool) {
         var current = settings ?? ClaudeSettings()
         guard var plugins = current.plugins else { return }
         guard let idx = plugins.firstIndex(where: { $0.name == name }) else { return }
         plugins[idx].enabled = enabled
         current.plugins = plugins
-        try saveSettings(current)
+        do { try saveSettings(current) } catch { lastError = error.localizedDescription }
     }
 
     /// Set the effort level (e.g. "low", "medium", "high").
-    func setEffortLevel(_ level: String) throws {
+    func setEffortLevel(_ level: String) {
         var current = settings ?? ClaudeSettings()
         current.effortLevel = level
-        try saveSettings(current)
+        do { try saveSettings(current) } catch { lastError = error.localizedDescription }
     }
 
     /// Enable or disable the "always thinking" model behaviour.
-    func setThinkingEnabled(_ enabled: Bool) throws {
+    func setThinkingEnabled(_ enabled: Bool) {
         var current = settings ?? ClaudeSettings()
         current.alwaysThinkingEnabled = enabled
-        try saveSettings(current)
+        do { try saveSettings(current) } catch { lastError = error.localizedDescription }
     }
 
     // MARK: - File Watching

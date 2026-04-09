@@ -377,7 +377,7 @@ struct SettingsView: View {
                     Toggle(isOn: Binding(
                         get: { thinkingEnabled },
                         set: { newVal in
-                            try? settingsService.setThinkingEnabled(newVal)
+                            settingsService.setThinkingEnabled(newVal)
                         }
                     )) {
                         Label("Always thinking enabled", systemImage: "brain")
@@ -395,7 +395,7 @@ struct SettingsView: View {
                         Spacer()
                         Picker("", selection: Binding(
                             get: { effort },
-                            set: { newVal in try? settingsService.setEffortLevel(newVal) }
+                            set: { newVal in settingsService.setEffortLevel(newVal) }
                         )) {
                             Text("Low").tag("low")
                             Text("Medium").tag("medium")
@@ -444,7 +444,7 @@ struct SettingsView: View {
                             Toggle("", isOn: Binding(
                                 get: { plugin.enabled },
                                 set: { newVal in
-                                    try? settingsService.togglePlugin(name: plugin.name, enabled: newVal)
+                                    settingsService.togglePlugin(name: plugin.name, enabled: newVal)
                                 }
                             ))
                             .labelsHidden()
