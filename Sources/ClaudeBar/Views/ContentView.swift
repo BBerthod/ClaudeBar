@@ -33,6 +33,7 @@ struct ContentView: View {
     @Environment(StatsService.self) private var statsService
     @Environment(SessionService.self) private var sessionService
     @Environment(UsageService.self) private var usageService
+    @Environment(LiveStatsService.self) private var liveStatsService
     @Environment(DesktopWidgetManager.self) private var desktopWidgetManager
     var onRefresh: (() -> Void)?
     var onOpenDashboard: (() -> Void)?
@@ -77,7 +78,8 @@ struct ContentView: View {
                     desktopWidgetManager.toggle(
                         usageService: usageService,
                         statsService: statsService,
-                        sessionService: sessionService
+                        sessionService: sessionService,
+                        liveStatsService: liveStatsService
                     )
                 } label: {
                     Image(systemName: desktopWidgetManager.isVisible ? "gauge.with.dots.needle.67percent.fill" : "gauge.with.dots.needle.67percent")

@@ -4,6 +4,7 @@ struct DesktopWidgetView: View {
     @Environment(UsageService.self) private var usageService
     @Environment(StatsService.self) private var statsService
     @Environment(SessionService.self) private var sessionService
+    @Environment(LiveStatsService.self) private var liveStatsService
     var onClose: () -> Void
 
     // MARK: - Computed
@@ -12,8 +13,16 @@ struct DesktopWidgetView: View {
         usageService.usage?.fiveHour?.utilization ?? 0
     }
 
+    private var effectiveTokens: Int {
+        statsService.todayTokens > 0 ? statsService.todayTokens : liveStatsService.todayTokens
+    }
+
     private var tokensFormatted: String {
-        statsService.todayTokens.abbreviatedTokenCount
+        effectiveTokens.abbreviatedTokenCount
+    }
+
+    private var effectiveCost: Double {
+        statsService.todayCostEstimate > 0 ? statsService.todayCostEstimate : liveStatsService.todayCost
     }
 
     private var sessionCount: Int {
@@ -90,7 +99,7 @@ struct DesktopWidgetView: View {
                     Image(systemName: "dollarsign.circle")
                         .font(.system(size: 9))
                         .foregroundStyle(.secondary)
-                    Text(CostCalculator.formatCost(statsService.todayCostEstimate))
+                    Text(CostCalculator.formatCost(effectiveCost))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                 }
 
@@ -204,6 +213,7 @@ struct DesktopWidgetView: View {
         .environment(UsageService())
         .environment(StatsService())
         .environment(SessionService())
+        .environment(LiveStatsService())
         .padding()
         .frame(width: 240)
 }

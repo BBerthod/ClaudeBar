@@ -7,12 +7,12 @@ final class DesktopWidgetManager {
     private var panel: NSPanel?
     private(set) var isVisible = false
 
-    func toggle(usageService: UsageService, statsService: StatsService, sessionService: SessionService) {
-        if isVisible { hide() } else { show(usageService: usageService, statsService: statsService, sessionService: sessionService) }
+    func toggle(usageService: UsageService, statsService: StatsService, sessionService: SessionService, liveStatsService: LiveStatsService) {
+        if isVisible { hide() } else { show(usageService: usageService, statsService: statsService, sessionService: sessionService, liveStatsService: liveStatsService) }
     }
 
-    func show(usageService: UsageService, statsService: StatsService, sessionService: SessionService) {
-        if panel == nil { createPanel(usageService: usageService, statsService: statsService, sessionService: sessionService) }
+    func show(usageService: UsageService, statsService: StatsService, sessionService: SessionService, liveStatsService: LiveStatsService) {
+        if panel == nil { createPanel(usageService: usageService, statsService: statsService, sessionService: sessionService, liveStatsService: liveStatsService) }
         panel?.orderFront(nil)
         isVisible = true
     }
@@ -22,11 +22,12 @@ final class DesktopWidgetManager {
         isVisible = false
     }
 
-    private func createPanel(usageService: UsageService, statsService: StatsService, sessionService: SessionService) {
+    private func createPanel(usageService: UsageService, statsService: StatsService, sessionService: SessionService, liveStatsService: LiveStatsService) {
         let content = DesktopWidgetView(onClose: { [weak self] in self?.hide() })
             .environment(usageService)
             .environment(statsService)
             .environment(sessionService)
+            .environment(liveStatsService)
 
         let hostingView = NSHostingView(rootView: content)
         hostingView.frame = NSRect(x: 0, y: 0, width: 200, height: 120)
