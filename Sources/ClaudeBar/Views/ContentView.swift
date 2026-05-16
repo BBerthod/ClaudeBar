@@ -141,4 +141,5 @@ struct ContentView: View {
         .environment(McpHealthService())
         .environment(ProviderUsageService())
         .environment(YearlyHistoryService())
+        .environment(UpdateCheckService())
 }

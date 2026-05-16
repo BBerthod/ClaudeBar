@@ -30,10 +30,14 @@ final class DesktopWidgetManager {
             .environment(liveStatsService)
 
         let hostingView = NSHostingView(rootView: content)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 200, height: 120)
+        hostingView.sizingOptions = .preferredContentSize
+        let idealSize = hostingView.fittingSize
+        let panelWidth: CGFloat = max(idealSize.width, 200)
+        let panelHeight: CGFloat = max(idealSize.height, 100)
+        hostingView.frame = NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 200, height: 120),
+            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
             backing: .buffered,
             defer: false

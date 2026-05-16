@@ -10,8 +10,6 @@ struct SettingsView: View {
     @Environment(StatsService.self) private var statsService
     @Environment(McpHealthService.self) private var mcpHealthService
 
-    @State private var expandedPermissions = false
-    @State private var expandedHooks = false
     @State private var expandedHookHealth = false
     @State private var staleCleaned = 0
     @AppStorage("claudebar.showDockIcon") private var showDockIcon: Bool = false
@@ -644,39 +642,41 @@ struct SettingsView: View {
                         }
                     }
 
-                    Divider()
+                    if expandedHookHealth {
+                        Divider()
 
-                    // Stats-cache status
-                    HStack {
-                        Label("Stats Cache", systemImage: "doc.text")
-                            .font(.caption)
-                        Spacer()
-                        Text(hookHealthService.statsCacheStatus.rawValue)
-                            .font(.caption)
-                            .foregroundStyle(cacheStatusColor(hookHealthService.statsCacheStatus))
-                        Circle()
-                            .fill(cacheStatusColor(hookHealthService.statsCacheStatus))
-                            .frame(width: 6, height: 6)
-                    }
+                        // Stats-cache status
+                        HStack {
+                            Label("Stats Cache", systemImage: "doc.text")
+                                .font(.caption)
+                            Spacer()
+                            Text(hookHealthService.statsCacheStatus.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(cacheStatusColor(hookHealthService.statsCacheStatus))
+                            Circle()
+                                .fill(cacheStatusColor(hookHealthService.statsCacheStatus))
+                                .frame(width: 6, height: 6)
+                        }
 
-                    // OAuth credential status
-                    HStack {
-                        Label("OAuth Credentials", systemImage: "key")
-                            .font(.caption)
-                        Spacer()
-                        Text(hookHealthService.hasOAuthCredentials ? "Found" : "Not found")
-                            .font(.caption)
-                            .foregroundStyle(hookHealthService.hasOAuthCredentials ? .green : .red)
-                        Circle()
-                            .fill(hookHealthService.hasOAuthCredentials ? .green : .red)
-                            .frame(width: 6, height: 6)
-                    }
+                        // OAuth credential status
+                        HStack {
+                            Label("OAuth Credentials", systemImage: "key")
+                                .font(.caption)
+                            Spacer()
+                            Text(hookHealthService.hasOAuthCredentials ? "Found" : "Not found")
+                                .font(.caption)
+                                .foregroundStyle(hookHealthService.hasOAuthCredentials ? .green : .red)
+                            Circle()
+                                .fill(hookHealthService.hasOAuthCredentials ? .green : .red)
+                                .frame(width: 6, height: 6)
+                        }
 
-                    Divider()
+                        Divider()
 
-                    // Per-entry list
-                    ForEach(hookHealthService.hookEntries) { entry in
-                        hookEntryRow(entry)
+                        // Per-entry list
+                        ForEach(hookHealthService.hookEntries) { entry in
+                            hookEntryRow(entry)
+                        }
                     }
                 }
                 .padding(8)

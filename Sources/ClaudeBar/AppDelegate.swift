@@ -248,6 +248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environment(liveStatsService)
             .environment(mcpHealthService)
             .environment(projectService)
+            .environment(updateCheckService)
         mainWindowManager.show(content: analyticsView)
         popover?.performClose(nil)
     }

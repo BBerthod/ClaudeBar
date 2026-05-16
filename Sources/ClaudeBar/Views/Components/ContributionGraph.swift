@@ -78,7 +78,7 @@ struct ContributionGraph: View {
     }
 
     private func cellColor(for date: Date) -> Color {
-        guard let stats = dayStats[Calendar.current.startOfDay(for: date)] else {
+        guard let stats = dayStats[gridCalendar.startOfDay(for: date)] else {
             return Color.primary.opacity(0.06)
         }
         switch metric {
@@ -91,7 +91,7 @@ struct ContributionGraph: View {
 
     private func tooltipText(for date: Date) -> String {
         let dateStr = date.formatted(.dateTime.month(.abbreviated).day())
-        guard let stats = dayStats[Calendar.current.startOfDay(for: date)] else {
+        guard let stats = dayStats[gridCalendar.startOfDay(for: date)] else {
             return "\(dateStr) — no data"
         }
         let tokStr  = stats.tokens.formatted(.number)
@@ -122,7 +122,7 @@ struct ContributionGraph: View {
 
     // MARK: - Day-of-week labels
 
-    private let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
+    private let dayLabels = ["M", "Tu", "W", "Th", "F", "Sa", "Su"]
 
     // MARK: - Body
 

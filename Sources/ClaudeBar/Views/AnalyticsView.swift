@@ -697,6 +697,12 @@ struct AnalyticsView: View {
         let maxVal = max(thisWeek, lastWeek, 0.01)
 
         return GroupBox("Week over Week") {
+            if thisWeek == 0 && lastWeek == 0 {
+                Text("No spending data for the past two weeks")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding()
+            } else {
             VStack(spacing: 16) {
                 // Side-by-side bar chart
                 HStack(alignment: .bottom, spacing: 24) {
@@ -754,6 +760,7 @@ struct AnalyticsView: View {
                 .padding(.vertical, 8)
                 .frame(height: 180)
             }
+            } // end else
         }
     }
 

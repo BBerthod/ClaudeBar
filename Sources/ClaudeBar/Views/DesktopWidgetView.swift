@@ -215,5 +215,5 @@ struct DesktopWidgetView: View {
         .environment(SessionService())
         .environment(LiveStatsService())
         .padding()
-        .frame(width: 240)
+        .frame(width: 200)
 }

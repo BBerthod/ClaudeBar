@@ -466,27 +466,39 @@ struct DashboardView: View {
                                 .frame(height: 28)
                                 .padding(.horizontal, 12)
 
-                            HStack(spacing: 12) {
-                                ForEach(effectiveTokensByModel, id: \.model) { entry in
-                                    HStack(spacing: 4) {
-                                        Circle()
-                                            .fill(Color.color(for: entry.model))
-                                            .frame(width: 8, height: 8)
-                                        Text(StatsService.displayName(for: entry.model))
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                        Text(entry.tokens.abbreviatedTokenCount)
-                                            .font(.caption2)
-                                            .fontWeight(.medium)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(effectiveTokensByModel, id: \.model) { entry in
+                                        HStack(spacing: 4) {
+                                            Circle()
+                                                .fill(Color.color(for: entry.model))
+                                                .frame(width: 8, height: 8)
+                                            Text(StatsService.displayName(for: entry.model))
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                            Text(entry.tokens.abbreviatedTokenCount)
+                                                .font(.caption2)
+                                                .fontWeight(.medium)
+                                        }
                                     }
                                 }
+                                .padding(.horizontal, 12)
                             }
-                            .padding(.horizontal, 12)
                         }
                         .padding(.vertical, 4)
                     }
                 } else if sessionService.activeSessions.isEmpty {
                     emptyState
+                } else {
+                    // Sessions actives mais pas encore de données
+                    HStack {
+                        Spacer()
+                        Label("Session active — en attente de données…", systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 16)
                 }
 
                 Spacer(minLength: 12)
@@ -1024,5 +1036,6 @@ struct DashboardView: View {
         .environment(LiveStatsService())
         .environment(McpHealthService())
         .environment(ProviderUsageService())
+        .environment(UpdateCheckService())
         .frame(width: 420, height: 480)
 }
