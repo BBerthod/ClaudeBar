@@ -19,6 +19,8 @@ struct ContributionGraph: View {
     private let numCols = 53
     private let numRows = 7
 
+    private let gridCalendar = Calendar(identifier: .iso8601)
+
     // MARK: - Computed geometry
 
     private var colStep: CGFloat { cellSize + gap }
@@ -36,13 +38,13 @@ struct ContributionGraph: View {
 
     /// The Monday that starts column 0 (52 weeks before current week Monday).
     private var gridStart: Date {
-        Calendar.current.date(byAdding: .weekOfYear, value: -52, to: currentWeekMonday) ?? currentWeekMonday
+        gridCalendar.date(byAdding: .weekOfYear, value: -52, to: currentWeekMonday) ?? currentWeekMonday
     }
 
     /// Returns the `Date` for a given (col, row) cell where row 0 = Monday.
     private func date(col: Int, row: Int) -> Date? {
         let offset = col * 7 + row
-        return Calendar.current.date(byAdding: .day, value: offset, to: gridStart)
+        return gridCalendar.date(byAdding: .day, value: offset, to: gridStart)
     }
 
     // MARK: - Max values for scaling
