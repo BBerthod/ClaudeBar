@@ -361,6 +361,16 @@ struct HistoryView: View {
                 "Messages":   Color.accentColor,
                 "Tool Calls": Color.orange,
             ])
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let v = value.as(Int.self) {
+                            Text(v >= 1000 ? "\(v / 1000)k" : "\(v)")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: period == .week ? 1 : 5)) { _ in
                     AxisValueLabel(format: .dateTime.day().month(.narrow))
