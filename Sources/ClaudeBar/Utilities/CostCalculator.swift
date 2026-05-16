@@ -22,24 +22,32 @@ enum CostCalculator {
 
     // MARK: - Pricing table
 
-    /// Published Anthropic pricing as of early 2026.
+    /// Published Anthropic pricing as of May 2026.
     /// Keys are canonical model IDs; aliases are resolved in `pricing(for:)`.
     static let pricing: [String: ModelPricing] = [
-        // Opus 4 / Opus 4.5
-        "claude-opus-4-6": ModelPricing(
-            inputPerMTok: 15.00,
-            outputPerMTok: 75.00,
-            cacheReadPerMTok: 1.50,
-            cacheWritePerMTok: 18.75
-        ),
-        "claude-opus-4-5-20251101": ModelPricing(
-            inputPerMTok: 15.00,
-            outputPerMTok: 75.00,
-            cacheReadPerMTok: 1.50,
-            cacheWritePerMTok: 18.75
+        // Opus 4.7
+        "claude-opus-4-7": ModelPricing(
+            inputPerMTok: 5.00,
+            outputPerMTok: 25.00,
+            cacheReadPerMTok: 0.50,
+            cacheWritePerMTok: 6.25
         ),
 
-        // Sonnet 4 / Sonnet 4.5
+        // Opus 4.6 / Opus 4.5 (legacy)
+        "claude-opus-4-6": ModelPricing(
+            inputPerMTok: 5.00,
+            outputPerMTok: 25.00,
+            cacheReadPerMTok: 0.50,
+            cacheWritePerMTok: 6.25
+        ),
+        "claude-opus-4-5-20251101": ModelPricing(
+            inputPerMTok: 5.00,
+            outputPerMTok: 25.00,
+            cacheReadPerMTok: 0.50,
+            cacheWritePerMTok: 6.25
+        ),
+
+        // Sonnet 4.6 / Sonnet 4.5 (legacy)
         "claude-sonnet-4-6": ModelPricing(
             inputPerMTok: 3.00,
             outputPerMTok: 15.00,
@@ -55,10 +63,10 @@ enum CostCalculator {
 
         // Haiku 4.5
         "claude-haiku-4-5-20251001": ModelPricing(
-            inputPerMTok: 0.25,
-            outputPerMTok: 1.25,
-            cacheReadPerMTok: 0.025,
-            cacheWritePerMTok: 0.3125
+            inputPerMTok: 1.00,
+            outputPerMTok: 5.00,
+            cacheReadPerMTok: 0.10,
+            cacheWritePerMTok: 1.25
         ),
     ]
 
