@@ -214,8 +214,12 @@ struct HistoryView: View {
             case .modelCost:
                 modelCostChart
             case .activity:
-                tokenChart
-                messagesAndToolCallsChart
+                if filteredActivity.isEmpty {
+                    emptyState
+                } else {
+                    tokenChart
+                    messagesAndToolCallsChart
+                }
             case .hourly:
                 hourlyHeatmap
             }
