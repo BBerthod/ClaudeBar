@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var expandedHooks = false
     @State private var expandedHookHealth = false
     @State private var staleCleaned = 0
+    @AppStorage("claudebar.showDockIcon") private var showDockIcon: Bool = false
     @AppStorage("claudebar.refreshInterval") private var refreshInterval: Double = 30
     @AppStorage("claudebar.showStatusBarIndicator") private var showStatusBarIndicator: Bool = false
     @AppStorage("claudebar.showIconTinting") private var showIconTinting: Bool = true
@@ -153,6 +154,25 @@ struct SettingsView: View {
 
             Divider()
 
+            Toggle(isOn: Binding(
+                get: { showDockIcon },
+                set: { newVal in
+                    showDockIcon = newVal
+                    NSApp.setActivationPolicy(newVal ? .regular : .accessory)
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show in Dock")
+                        .font(.subheadline)
+                    Text("Display ClaudeBar icon in the Dock in addition to the menu bar")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(8)
+
+            Divider()
+
             // Stats-cache freshness
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -220,6 +240,31 @@ struct SettingsView: View {
                 Text("How often ClaudeBar updates the burn rate and status")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+            }
+            .padding(8)
+
+            Divider()
+
+            HStack(spacing: 8) {
+                Button {
+                    relaunchApp()
+                } label: {
+                    Label("Relaunch", systemImage: "arrow.clockwise")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Spacer()
+
+                Button(role: .destructive) {
+                    NSApp.terminate(nil)
+                } label: {
+                    Label("Quit ClaudeBar", systemImage: "power")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
             .padding(8)
         } label: {
@@ -1006,6 +1051,23 @@ struct SettingsView: View {
     }
 
     // MARK: - Helpers
+
+    private func relaunchApp() {
+        let bundlePath = Bundle.main.bundlePath
+        let process = Process()
+        if bundlePath.hasSuffix(".app") {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            process.arguments = [bundlePath]
+        } else if let execPath = Bundle.main.executablePath {
+            process.executableURL = URL(fileURLWithPath: execPath)
+            process.arguments = []
+        } else {
+            NSApp.terminate(nil)
+            return
+        }
+        try? process.run()
+        NSApp.terminate(nil)
+    }
 
     @ViewBuilder
     private func sectionLabel(_ title: String) -> some View {
