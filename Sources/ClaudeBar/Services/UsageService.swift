@@ -107,25 +107,6 @@ final class UsageService {
         }
     }
 
-    private func writeKeychain(service: String, credentials: KeychainCredentials) {
-        guard let data = try? JSONEncoder().encode(credentials) else { return }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service
-        ]
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        ]
-        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if updateStatus == errSecItemNotFound {
-            var addQuery = query
-            addQuery[kSecValueData as String] = data
-            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            SecItemAdd(addQuery as CFDictionary, nil)
-        }
-    }
-
     private func readKeychain(service: String) -> KeychainCredentials? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -222,11 +203,6 @@ final class UsageService {
 
             cachedToken = newOAuthTokens
             Log.usage.info("OAuth token refreshed successfully")
-
-            if let service = keychainServiceName {
-                writeKeychain(service: service, credentials: KeychainCredentials(claudeAiOauth: newOAuthTokens))
-            }
-
             return true
         } catch {
             Log.usage.error("Token refresh failed: \(error.localizedDescription)")
