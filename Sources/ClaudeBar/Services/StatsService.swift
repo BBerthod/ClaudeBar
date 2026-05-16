@@ -60,6 +60,15 @@ final class StatsService {
         stats?.last30DaysModelTokens ?? []
     }
 
+    var cacheHitRate: Double? {
+        guard let modelUsage = stats?.modelUsage else { return nil }
+        let totalInput = modelUsage.values.reduce(0) { $0 + $1.inputTokens }
+        let totalCacheRead = modelUsage.values.reduce(0) { $0 + $1.cacheReadInputTokens }
+        let denominator = totalInput + totalCacheRead
+        guard denominator > 0 else { return nil }
+        return Double(totalCacheRead) / Double(denominator)
+    }
+
     /// Total estimated cost across all recorded days.
     ///
     /// Sums per-day cost estimates rather than applying pricing to raw cumulative

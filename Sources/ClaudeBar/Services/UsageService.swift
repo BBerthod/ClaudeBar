@@ -37,6 +37,29 @@ final class UsageService {
         return PaceLevel(utilization: window.utilization, elapsedFraction: elapsed)
     }
 
+    /// Estimated hours until the 5h window hits 100%, based on current burn rate.
+    /// Returns nil if data is insufficient or rate is near-zero.
+    var estimatedHoursUntilLimit: Double? {
+        guard let window = usage?.fiveHour,
+              let resetDate = window.resetDate else { return nil }
+        let percentUsed = window.utilization / 100.0
+        guard percentUsed < 1.0 else { return 0.0 }
+        guard percentUsed > 0.0 else { return nil }
+
+        let windowStart = resetDate.addingTimeInterval(-5 * 3600)
+        let elapsed = max(Date().timeIntervalSince(windowStart), 1)
+        let elapsedHours = elapsed / 3600
+
+        let ratePerHour = percentUsed / elapsedHours
+        guard ratePerHour >= 0.0001 else { return nil }
+
+        let hoursToFull = (1.0 - percentUsed) / ratePerHour
+        let hoursUntilReset = resetDate.timeIntervalSince(Date()) / 3600
+        guard hoursToFull <= hoursUntilReset else { return nil }
+
+        return hoursToFull
+    }
+
     /// Fraction of the 5h window elapsed (0.0–1.0).
     var fiveHourElapsedFraction: Double {
         guard let window = usage?.fiveHour else { return 0 }
