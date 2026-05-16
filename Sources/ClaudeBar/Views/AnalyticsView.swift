@@ -1015,15 +1015,14 @@ struct AnalyticsView: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
-                            Label("Active Sessions", systemImage: "circle.fill")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.primary)
-                                .labelStyle(.titleAndIcon)
-                            Image(systemName: "circle.fill")
-                                .font(.system(size: 7))
-                                .foregroundStyle(.green)
-                                .offset(x: -16, y: -4)
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(.green)
+                                    .frame(width: 7, height: 7)
+                                Text("Active Sessions")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
 
                             Spacer()
 
