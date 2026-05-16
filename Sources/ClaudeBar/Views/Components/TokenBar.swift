@@ -13,15 +13,17 @@ struct TokenBar: View {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.secondary.opacity(0.2))
             } else {
+                let gapTotal = CGFloat(max(segments.count - 1, 0)) * 2
+                let availableWidth = geometry.size.width - gapTotal
                 HStack(spacing: 2) {
                     ForEach(segments.indices, id: \.self) { idx in
                         let segment = segments[idx]
                         let fraction = Double(segment.tokens) / Double(total)
-                        let width = geometry.size.width * fraction
+                        let width = availableWidth * fraction
 
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Color.color(for: segment.model))
-                            .frame(width: max(width - 2, 0))
+                            .frame(width: max(width, 0))
                             .overlay {
                                 if width > 28 {
                                     Text(abbreviate(segment.tokens))
