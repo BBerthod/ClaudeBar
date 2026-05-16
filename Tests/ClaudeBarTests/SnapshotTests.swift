@@ -106,8 +106,16 @@ final class SnapshotTests: XCTestCase {
             (45_000, 4.50),
         ]
 
+        // Fixed anchor: Monday 6 January 2025 — prevents cell position from shifting
+        // across days of the week when the test runs at different times.
+        var anchorComponents = DateComponents()
+        anchorComponents.year = 2025
+        anchorComponents.month = 1
+        anchorComponents.day = 6
+        let anchor = Calendar.current.date(from: anchorComponents)!
+
         for (i, (tokens, cost)) in fixedValues.enumerated() {
-            if let date = Calendar.current.date(byAdding: .weekOfYear, value: -i, to: Date()) {
+            if let date = Calendar.current.date(byAdding: .weekOfYear, value: -i, to: anchor) {
                 stats[Calendar.current.startOfDay(for: date)] = DayStats(tokens: tokens, cost: cost)
             }
         }
