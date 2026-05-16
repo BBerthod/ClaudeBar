@@ -565,6 +565,12 @@ struct AnalyticsView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.bottom, 4)
+
+                    Text("Estimated — cost distributed evenly over active hours")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 4)
                 }
             } else {
                 Text("No burn rate data available")
@@ -880,7 +886,7 @@ struct AnalyticsView: View {
                                 .frame(width: 75, alignment: .trailing)
                             Text("Cost")
                                 .frame(width: 80, alignment: .trailing)
-                            Text("ROI")
+                            Text("Dev Time")
                                 .frame(width: 70, alignment: .trailing)
                             Text("Share")
                                 .frame(width: 55, alignment: .trailing)
@@ -995,10 +1001,10 @@ struct AnalyticsView: View {
 
     private func projectCostColor(_ cost: Double) -> Color {
         switch cost {
-        case ..<100:   return .green
-        case ..<1000:  return .yellow
-        case ..<5000:  return .orange
-        default:       return .red
+        case ..<1:    return .secondary
+        case ..<5:    return .yellow
+        case ..<20:   return .orange
+        default:      return .red
         }
     }
 
@@ -1168,7 +1174,7 @@ struct AnalyticsView: View {
                         .lineLimit(1)
                 }
                 if let modStr = entry.modified {
-                    Text(modStr.prefix(10))
+                    Text(Self.timeAgo(from: modStr))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -1196,6 +1202,26 @@ struct AnalyticsView: View {
         .padding(.vertical, 5)
     }
 
+    private static func timeAgo(from dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date: Date
+        if let d = formatter.date(from: dateString) {
+            date = d
+        } else {
+            let f2 = ISO8601DateFormatter()
+            guard let d = f2.date(from: dateString) else { return String(dateString.prefix(10)) }
+            date = d
+        }
+        let interval = Date().timeIntervalSince(date)
+        switch interval {
+        case ..<60:        return "just now"
+        case ..<3600:      return "\(Int(interval / 60))m ago"
+        case ..<86400:     return "\(Int(interval / 3600))h ago"
+        default:           return "\(Int(interval / 86400))d ago"
+        }
+    }
+
     // MARK: - Savings Panel
 
     private var savingsPanel: some View {
@@ -1216,6 +1242,11 @@ struct AnalyticsView: View {
                     .fontWeight(.bold)
                     .padding(.horizontal)
                     .padding(.top)
+
+                Text("Based on Claude Max plan at $200/mo")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal)
 
                 // Main savings card
                 GroupBox {
