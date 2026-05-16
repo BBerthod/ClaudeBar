@@ -30,15 +30,22 @@ struct UsageWindow: Codable, Sendable {
         case resetsAt = "resets_at"
     }
 
-    /// Parsed reset date.
-    var resetDate: Date? {
+    private static let isoFormatterFractional: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f.date(from: resetsAt) ?? {
-            let f2 = ISO8601DateFormatter()
-            f2.formatOptions = [.withInternetDateTime]
-            return f2.date(from: resetsAt)
-        }()
+        return f
+    }()
+
+    private static let isoFormatterStandard: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    /// Parsed reset date.
+    var resetDate: Date? {
+        UsageWindow.isoFormatterFractional.date(from: resetsAt)
+            ?? UsageWindow.isoFormatterStandard.date(from: resetsAt)
     }
 
     /// Time remaining until reset, formatted.

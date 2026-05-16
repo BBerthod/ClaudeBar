@@ -86,7 +86,10 @@ final class UsageService {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service
         ]
-        let attributes: [String: Any] = [kSecValueData as String: data]
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
 
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updateStatus == errSecItemNotFound {
@@ -202,6 +205,7 @@ final class UsageService {
 
             return true
         } catch {
+            Log.usage.error("Token refresh failed: \(error.localizedDescription)")
             return false
         }
     }

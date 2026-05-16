@@ -15,7 +15,11 @@ final class NotificationService {
 
     /// Set to `true` by the timer when the digest hour arrives.
     /// The app can observe this and call `sendDailyDigest(...)` then reset it.
-    var digestPending = false
+    private(set) var digestPending = false
+
+    func markDigestSent() {
+        digestPending = false
+    }
 
     private var digestTimer: Timer?
 
