@@ -1,0 +1,3 @@
+import ClaudeBarLib
+
+runApp()

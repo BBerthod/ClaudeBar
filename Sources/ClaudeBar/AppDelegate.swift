@@ -1,12 +1,6 @@
 import AppKit
 import SwiftUI
 
-// Pure AppKit entry point — no SwiftUI App protocol
-let app = NSApplication.shared
-let delegate = MainActor.assumeIsolated { AppDelegate() }
-app.delegate = delegate
-app.run()
-
 // MARK: - AppDelegate
 
 @MainActor
@@ -50,8 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         setupGlobalHotkey()
-        // Hide dock icon AFTER status item is created
-        NSApp.setActivationPolicy(.accessory)
+        // Hide dock icon AFTER status item is created (respect user preference)
+        let showDockIcon = UserDefaults.standard.bool(forKey: "claudebar.showDockIcon")
+        NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -177,10 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Global Hotkey
 
     private func setupGlobalHotkey() {
-        // Cmd+Shift+C (keyCode 8 = 'c')
+        // Cmd+Shift+C — use charactersIgnoringModifiers for layout-agnostic matching
         globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.modifierFlags.contains([.command, .shift]),
-                  event.keyCode == 8 else { return }
+                  event.charactersIgnoringModifiers?.lowercased() == "c" else { return }
             Task { @MainActor in
                 self?.togglePopover()
             }
@@ -232,7 +227,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         topProject: self.projectService.projects.first?.projectName,
                         burnZone: self.burnRateService.burnRate?.zone
                     )
-                    self.notificationService.digestPending = false
+                    self.notificationService.markDigestSent()
                 }
             }
         }
@@ -243,29 +238,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startRefreshTimer()
     }
 
-    /// Opens the full window — same content as the popover but in a persistent, resizable window.
+    /// Opens the full analytics window with NavigationSplitView layout.
     func openAnalytics() {
-        let contentView = ContentView(
-            onRefresh: { [weak self] in self?.refreshAll() }
-        )
-        .environment(statsService)
-        .environment(sessionService)
-        .environment(settingsService)
-        .environment(projectService)
-        .environment(hookHealthService)
-        .environment(burnRateService)
-        .environment(notificationService)
-        .environment(usageService)
-        .environment(liveStatsService)
-        .environment(overlayManager)
-        .environment(desktopWidgetManager)
-        .environment(launchAtLoginService)
-        .environment(mcpHealthService)
-        .environment(providerUsageService)
-        .environment(yearlyHistoryService)
-        .environment(updateCheckService)
-        mainWindowManager.show(content: contentView)
-        // Close popover when opening the main window
+        let analyticsView = AnalyticsView()
+            .environment(statsService)
+            .environment(sessionService)
+            .environment(burnRateService)
+            .environment(usageService)
+            .environment(liveStatsService)
+            .environment(mcpHealthService)
+            .environment(projectService)
+        mainWindowManager.show(content: analyticsView)
         popover?.performClose(nil)
     }
 

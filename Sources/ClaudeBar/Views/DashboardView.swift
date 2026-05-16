@@ -198,7 +198,25 @@ struct DashboardView: View {
             ))
         }
 
-        // Rule 3: Hot/critical burn rate → show projected vs average
+        // Rule 3: Cache efficiency feedback based on hit rate
+        if let rate = statsService.cacheHitRate {
+            let pct = String(format: "%.0f%%", rate * 100)
+            if rate >= 0.7 {
+                hints.append(OptimizationHint(
+                    icon: "bolt.fill",
+                    text: "Cache efficiency: \(pct) — prompt caching is saving you tokens",
+                    color: .green
+                ))
+            } else if rate < 0.4 {
+                hints.append(OptimizationHint(
+                    icon: "bolt",
+                    text: "Cache efficiency: \(pct) — consider structuring prompts to benefit from caching",
+                    color: .orange
+                ))
+            }
+        }
+
+        // Rule 4: Hot/critical burn rate → show projected vs average
         if let rate = burnRateService.burnRate,
            rate.zone == .hot || rate.zone == .critical {
             hints.append(OptimizationHint(
@@ -292,11 +310,6 @@ struct DashboardView: View {
                             }
                         }
 
-                        // 5h circular arc gauge (only when data available)
-                        if let fiveHour = usageService.usage?.fiveHour {
-                            fiveHourArcGauge(utilization: fiveHour.utilization)
-                                .help("Anthropic rate limit — resets every 5 hours")
-                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -481,52 +494,6 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - 5h Circular Arc Gauge
-
-    @ViewBuilder
-    private func fiveHourArcGauge(utilization: Double) -> some View {
-        let ratio = min(utilization / 100.0, 1.0)
-        let startAngle: Double = -130
-        let sweepAngle: Double = 260
-        let strokeWidth: CGFloat = 6
-
-        // Gradient color: green → orange at 70% → red at 90%+
-        let gaugeColor: Color = {
-            switch utilization {
-            case ..<70:  return .green
-            case 70..<90: return .orange
-            default:      return .red
-            }
-        }()
-
-        ZStack {
-            // Background track
-            Circle()
-                .trim(from: 0, to: CGFloat(sweepAngle / 360.0))
-                .stroke(Color.secondary.opacity(0.15), style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
-                .rotationEffect(.degrees(startAngle))
-
-            // Foreground fill
-            Circle()
-                .trim(from: 0, to: CGFloat(sweepAngle / 360.0) * ratio)
-                .stroke(gaugeColor, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
-                .rotationEffect(.degrees(startAngle))
-                .animation(.easeOut(duration: 0.4), value: ratio)
-
-            // Center label
-            VStack(spacing: 0) {
-                Text("\(Int(utilization))%")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                Text("5h")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(width: 56, height: 56)
-    }
-
     // MARK: - Human Cost Row
 
     private var humanCostRow: some View {
@@ -703,6 +670,22 @@ struct DashboardView: View {
 
             if let fiveHour = usageService.usage?.fiveHour {
                 fiveHourGauge(fiveHour: fiveHour, pace: usageService.fiveHourPace)
+                if let hours = usageService.estimatedHoursUntilLimit {
+                    let h = Int(hours)
+                    let m = Int((hours - Double(h)) * 60)
+                    let label = h > 0 ? "~\(h)h \(m)m" : "~\(m)m"
+                    if hours < 2.0 {
+                        Text("⚠ Limit in \(label) at current rate")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .padding(.leading, 4)
+                    } else if hours <= 4.0 {
+                        Text("Limit in \(label) at current rate")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+                    }
+                }
             }
 
             if let sevenDay = usageService.usage?.sevenDay {

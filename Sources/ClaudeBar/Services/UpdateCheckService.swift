@@ -5,7 +5,7 @@ import os
 @MainActor
 final class UpdateCheckService {
     private(set) var latestVersion: String?
-    private(set) var currentVersion: String = "0.6.0"
+    private(set) var currentVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.6.0"
     private(set) var updateAvailable: Bool = false
     private(set) var releaseURL: String?
 

@@ -5,9 +5,19 @@ let package = Package(
     name: "ClaudeBar",
     platforms: [.macOS(.v14)],
     targets: [
+        .target(
+            name: "ClaudeBarLib",
+            path: "Sources/ClaudeBar"
+        ),
         .executableTarget(
             name: "ClaudeBar",
-            path: "Sources/ClaudeBar"
+            dependencies: ["ClaudeBarLib"],
+            path: "Sources/ClaudeBarApp"
+        ),
+        .testTarget(
+            name: "ClaudeBarTests",
+            dependencies: ["ClaudeBarLib"],
+            path: "Tests/ClaudeBarTests"
         )
     ]
 )

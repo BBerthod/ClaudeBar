@@ -39,114 +39,132 @@ final class LiveStatsService {
     // MARK: - Parsing
 
     private func parseToday() {
-        let fm = FileManager.default
-        let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date()).timeIntervalSince1970
+        let projectsDir = self.projectsDir  // capture par valeur
 
-        // Collect JSONL files modified today
-        var jsonlFiles: [String] = []
+        Task.detached(priority: .userInitiated) {
+            let fm = FileManager.default
+            let calendar = Calendar.current
+            let todayStart = calendar.startOfDay(for: Date()).timeIntervalSince1970
 
-        guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { return }
-        for dir in projectDirs {
-            let dirPath = projectsDir + "/" + dir
+            // Collect JSONL files modified today
+            var jsonlFiles: [String] = []
 
-            // Direct session files
-            if let files = try? fm.contentsOfDirectory(atPath: dirPath) {
-                for file in files where file.hasSuffix(".jsonl") {
-                    let path = dirPath + "/" + file
-                    if let mtime = modTime(path), mtime >= todayStart {
-                        jsonlFiles.append(path)
+            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { return }
+            for dir in projectDirs {
+                let dirPath = projectsDir + "/" + dir
+
+                // Direct session files
+                if let files = try? fm.contentsOfDirectory(atPath: dirPath) {
+                    for file in files where file.hasSuffix(".jsonl") {
+                        let path = dirPath + "/" + file
+                        if let attrs = try? fm.attributesOfItem(atPath: path),
+                           let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
+                           mtime >= todayStart {
+                            jsonlFiles.append(path)
+                        }
+                    }
+                }
+
+                // Subagent files
+                let subPath = dirPath + "/subagents"
+                if let files = try? fm.contentsOfDirectory(atPath: subPath) {
+                    for file in files where file.hasSuffix(".jsonl") {
+                        let path = subPath + "/" + file
+                        if let attrs = try? fm.attributesOfItem(atPath: path),
+                           let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
+                           mtime >= todayStart {
+                            jsonlFiles.append(path)
+                        }
                     }
                 }
             }
 
-            // Subagent files
-            let subPath = dirPath + "/subagents"
-            if let files = try? fm.contentsOfDirectory(atPath: subPath) {
-                for file in files where file.hasSuffix(".jsonl") {
-                    let path = subPath + "/" + file
-                    if let mtime = modTime(path), mtime >= todayStart {
-                        jsonlFiles.append(path)
-                    }
-                }
-            }
-        }
+            // Parse all today's files, dedup by message ID.
+            // Tool call counts are stored per message ID so that streaming chunks
+            // for the same message don't inflate the total.
+            var messagesByID: [String: (model: String, usage: [String: Any], toolCalls: Int)] = [:]
 
-        // Parse all today's files, dedup by message ID.
-        // Tool call counts are stored per message ID so that streaming chunks
-        // for the same message don't inflate the total.
-        var messagesByID: [String: (model: String, usage: [String: Any], toolCalls: Int)] = [:]
+            for path in jsonlFiles {
+                autoreleasepool {
+                    guard let data = fm.contents(atPath: path),
+                          let content = String(data: data, encoding: .utf8) else { return }
 
-        for path in jsonlFiles {
-            autoreleasepool {
-                guard let data = fm.contents(atPath: path),
-                      let content = String(data: data, encoding: .utf8) else { return }
-
-                for line in content.split(separator: "\n") {
-                    guard let lineData = line.data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
-                        continue
-                    }
-
-                    let type = json["type"] as? String ?? ""
-
-                    if type == "assistant", let message = json["message"] as? [String: Any] {
-                        guard let usage = message["usage"] as? [String: Any] else { continue }
-                        let msgID = message["id"] as? String ?? UUID().uuidString
-                        let model = message["model"] as? String ?? "unknown"
-
-                        // Skip synthetic messages
-                        guard model != "<synthetic>" else { continue }
-
-                        // Count tool_use blocks for this message (last chunk wins on dedup)
-                        var toolCount = 0
-                        if let blocks = message["content"] as? [[String: Any]] {
-                            for block in blocks where (block["type"] as? String) == "tool_use" {
-                                toolCount += 1
-                            }
+                    for line in content.split(separator: "\n") {
+                        guard let lineData = line.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                            continue
                         }
 
-                        messagesByID[msgID] = (model: model, usage: usage, toolCalls: toolCount)
+                        let type = json["type"] as? String ?? ""
+
+                        if type == "assistant", let message = json["message"] as? [String: Any] {
+                            guard let usage = message["usage"] as? [String: Any] else { continue }
+                            let msgID = message["id"] as? String ?? UUID().uuidString
+                            let model = message["model"] as? String ?? "unknown"
+
+                            // Skip synthetic messages
+                            guard model != "<synthetic>" else { continue }
+
+                            // Count tool_use blocks for this message (last chunk wins on dedup)
+                            var toolCount = 0
+                            if let blocks = message["content"] as? [[String: Any]] {
+                                for block in blocks where (block["type"] as? String) == "tool_use" {
+                                    toolCount += 1
+                                }
+                            }
+
+                            messagesByID[msgID] = (model: model, usage: usage, toolCalls: toolCount)
+                        }
                     }
                 }
             }
+
+            // Aggregate stats
+            // Token counts use input+output only (consistent with stats-cache).
+            // Cost uses all token types (input, output, cacheRead, cacheWrite).
+            var totalTokens = 0
+            var totalCost = 0.0
+            var modelTokenCounts: [String: Int] = [:]
+            var toolCallCount = 0
+
+            for (_, entry) in messagesByID {
+                toolCallCount += entry.toolCalls
+                let inp = entry.usage["input_tokens"] as? Int ?? 0
+                let out = entry.usage["output_tokens"] as? Int ?? 0
+                let cacheRead = entry.usage["cache_read_input_tokens"] as? Int ?? 0
+                let cacheWrite = entry.usage["cache_creation_input_tokens"] as? Int ?? 0
+
+                let ioTokens = inp + out
+                totalTokens += ioTokens
+                modelTokenCounts[entry.model, default: 0] += ioTokens
+
+                totalCost += Self.messageCost(
+                    model: entry.model,
+                    input: inp, output: out,
+                    cacheRead: cacheRead, cacheWrite: cacheWrite
+                )
+            }
+
+            // Figer les résultats en constantes avant de traverser la frontière d'acteur
+            let finalMessageCount = messagesByID.count
+            let finalTokens = totalTokens
+            let finalCost = totalCost
+            let finalToolCalls = toolCallCount
+            let finalTokensByModel = modelTokenCounts
+                .map { (model: $0.key, tokens: $0.value) }
+                .sorted { $0.tokens > $1.tokens }
+
+            // Remonter les résultats sur MainActor
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.todayMessages = finalMessageCount
+                self.todayTokens = finalTokens
+                self.todayToolCalls = finalToolCalls
+                self.todayCost = finalCost
+                self.tokensByModel = finalTokensByModel
+                self.lastParsed = Date()
+            }
         }
-
-        // Aggregate stats
-        // Token counts use input+output only (consistent with stats-cache).
-        // Cost uses all token types (input, output, cacheRead, cacheWrite).
-        var totalTokens = 0
-        var totalCost = 0.0
-        var modelTokenCounts: [String: Int] = [:]
-        var toolCallCount = 0
-
-        for (_, entry) in messagesByID {
-            toolCallCount += entry.toolCalls
-            let inp = entry.usage["input_tokens"] as? Int ?? 0
-            let out = entry.usage["output_tokens"] as? Int ?? 0
-            let cacheRead = entry.usage["cache_read_input_tokens"] as? Int ?? 0
-            let cacheWrite = entry.usage["cache_creation_input_tokens"] as? Int ?? 0
-
-            let ioTokens = inp + out
-            totalTokens += ioTokens
-            modelTokenCounts[entry.model, default: 0] += ioTokens
-
-            totalCost += Self.messageCost(
-                model: entry.model,
-                input: inp, output: out,
-                cacheRead: cacheRead, cacheWrite: cacheWrite
-            )
-        }
-
-        // Update published properties
-        todayMessages = messagesByID.count
-        todayTokens = totalTokens
-        todayToolCalls = toolCallCount
-        todayCost = totalCost
-        tokensByModel = modelTokenCounts
-            .map { (model: $0.key, tokens: $0.value) }
-            .sorted { $0.tokens > $1.tokens }
-        lastParsed = Date()
     }
 
     // MARK: - Polling
@@ -176,7 +194,7 @@ final class LiveStatsService {
     }
 
     /// Per-message cost using the shared CostCalculator pricing table.
-    private static func messageCost(
+    private nonisolated static func messageCost(
         model: String, input: Int, output: Int,
         cacheRead: Int, cacheWrite: Int
     ) -> Double {
