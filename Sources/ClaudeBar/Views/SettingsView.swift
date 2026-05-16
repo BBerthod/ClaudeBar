@@ -1120,5 +1120,6 @@ struct SettingsView: View {
         .environment(SessionService())
         .environment(StatsService())
         .environment(McpHealthService())
+        .environment(UpdateCheckService())
         .frame(width: 420, height: 480)
 }
