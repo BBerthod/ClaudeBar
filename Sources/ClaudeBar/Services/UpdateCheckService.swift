@@ -49,7 +49,7 @@ final class UpdateCheckService {
     // MARK: - Semantic Version Comparison
 
     /// Returns true if `remote` is strictly newer than `current`.
-    private func isNewer(remote: String, current: String) -> Bool {
+    func isNewer(remote: String, current: String) -> Bool {
         let remoteParts = remote.split(separator: ".").compactMap { Int($0) }
         let currentParts = current.split(separator: ".").compactMap { Int($0) }
 

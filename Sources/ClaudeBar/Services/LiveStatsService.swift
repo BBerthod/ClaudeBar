@@ -18,6 +18,7 @@ final class LiveStatsService {
 
     private let projectsDir: String
     private var timer: Timer?
+    private var isParsing = false
 
     init(claudeDir: String = "~/.claude") {
         self.projectsDir = NSString(string: claudeDir).expandingTildeInPath + "/projects"
@@ -39,6 +40,8 @@ final class LiveStatsService {
     // MARK: - Parsing
 
     private func parseToday() {
+        guard !isParsing else { return }
+        isParsing = true
         let projectsDir = self.projectsDir  // capture par valeur
 
         Task.detached(priority: .userInitiated) {
@@ -49,31 +52,32 @@ final class LiveStatsService {
             // Collect JSONL files modified today
             var jsonlFiles: [String] = []
 
-            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { return }
-            for dir in projectDirs {
-                let dirPath = projectsDir + "/" + dir
+            if let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) {
+                for dir in projectDirs {
+                    let dirPath = projectsDir + "/" + dir
 
-                // Direct session files
-                if let files = try? fm.contentsOfDirectory(atPath: dirPath) {
-                    for file in files where file.hasSuffix(".jsonl") {
-                        let path = dirPath + "/" + file
-                        if let attrs = try? fm.attributesOfItem(atPath: path),
-                           let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
-                           mtime >= todayStart {
-                            jsonlFiles.append(path)
+                    // Direct session files
+                    if let files = try? fm.contentsOfDirectory(atPath: dirPath) {
+                        for file in files where file.hasSuffix(".jsonl") {
+                            let path = dirPath + "/" + file
+                            if let attrs = try? fm.attributesOfItem(atPath: path),
+                               let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
+                               mtime >= todayStart {
+                                jsonlFiles.append(path)
+                            }
                         }
                     }
-                }
 
-                // Subagent files
-                let subPath = dirPath + "/subagents"
-                if let files = try? fm.contentsOfDirectory(atPath: subPath) {
-                    for file in files where file.hasSuffix(".jsonl") {
-                        let path = subPath + "/" + file
-                        if let attrs = try? fm.attributesOfItem(atPath: path),
-                           let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
-                           mtime >= todayStart {
-                            jsonlFiles.append(path)
+                    // Subagent files
+                    let subPath = dirPath + "/subagents"
+                    if let files = try? fm.contentsOfDirectory(atPath: subPath) {
+                        for file in files where file.hasSuffix(".jsonl") {
+                            let path = subPath + "/" + file
+                            if let attrs = try? fm.attributesOfItem(atPath: path),
+                               let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
+                               mtime >= todayStart {
+                                jsonlFiles.append(path)
+                            }
                         }
                     }
                 }
@@ -163,6 +167,7 @@ final class LiveStatsService {
                 self.todayCost = finalCost
                 self.tokensByModel = finalTokensByModel
                 self.lastParsed = Date()
+                self.isParsing = false
             }
         }
     }
