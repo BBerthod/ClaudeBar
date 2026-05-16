@@ -78,4 +78,51 @@ final class CostCalculatorTests: XCTestCase {
         // output = 50_000 * 0.4 / 1M * 25 = 0.5
         XCTAssertEqual(cost, 0.9, accuracy: 0.001)
     }
+
+    // MARK: - New tests
+
+    func testPricingOpus47ExactMatch() {
+        let p = CostCalculator.pricing(for: "claude-opus-4-7")
+        XCTAssertEqual(p.inputPerMTok, 5.00)
+        XCTAssertEqual(p.outputPerMTok, 25.00)
+        XCTAssertEqual(p.cacheReadPerMTok, 0.50)
+        XCTAssertEqual(p.cacheWritePerMTok, 6.25)
+    }
+
+    func testPricingHaikuCacheFields() {
+        let p = CostCalculator.pricing(for: "claude-haiku-4-5-20251001")
+        XCTAssertEqual(p.cacheReadPerMTok, 0.10)
+        XCTAssertEqual(p.cacheWritePerMTok, 1.25)
+    }
+
+    func testPricingFallbackToOpusPinned() {
+        let p = CostCalculator.pricing(for: "some-unknown-model-xyz")
+        XCTAssertEqual(p.inputPerMTok, 5.00)
+        XCTAssertEqual(p.outputPerMTok, 25.00)
+    }
+
+    func testEstimateDailyCostWithCacheTokens() {
+        let tokens = ["claude-opus-4-6": 100_000]
+        // fraction = 100_000 / (200_000 + 50_000) = 0.4
+        // input  = 200_000 * 0.4 / 1e6 * 5.00  = 0.40
+        // output =  50_000 * 0.4 / 1e6 * 25.00 = 0.50
+        // read   = 400_000 * 0.4 / 1e6 * 0.50  = 0.08
+        // write  = 100_000 * 0.4 / 1e6 * 6.25  = 0.25
+        // total  = 1.23
+        let entry = ModelUsageEntry(
+            inputTokens: 200_000,
+            outputTokens: 50_000,
+            cacheReadInputTokens: 400_000,
+            cacheCreationInputTokens: 100_000,
+            webSearchRequests: 0,
+            costUSD: 0,
+            contextWindow: 200_000,
+            maxOutputTokens: 8192
+        )
+        let cost = CostCalculator.estimateDailyCost(
+            tokens: tokens,
+            modelUsage: ["claude-opus-4-6": entry]
+        )
+        XCTAssertEqual(cost, 1.23, accuracy: 0.001)
+    }
 }

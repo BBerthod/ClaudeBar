@@ -43,4 +43,14 @@ final class PaceLevelTests: XCTestCase {
         // projected = 50 / 0.5 = 100 → critical (100 is the lower bound)
         XCTAssertEqual(PaceLevel(utilization: 50, elapsedFraction: 0.5), .critical)
     }
+
+    func testOnTrackAtExactly50Percent() {
+        // 50 / 1.0 = 50 → borne inférieure de onTrack
+        XCTAssertEqual(PaceLevel(utilization: 50, elapsedFraction: 1.0), .onTrack)
+    }
+
+    func testElapsedFractionZeroIsComfortable() {
+        // garde elapsedFraction <= 0.05 → comfortable quelle que soit l'utilisation
+        XCTAssertEqual(PaceLevel(utilization: 99, elapsedFraction: 0.0), .comfortable)
+    }
 }

@@ -190,7 +190,7 @@ struct DashboardView: View {
         }
 
         // Rule 2: Low cache savings with significant cost → suggest caching
-        if cacheSavings < 0.01 && effectiveCost > 0.10 {
+        if cacheSavings < 0.01 && effectiveCost > 0.10 && statsService.cacheHitRate == nil {
             hints.append(OptimizationHint(
                 icon: "bolt.horizontal.circle",
                 text: "Low cache savings — enable prompt caching to reduce costs",
@@ -204,13 +204,13 @@ struct DashboardView: View {
             if rate >= 0.7 {
                 hints.append(OptimizationHint(
                     icon: "bolt.fill",
-                    text: "Cache efficiency: \(pct) — prompt caching is saving you tokens",
+                    text: "Cache efficiency: \(pct) (alltime) — prompt caching is saving you tokens",
                     color: .green
                 ))
             } else if rate < 0.4 {
                 hints.append(OptimizationHint(
                     icon: "bolt",
-                    text: "Cache efficiency: \(pct) — consider structuring prompts to benefit from caching",
+                    text: "Cache efficiency: \(pct) (alltime) — consider structuring prompts to benefit from caching",
                     color: .orange
                 ))
             }
@@ -670,7 +670,8 @@ struct DashboardView: View {
 
             if let fiveHour = usageService.usage?.fiveHour {
                 fiveHourGauge(fiveHour: fiveHour, pace: usageService.fiveHourPace)
-                if let hours = usageService.estimatedHoursUntilLimit {
+                if let hours = usageService.estimatedHoursUntilLimit,
+                   usageService.fiveHourElapsedFraction >= 0.05 {
                     let h = Int(hours)
                     let m = Int((hours - Double(h)) * 60)
                     let label = h > 0 ? "~\(h)h \(m)m" : "~\(m)m"

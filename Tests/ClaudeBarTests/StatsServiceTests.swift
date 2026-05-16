@@ -28,4 +28,8 @@ final class StatsServiceDisplayNameTests: XCTestCase {
         // If only family name is present and no version parts follow, returns just the family name
         XCTAssertEqual(StatsService.displayName(for: "claude-opus"), "Opus")
     }
+
+    func testOpus47() {
+        XCTAssertEqual(StatsService.displayName(for: "claude-opus-4-7"), "Opus 4.7")
+    }
 }
