@@ -109,7 +109,6 @@ final class UsageService {
 
     private func writeKeychain(service: String, credentials: KeychainCredentials) {
         guard let data = try? JSONEncoder().encode(credentials) else { return }
-
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service
@@ -118,7 +117,6 @@ final class UsageService {
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
-
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updateStatus == errSecItemNotFound {
             var addQuery = query
@@ -225,10 +223,8 @@ final class UsageService {
             cachedToken = newOAuthTokens
             Log.usage.info("OAuth token refreshed successfully")
 
-            // Persist to Keychain using the service name captured at load time
             if let service = keychainServiceName {
-                let updated = KeychainCredentials(claudeAiOauth: newOAuthTokens)
-                writeKeychain(service: service, credentials: updated)
+                writeKeychain(service: service, credentials: KeychainCredentials(claudeAiOauth: newOAuthTokens))
             }
 
             return true
