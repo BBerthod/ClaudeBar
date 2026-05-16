@@ -27,6 +27,7 @@ final class BurnRateServiceTests: XCTestCase {
             .temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: tempDir) }
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
