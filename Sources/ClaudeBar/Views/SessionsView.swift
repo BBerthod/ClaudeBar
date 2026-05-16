@@ -56,6 +56,7 @@ struct SessionsView: View {
                     } else {
                         ForEach(sessionService.recentSessions.prefix(20)) { entry in
                             recentSessionRow(entry)
+                                .padding(.horizontal, 12)
                             if entry.id != sessionService.recentSessions.prefix(20).last?.id {
                                 Divider()
                                     .padding(.leading, 12)
@@ -160,7 +161,6 @@ struct SessionsView: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
         .padding(.vertical, 4)
         .contentShape(Rectangle())
     }

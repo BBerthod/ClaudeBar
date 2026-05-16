@@ -155,6 +155,7 @@ struct ProjectsView: View {
                     if project.dailyMessageCounts.contains(where: { $0 > 0 }) {
                         Sparkline(data: project.dailyMessageCounts)
                             .frame(width: 48, height: 18)
+                            .accessibilityHidden(true)
                     }
                     Text(CostCalculator.formatCost(project.estimatedCost))
                         .font(.subheadline)
