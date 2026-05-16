@@ -40,7 +40,7 @@ enum ExportService {
 
     // MARK: - CSV
 
-    private static func buildCSV(stats: StatsCache, modelUsage: [String: ModelUsageEntry]) -> String {
+    static func buildCSV(stats: StatsCache, modelUsage: [String: ModelUsageEntry]) -> String {
         var lines: [String] = []
         lines.append("date,sessions,messages,tool_calls,tokens,cost_usd")
 
@@ -67,7 +67,7 @@ enum ExportService {
 
     // MARK: - JSON
 
-    private static func buildJSON(stats: StatsCache, modelUsage: [String: ModelUsageEntry]) -> String {
+    static func buildJSON(stats: StatsCache, modelUsage: [String: ModelUsageEntry]) -> String {
         let activityByDate = Dictionary(uniqueKeysWithValues: stats.dailyActivity.map { ($0.date, $0) })
         let tokensByDate = Dictionary(uniqueKeysWithValues: stats.dailyModelTokens.map { ($0.date, $0) })
 
