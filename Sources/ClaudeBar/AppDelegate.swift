@@ -8,16 +8,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
 
+    // Detect Claude config dir once at class init (before any service uses it)
+    private static let claudeDir: String = ClaudeDirectoryDetector.detect()
+
     // Services
-    let statsService = StatsService()
-    let sessionService = SessionService()
-    let settingsService = SettingsService()
-    let projectService = ProjectService()
+    lazy var statsService: StatsService = StatsService(claudeDir: AppDelegate.claudeDir)
+    lazy var sessionService: SessionService = SessionService(claudeDir: AppDelegate.claudeDir)
+    lazy var settingsService: SettingsService = SettingsService(claudeDir: AppDelegate.claudeDir)
+    lazy var projectService: ProjectService = ProjectService(claudeDir: AppDelegate.claudeDir)
     let hookHealthService = HookHealthService()
     let burnRateService = BurnRateService()
     let notificationService = NotificationService()
     let usageService = UsageService()
-    let liveStatsService = LiveStatsService()
+    lazy var liveStatsService: LiveStatsService = LiveStatsService(claudeDir: AppDelegate.claudeDir)
     let overlayManager = OverlayManager()
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
@@ -25,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let providerUsageService = ProviderUsageService()
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
-    let yearlyHistoryService = YearlyHistoryService()
+    lazy var yearlyHistoryService: YearlyHistoryService = YearlyHistoryService(claudeDir: AppDelegate.claudeDir)
     let updateCheckService = UpdateCheckService()
 
     private var refreshTimer: Timer?
