@@ -275,21 +275,29 @@ struct ProjectsView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
-            Text("No projects found")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Projects appear here once you use Claude Code in a directory.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
+            if projectService.isLoading {
+                ProgressView()
+                    .controlSize(.large)
+                    .padding(.bottom, 4)
+                Text("Scanning projects…")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "folder")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.tertiary)
+                Text("No projects found")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Text("Projects will appear after using Claude Code.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-        .padding(.horizontal, 12)
     }
 
     // MARK: - Helpers

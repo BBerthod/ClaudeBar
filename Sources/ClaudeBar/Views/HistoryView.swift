@@ -440,16 +440,28 @@ struct HistoryView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "chart.xyaxis.line")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
-            Text("No history available")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Stats will appear after using Claude Code.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
+            if yearlyHistoryService.isLoading {
+                ProgressView()
+                    .controlSize(.large)
+                    .padding(.bottom, 4)
+                Text("Scanning session history…")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Text("Analysing \u{00B1}1000 session files")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.tertiary)
+                Text("No history available")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Text("Stats will appear after using Claude Code.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity)

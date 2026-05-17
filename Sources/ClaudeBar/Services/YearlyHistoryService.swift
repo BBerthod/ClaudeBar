@@ -7,6 +7,7 @@ final class YearlyHistoryService {
     private(set) var last30DaysActivity: [DailyActivity] = []
     private(set) var last30DaysTokens: [DailyModelTokens] = []
     private(set) var isLoading = false
+    private(set) var isLoaded = false
 
     private let projectsDir: String
 
@@ -17,7 +18,7 @@ final class YearlyHistoryService {
     }
 
     func load() async {
-        guard !isLoading else { return }
+        guard !isLoading && !isLoaded else { return }
         isLoading = true
         let dirs = Self.allProjectsDirs()
         let result = await Task.detached(priority: .utility) {
@@ -27,6 +28,7 @@ final class YearlyHistoryService {
         last30DaysActivity = result.activity
         last30DaysTokens = result.tokens
         isLoading = false
+        isLoaded = true
     }
 
     // MARK: - Directory discovery
