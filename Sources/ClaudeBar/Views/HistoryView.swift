@@ -22,7 +22,9 @@ struct HistoryView: View {
     @State private var contributionMetric: ContributionMetric = .tokens
 
     private var filteredActivity: [DailyActivity] {
-        let all = statsService.last30DaysActivity
+        let all = statsService.last30DaysActivity.isEmpty
+            ? yearlyHistoryService.last30DaysActivity
+            : statsService.last30DaysActivity
         switch period {
         case .week:  return Array(all.suffix(7))
         case .month: return all
@@ -30,7 +32,9 @@ struct HistoryView: View {
     }
 
     private var filteredTokens: [DailyModelTokens] {
-        let all = statsService.last30DaysTokens
+        let all = statsService.last30DaysTokens.isEmpty
+            ? yearlyHistoryService.last30DaysTokens
+            : statsService.last30DaysTokens
         switch period {
         case .week:  return Array(all.suffix(7))
         case .month: return all
@@ -41,12 +45,12 @@ struct HistoryView: View {
 
     /// Per-day estimated cost for the current period filter.
     private var costSeries: [(date: Date, cost: Double)] {
-        guard let stats = statsService.stats else { return [] }
+        let modelUsage = statsService.stats?.modelUsage ?? [:]
         return filteredTokens.compactMap { day in
             guard let date = DateFormatter.isoDate.date(from: day.date) else { return nil }
             let cost = CostCalculator.estimateDailyCost(
                 tokens: day.tokensByModel,
-                modelUsage: stats.modelUsage
+                modelUsage: modelUsage
             )
             return (date: date, cost: cost)
         }
@@ -61,14 +65,14 @@ struct HistoryView: View {
 
     /// Per-day cost broken down by model for the stacked chart.
     private var modelCostSeries: [(date: Date, model: String, cost: Double)] {
-        guard let stats = statsService.stats else { return [] }
+        let modelUsage = statsService.stats?.modelUsage ?? [:]
         return filteredTokens.flatMap { day -> [(date: Date, model: String, cost: Double)] in
             guard let date = DateFormatter.isoDate.date(from: day.date) else { return [] }
             let mTok = 1_000_000.0
             return day.tokensByModel.compactMap { (modelId, tokenCount) -> (date: Date, model: String, cost: Double)? in
                 let p = CostCalculator.pricing(for: modelId)
                 let displayName = StatsService.displayName(for: modelId)
-                if let usage = stats.modelUsage[modelId] {
+                if let usage = modelUsage[modelId] {
                     let io = usage.inputTokens + usage.outputTokens
                     guard io > 0 else { return nil }
                     let frac = Double(tokenCount) / Double(io)
