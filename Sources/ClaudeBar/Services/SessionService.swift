@@ -27,40 +27,58 @@ final class SessionService {
         startWatchingProjects()
     }
 
+    // MARK: - Multi-installation discovery
+
+    /// Returns all ~/.claude* directories that contain a `sessions/` subdirectory.
+    private nonisolated static func allSessionsDirs() -> [String] {
+        let home = NSHomeDirectory()
+        let fm = FileManager.default
+        return ((try? fm.contentsOfDirectory(atPath: home)) ?? [])
+            .filter { $0 == ".claude" || $0.hasPrefix(".claude-") }
+            .compactMap { name -> String? in
+                let path = (home as NSString).appendingPathComponent(name) + "/sessions"
+                var isDir: ObjCBool = false
+                return fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue ? path : nil
+            }
+    }
+
+    /// Returns all ~/.claude* directories that contain a `projects/` subdirectory.
+    private nonisolated static func allProjectsDirs() -> [String] {
+        let home = NSHomeDirectory()
+        let fm = FileManager.default
+        return ((try? fm.contentsOfDirectory(atPath: home)) ?? [])
+            .filter { $0 == ".claude" || $0.hasPrefix(".claude-") }
+            .compactMap { name -> String? in
+                let path = (home as NSString).appendingPathComponent(name) + "/projects"
+                var isDir: ObjCBool = false
+                return fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue ? path : nil
+            }
+    }
+
     // MARK: - Active Sessions
 
     private func loadActiveSessions() {
-        let sessionsDir = self.sessionsDir
-        let projectsDir = self.projectsDir
-
         Task.detached(priority: .userInitiated) {
             let fm = FileManager.default
-            guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else {
-                await MainActor.run {
-                    self.activeSessions = []
-                    self.contextEstimates = [:]
-                }
-                return
-            }
-
             let decoder = JSONDecoder()
             var sessions: [ActiveSession] = []
+            var estimates: [String: Double] = [:]
 
-            for filename in files {
-                let filePath = sessionsDir + "/" + filename
-                guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
-                guard let session = try? decoder.decode(ActiveSession.self, from: data) else { continue }
-                guard kill(Int32(session.pid), 0) == 0 else { continue }
-                sessions.append(session)
+            for sessionsDir in SessionService.allSessionsDirs() {
+                guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else { continue }
+                let projectsDir = sessionsDir.replacingOccurrences(of: "/sessions", with: "/projects")
+
+                for filename in files {
+                    let filePath = sessionsDir + "/" + filename
+                    guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
+                    guard let session = try? decoder.decode(ActiveSession.self, from: data) else { continue }
+                    guard kill(Int32(session.pid), 0) == 0 else { continue }
+                    sessions.append(session)
+                    estimates[session.sessionId] = SessionService.estimateContext(for: session, projectsDir: projectsDir)
+                }
             }
 
             let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
-
-            let estimates = Dictionary(
-                uniqueKeysWithValues: sorted.map { session in
-                    (session.sessionId, SessionService.estimateContext(for: session, projectsDir: projectsDir))
-                }
-            )
 
             await MainActor.run {
                 let previousCount = self.activeSessions.count
@@ -76,25 +94,20 @@ final class SessionService {
     // MARK: - Recent Sessions
 
     private func loadRecentSessions() {
-        let projectsDir = self.projectsDir
-
         Task.detached(priority: .userInitiated) {
             let fm = FileManager.default
-            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else {
-                await MainActor.run {
-                    self.recentSessions = []
-                }
-                return
-            }
-
             let decoder = JSONDecoder()
             var allEntries: [SessionIndexEntry] = []
 
-            for projectDir in projectDirs {
-                let indexPath = projectsDir + "/" + projectDir + "/sessions-index.json"
-                guard let data = try? Data(contentsOf: URL(fileURLWithPath: indexPath)) else { continue }
-                guard let index = try? decoder.decode(SessionIndex.self, from: data) else { continue }
-                allEntries.append(contentsOf: index.entries)
+            for projectsDir in SessionService.allProjectsDirs() {
+                guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { continue }
+
+                for projectDir in projectDirs {
+                    let indexPath = projectsDir + "/" + projectDir + "/sessions-index.json"
+                    guard let data = try? Data(contentsOf: URL(fileURLWithPath: indexPath)) else { continue }
+                    guard let index = try? decoder.decode(SessionIndex.self, from: data) else { continue }
+                    allEntries.append(contentsOf: index.entries)
+                }
             }
 
             // Sort by modified date descending, then take the most recent 50
