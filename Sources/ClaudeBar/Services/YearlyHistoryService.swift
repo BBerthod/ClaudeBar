@@ -58,6 +58,7 @@ final class YearlyHistoryService {
         }
 
         let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
         // Accumulators for dayStats (365-day)
         var dayTokenMap: [Date: Int] = [:]
