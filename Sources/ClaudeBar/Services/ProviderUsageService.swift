@@ -16,7 +16,18 @@ final class ProviderUsageService {
     private var refreshTimer: Timer?
 
     private static let codexDbPath: String = {
-        NSString(string: "~/.codex/logs_1.sqlite").expandingTildeInPath
+        let codexDir = NSString(string: "~/.codex").expandingTildeInPath
+        let fm = FileManager.default
+        // Pick the highest-numbered logs_N.sqlite (Codex increments the version over time)
+        let best = (try? fm.contentsOfDirectory(atPath: codexDir))?
+            .filter { $0.hasPrefix("logs_") && $0.hasSuffix(".sqlite") }
+            .compactMap { name -> (path: String, n: Int)? in
+                let stem = name.dropFirst(5).dropLast(7)   // strip "logs_" and ".sqlite"
+                guard let n = Int(stem) else { return nil }
+                return (codexDir + "/" + name, n)
+            }
+            .max(by: { $0.n < $1.n })
+        return best?.path ?? (codexDir + "/logs_1.sqlite")
     }()
 
     private static let geminiCredsPath: String = {
