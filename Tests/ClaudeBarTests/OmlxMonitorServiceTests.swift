@@ -1,6 +1,37 @@
 import XCTest
 @testable import ClaudeBarLib
 
+// MARK: - URLProtocol mock for testing
+
+private class MockURLProtocol: URLProtocol {
+    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = MockURLProtocol.requestHandler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unknown))
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+    override func stopLoading() {}
+}
+
+private func makeMockSession() -> URLSession {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [MockURLProtocol.self]
+    return URLSession(configuration: config)
+}
+
 final class OmlxMonitorServiceTests: XCTestCase {
 
     func testStateSnapshotFromHealthyResponse() {
@@ -56,7 +87,49 @@ final class OmlxMonitorServiceTests: XCTestCase {
 
     @MainActor
     func testEndpointDefault() {
-        let svc = OmlxMonitorService(endpoint: "http://127.0.0.1:8000", skipInitialCheck: true)
+        let svc = OmlxMonitorService(disablePolling: true)
         XCTAssertEqual(svc.endpoint, "http://127.0.0.1:8000")
+    }
+
+    // MARK: - checkHealth() tests
+
+    @MainActor
+    func testCheckHealthSetsStateOnSuccess() async throws {
+        let json = """
+        {"status":"healthy","default_model":"Qwen3.6-27B","engine_pool":{"model_count":2,"loaded_count":0,"max_model_memory":115964116992,"current_model_memory":0},"mcp":null}
+        """.data(using: .utf8)!
+        MockURLProtocol.requestHandler = { _ in
+            let resp = HTTPURLResponse(url: URL(string: "http://127.0.0.1:8000/health")!,
+                                       statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (resp, json)
+        }
+        let svc = OmlxMonitorService(disablePolling: true, session: makeMockSession())
+        await svc.checkHealth()
+        XCTAssertTrue(svc.isOnline)
+        XCTAssertEqual(svc.defaultModel, "Qwen3.6-27B")
+        XCTAssertNil(svc.lastError)
+        XCTAssertNotNil(svc.lastChecked)
+    }
+
+    @MainActor
+    func testCheckHealthSetsOfflineOn503() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let resp = HTTPURLResponse(url: URL(string: "http://127.0.0.1:8000/health")!,
+                                       statusCode: 503, httpVersion: nil, headerFields: nil)!
+            return (resp, Data())
+        }
+        let svc = OmlxMonitorService(disablePolling: true, session: makeMockSession())
+        await svc.checkHealth()
+        XCTAssertFalse(svc.isOnline)
+        XCTAssertEqual(svc.lastError, "HTTP 503")
+    }
+
+    @MainActor
+    func testCheckHealthSetsOfflineOnNetworkError() async throws {
+        MockURLProtocol.requestHandler = { _ in throw URLError(.notConnectedToInternet) }
+        let svc = OmlxMonitorService(disablePolling: true, session: makeMockSession())
+        await svc.checkHealth()
+        XCTAssertFalse(svc.isOnline)
+        XCTAssertNotNil(svc.lastError)
     }
 }

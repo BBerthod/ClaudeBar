@@ -61,13 +61,17 @@ final class OmlxMonitorService {
 
     let endpoint: String
 
+    private let session: URLSession
     private var pollingTimer: Timer?
 
     // MARK: - Init
 
-    init(endpoint: String = "http://127.0.0.1:8000", skipInitialCheck: Bool = false) {
+    /// - parameter disablePolling: When `true`, skips the initial health check AND disables the
+    ///   recurring 30-second polling timer. Use **only** in tests to prevent network calls.
+    init(endpoint: String = "http://127.0.0.1:8000", disablePolling: Bool = false, session: URLSession = .shared) {
         self.endpoint = endpoint
-        if !skipInitialCheck {
+        self.session = session
+        if !disablePolling {
             Task { await checkHealth() }
             startPolling()
         }
@@ -95,11 +99,12 @@ final class OmlxMonitorService {
         request.timeoutInterval = 5
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse,
                   (200..<300).contains(http.statusCode) else {
+                let code = (response as? HTTPURLResponse)?.statusCode.description ?? "?"
                 state = StateSnapshot()
-                lastError = "HTTP error"
+                lastError = "HTTP \(code)"
                 return
             }
             let decoded = try JSONDecoder().decode(OmlxHealthResponse.self, from: data)
