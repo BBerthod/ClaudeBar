@@ -30,6 +30,8 @@ struct AnalyticsView: View {
     @Environment(LiveStatsService.self) private var liveStatsService
     @Environment(McpHealthService.self) private var mcpHealthService
     @Environment(ProjectService.self) private var projectService
+    @Environment(OmlxMonitorService.self) private var omlxMonitorService
+    @Environment(ProviderUsageService.self) private var providerUsageService
 
     @State private var selectedSection: AnalyticsSection = .alerts
 
@@ -1572,6 +1574,52 @@ struct AnalyticsView: View {
                         }
                     }
                     .padding(4)
+                }
+                .padding(.horizontal)
+
+                // oMLX inference server
+                GroupBox("oMLX — Local Inference") {
+                    VStack(spacing: 0) {
+                        systemInfoRow(
+                            "Status",
+                            value: omlxMonitorService.isOnline ? "Online ✓" : "Offline",
+                            valueColor: omlxMonitorService.isOnline ? .green : .secondary
+                        )
+                        if omlxMonitorService.isOnline {
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Model", value: omlxMonitorService.defaultModel ?? "—")
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Models available", value: "\(omlxMonitorService.modelCount)")
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Loaded", value: "\(omlxMonitorService.loadedCount)")
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Memory", value: omlxMonitorService.memoryLabel)
+                        }
+                        if let checked = omlxMonitorService.lastChecked {
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Last check", value: checked.formattedTime)
+                        }
+                        if let err = omlxMonitorService.lastError {
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Error", value: err, valueColor: .red)
+                        }
+                        if providerUsageService.omlxCallsToday > 0 {
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Calls today", value: "\(providerUsageService.omlxCallsToday)")
+                        }
+                    }
+                    .padding(4)
+
+                    HStack {
+                        Spacer()
+                        Button("Refresh") {
+                            Task { await omlxMonitorService.checkHealth() }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .padding(.top, 4)
+                        .padding(.trailing, 4)
+                    }
                 }
                 .padding(.horizontal)
 
