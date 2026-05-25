@@ -7,4 +7,5 @@ enum Log {
     static let providers = Logger(subsystem: "com.claudebar", category: "providers")
     static let notifications = Logger(subsystem: "com.claudebar", category: "notifications")
     static let settings = Logger(subsystem: "com.claudebar", category: "settings")
+    static let omlx = Logger(subsystem: "com.claudebar", category: "omlx")
 }

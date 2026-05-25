@@ -25,11 +25,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
     let mcpHealthService = McpHealthService()
-    let providerUsageService = ProviderUsageService()
+    lazy var providerUsageService: ProviderUsageService = ProviderUsageService(
+        claudeDir: AppDelegate.claudeDir
+    )
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
     lazy var yearlyHistoryService: YearlyHistoryService = YearlyHistoryService(claudeDir: AppDelegate.claudeDir)
     let updateCheckService = UpdateCheckService()
+    let omlxMonitorService = OmlxMonitorService()
 
     private var refreshTimer: Timer?
     private var globalHotkeyMonitor: Any?
@@ -151,6 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environment(providerUsageService)
         .environment(yearlyHistoryService)
         .environment(updateCheckService)
+        .environment(omlxMonitorService)
 
         popover = NSPopover()
         popover.contentSize = NSSize(width: 420, height: 520)
@@ -252,6 +256,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environment(mcpHealthService)
             .environment(projectService)
             .environment(updateCheckService)
+            .environment(providerUsageService)
+            .environment(omlxMonitorService)
         mainWindowManager.show(content: analyticsView)
         popover?.performClose(nil)
     }
