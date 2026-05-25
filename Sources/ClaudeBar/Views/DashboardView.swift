@@ -16,6 +16,7 @@ struct DashboardView: View {
     @Environment(McpHealthService.self) private var mcpHealthService
     @Environment(ProviderUsageService.self) private var providerUsageService
     @Environment(UpdateCheckService.self) private var updateCheckService
+    @Environment(OmlxMonitorService.self) private var omlxMonitorService
     var onRefresh: (() -> Void)?
 
     // MARK: - Effective stats (prefer stats-cache, fallback to live JSONL)
@@ -114,7 +115,24 @@ struct DashboardView: View {
             contextLimitHits: providerUsageService.codexContextLimitHitsToday > 0 ? providerUsageService.codexContextLimitHitsToday : nil
         )
 
-        return [claudeProvider, geminiProvider, codexProvider]
+        let hasOmlxMcp = mcpHealthService.servers.contains {
+            $0.name.lowercased().contains("omlx")
+        }
+        let omlxProvider = ProviderInfo(
+            name: "oMLX",
+            icon: "cpu.fill",
+            isConfigured: omlxMonitorService.isOnline || hasOmlxMcp,
+            totalTokens: nil,
+            estimatedCost: nil,
+            details: omlxMonitorService.isOnline
+                ? omlxMonitorService.defaultModel
+                : (hasOmlxMcp ? "Offline" : nil),
+            sessionCount: providerUsageService.omlxCallsToday > 0
+                ? providerUsageService.omlxCallsToday
+                : nil,
+            contextLimitHits: nil
+        )
+        return [claudeProvider, geminiProvider, codexProvider, omlxProvider]
     }
 
     // MARK: - 7-day sparkline data
