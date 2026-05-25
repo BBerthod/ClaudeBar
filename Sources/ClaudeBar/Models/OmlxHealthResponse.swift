@@ -28,12 +28,12 @@ struct OmlxHealthResponse: Codable, Sendable {
 
     /// Max engine memory in GB (0 if no engine_pool).
     var maxMemoryGB: Double {
-        Double(enginePool?.maxModelMemory ?? 0) / 1_073_741_824
+        Double(max(0, enginePool?.maxModelMemory ?? 0)) / 1_073_741_824
     }
 
     /// Current memory used in GB (0 if no engine_pool).
     var usedMemoryGB: Double {
-        Double(enginePool?.currentModelMemory ?? 0) / 1_073_741_824
+        Double(max(0, enginePool?.currentModelMemory ?? 0)) / 1_073_741_824
     }
 
     enum CodingKeys: String, CodingKey {

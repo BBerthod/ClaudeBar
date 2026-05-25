@@ -63,4 +63,16 @@ final class OmlxHealthResponseTests: XCTestCase {
         XCTAssertNil(r.enginePool)
         XCTAssertEqual(r.maxMemoryGB, 0.0, accuracy: 0.01)
     }
+
+    func testDecodesWhenEnginePoolKeyAbsent() throws {
+        let json = #"{"status":"healthy"}"#.data(using: .utf8)!
+        let r = try JSONDecoder().decode(OmlxHealthResponse.self, from: json)
+        XCTAssertNil(r.enginePool)
+        XCTAssertNil(r.defaultModel)
+    }
+
+    func testThrowsOnMalformedJSON() {
+        let bad = "not json".data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(OmlxHealthResponse.self, from: bad))
+    }
 }
