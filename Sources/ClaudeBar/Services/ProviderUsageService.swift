@@ -13,7 +13,12 @@ final class ProviderUsageService {
     private(set) var isGeminiAuthenticated: Bool = false
     private(set) var geminiTokenValid: Bool = false
 
+    private(set) var omlxCallsToday: Int = 0
+    private(set) var isOmlxActive: Bool = false
+
     private var refreshTimer: Timer?
+
+    private let projectsDir: String
 
     private static let codexDbPath: String = {
         let codexDir = NSString(string: "~/.codex").expandingTildeInPath
@@ -34,7 +39,8 @@ final class ProviderUsageService {
         NSString(string: "~/.gemini/oauth_creds.json").expandingTildeInPath
     }()
 
-    init() {
+    init(claudeDir: String = NSString(string: "~/.claude").expandingTildeInPath) {
+        self.projectsDir = claudeDir + "/projects"
         Task { await refresh() }
         startPolling()
     }
@@ -55,6 +61,7 @@ final class ProviderUsageService {
     func refresh() async {
         await refreshCodex()
         refreshGemini()
+        await refreshOmlx()
     }
 
     // MARK: - Codex
@@ -215,5 +222,69 @@ final class ProviderUsageService {
 
         let expiryDate = Date(timeIntervalSince1970: Double(expiryDateMs) / 1000.0)
         geminiTokenValid = expiryDate > Date()
+    }
+
+    // MARK: - oMLX
+
+    /// Scans today's JSONL session files for tool_use blocks calling any oMLX tool.
+    /// Returns the count of distinct message IDs that contain at least one oMLX tool call.
+    /// `nonisolated static` for testability.
+    nonisolated static func countOmlxCallsInLines(_ lines: [String]) -> Int {
+        var messageIDsWithOmlx: Set<String> = []
+
+        for line in lines {
+            guard let data = line.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  (json["type"] as? String) == "assistant",
+                  let message = json["message"] as? [String: Any],
+                  let content = message["content"] as? [[String: Any]],
+                  let msgID = message["id"] as? String else { continue }
+
+            let hasOmlx = content.contains { block in
+                guard (block["type"] as? String) == "tool_use",
+                      let name = block["name"] as? String else { return false }
+                return name.contains("omlx")
+            }
+
+            if hasOmlx {
+                messageIDsWithOmlx.insert(msgID)
+            }
+        }
+        return messageIDsWithOmlx.count
+    }
+
+    private func refreshOmlx() async {
+        let projectsDir = self.projectsDir
+        let fm = FileManager.default
+        let todayStart = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+
+        let count = await Task.detached(priority: .utility) {
+            var allLines: [String] = []
+
+            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else {
+                return 0
+            }
+
+            for dir in projectDirs {
+                let dirPath = projectsDir + "/" + dir
+                for basePath in [dirPath, dirPath + "/subagents"] {
+                    guard let files = try? fm.contentsOfDirectory(atPath: basePath) else { continue }
+                    for file in files where file.hasSuffix(".jsonl") {
+                        let path = basePath + "/" + file
+                        guard let attrs = try? fm.attributesOfItem(atPath: path),
+                              let mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970,
+                              mtime >= todayStart else { continue }
+                        guard let data = fm.contents(atPath: path),
+                              let content = String(data: data, encoding: .utf8) else { continue }
+                        allLines.append(contentsOf: content.split(separator: "\n").map(String.init))
+                    }
+                }
+            }
+
+            return ProviderUsageService.countOmlxCallsInLines(allLines)
+        }.value
+
+        omlxCallsToday = count
+        isOmlxActive = count > 0
     }
 }
