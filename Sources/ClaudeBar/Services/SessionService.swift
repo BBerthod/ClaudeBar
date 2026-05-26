@@ -94,36 +94,117 @@ final class SessionService {
     // MARK: - Recent Sessions
 
     private func loadRecentSessions() {
+        let dirs = SessionService.allProjectsDirs()
         Task.detached(priority: .userInitiated) {
-            let fm = FileManager.default
-            let decoder = JSONDecoder()
-            var allEntries: [SessionIndexEntry] = []
-
-            for projectsDir in SessionService.allProjectsDirs() {
-                guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { continue }
-
-                for projectDir in projectDirs {
-                    let indexPath = projectsDir + "/" + projectDir + "/sessions-index.json"
-                    guard let data = try? Data(contentsOf: URL(fileURLWithPath: indexPath)) else { continue }
-                    guard let index = try? decoder.decode(SessionIndex.self, from: data) else { continue }
-                    allEntries.append(contentsOf: index.entries)
-                }
-            }
-
-            // Sort by modified date descending, then take the most recent 50
-            allEntries.sort { lhs, rhs in
-                // Treat nil modified as oldest possible
-                guard let lhsMod = lhs.modified else { return false }
-                guard let rhsMod = rhs.modified else { return true }
-                return lhsMod > rhsMod
-            }
-
-            let result = Array(allEntries.prefix(50))
+            let result = SessionService.scanRecentSessions(fromProjectsDirs: dirs, limit: 50)
 
             await MainActor.run {
                 self.recentSessions = result
             }
         }
+    }
+
+    /// Builds the recent-sessions list directly from JSONL files, sorted by file mtime (newest first).
+    nonisolated static func scanRecentSessions(fromProjectsDirs dirs: [String], limit: Int) -> [SessionIndexEntry] {
+        let fm = FileManager.default
+        var candidates: [(path: String, mtime: Date)] = []
+
+        for projectsDir in dirs {
+            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { continue }
+
+            for projectDir in projectDirs {
+                let dirPath = projectsDir + "/" + projectDir
+                guard let files = try? fm.contentsOfDirectory(atPath: dirPath) else { continue }
+
+                for file in files where file.hasSuffix(".jsonl") {
+                    let path = dirPath + "/" + file
+                    guard let attrs = try? fm.attributesOfItem(atPath: path),
+                          let mtime = attrs[.modificationDate] as? Date else { continue }
+                    candidates.append((path, mtime))
+                }
+            }
+        }
+
+        candidates.sort { $0.mtime > $1.mtime }
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        var entries: [SessionIndexEntry] = []
+        for candidate in candidates.prefix(limit) {
+            let sessionId = ((candidate.path as NSString).lastPathComponent as NSString).deletingPathExtension
+            let head: String = {
+                guard let handle = FileHandle(forReadingAtPath: candidate.path) else { return "" }
+                defer { try? handle.close() }
+                let data = (try? handle.read(upToCount: 65_536)) ?? Data()
+                return String(decoding: data, as: UTF8.self)
+            }()
+            let lines = head.split(separator: "\n").map(String.init)
+            let meta = sessionMetadata(fromLines: lines)
+
+            entries.append(SessionIndexEntry(
+                sessionId: sessionId,
+                fullPath: candidate.path,
+                fileMtime: Int(candidate.mtime.timeIntervalSince1970 * 1_000),
+                firstPrompt: meta.summary,
+                summary: meta.summary,
+                messageCount: nil,
+                created: nil,
+                modified: iso.string(from: candidate.mtime),
+                gitBranch: meta.gitBranch,
+                projectPath: meta.cwd ?? dirNameToPath((candidate.path as NSString).deletingLastPathComponent),
+                isSidechain: nil
+            ))
+        }
+
+        return entries
+    }
+
+    /// Best-effort decode of an encoded project dir path into a display path (fallback only).
+    nonisolated static func dirNameToPath(_ dirPath: String) -> String {
+        let name = (dirPath as NSString).lastPathComponent
+        if name.hasPrefix("-") {
+            return "/" + name.dropFirst().replacingOccurrences(of: "-", with: "/")
+        }
+        return name
+    }
+
+    /// Pure: extracts cwd, gitBranch, and first user prompt (as summary) from JSONL lines.
+    nonisolated static func sessionMetadata(fromLines lines: [String]) -> (cwd: String?, gitBranch: String?, summary: String?) {
+        var cwd: String?
+        var gitBranch: String?
+        var summary: String?
+
+        for line in lines {
+            guard let data = line.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+
+            if cwd == nil, let value = json["cwd"] as? String {
+                cwd = value
+            }
+
+            if gitBranch == nil, let value = json["gitBranch"] as? String, !value.isEmpty {
+                gitBranch = value
+            }
+
+            if summary == nil,
+               (json["type"] as? String) == "user",
+               let message = json["message"] as? [String: Any] {
+                if let value = message["content"] as? String {
+                    summary = String(value.prefix(100))
+                } else if let content = message["content"] as? [[String: Any]],
+                          let textItem = content.first(where: { ($0["type"] as? String) == "text" }),
+                          let value = textItem["text"] as? String {
+                    summary = String(value.prefix(100))
+                }
+            }
+
+            if cwd != nil && gitBranch != nil && summary != nil {
+                break
+            }
+        }
+
+        return (cwd, gitBranch, summary)
     }
 
     // MARK: - Polling
