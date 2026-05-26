@@ -252,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Auto-Update
 
     private func startUpdateCheckTimer() {
-        // Repeat hourly
+        // Hourly repeat
         updateCheckTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
@@ -260,12 +260,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await self.installUpdateIfAvailable()
             }
         }
-        // Initial trigger: wait 5s for UpdateCheckService.init's Task to finish its first API call
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            guard let self else { return }
-            Task { @MainActor in
-                await self.installUpdateIfAvailable()
-            }
+        // Explicit startup check — sequential, no timing assumption
+        Task { @MainActor in
+            await updateCheckService.checkForUpdate()
+            await installUpdateIfAvailable()
         }
     }
 

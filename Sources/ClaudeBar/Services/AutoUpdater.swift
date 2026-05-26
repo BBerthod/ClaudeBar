@@ -37,38 +37,47 @@ final class AutoUpdater {
 
         let zipDest = supportDir.appendingPathComponent("update.zip")
         let extractDir = URL(fileURLWithPath: "/tmp/ClaudeBar-update")
+        // Script in supportDir (user-only writable) — avoids /tmp TOCTOU race
+        let scriptURL = supportDir.appendingPathComponent("claudebar-update.sh")
 
         do {
-            // 1. Download to a tmp path, then move to our Application Support dir
+            // 1. Download to tmp path, then move to Application Support
             Log.stats.info("AutoUpdater: downloading \(url.lastPathComponent)")
             let (tmpURL, _) = try await session.download(from: url)
-            try? FileManager.default.removeItem(at: zipDest)
-            try FileManager.default.moveItem(at: tmpURL, to: zipDest)
 
-            // 2. Extract zip to /tmp/ClaudeBar-update/
-            try? FileManager.default.removeItem(at: extractDir)
-            let unzip = Process()
-            unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-            unzip.arguments = ["-q", zipDest.path, "-d", extractDir.path]
-            unzip.standardOutput = FileHandle.nullDevice
-            unzip.standardError = FileHandle.nullDevice
-            try unzip.run()
-            unzip.waitUntilExit()
+            // 2. File I/O and extraction off MainActor (avoids blocking main thread)
+            let terminationStatus: Int32 = try await Task.detached(priority: .utility) {
+                try? FileManager.default.removeItem(at: zipDest)
+                try FileManager.default.moveItem(at: tmpURL, to: zipDest)
 
-            guard unzip.terminationStatus == 0 else {
-                Log.stats.error("AutoUpdater: unzip exited with status \(unzip.terminationStatus)")
+                try? FileManager.default.removeItem(at: extractDir)
+                let unzip = Process()
+                unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+                unzip.arguments = ["-q", zipDest.path, "-d", extractDir.path]
+                unzip.standardOutput = FileHandle.nullDevice
+                unzip.standardError = FileHandle.nullDevice
+                try unzip.run()
+                unzip.waitUntilExit()
+                return unzip.terminationStatus
+            }.value
+
+            guard terminationStatus == 0 else {
+                Log.stats.error("AutoUpdater: unzip exited with status \(terminationStatus)")
                 return
             }
 
-            // 3. Verify the .app is present in the extracted directory
+            // 3. Verify .app exists (off MainActor)
             let appPath = extractDir.appendingPathComponent("ClaudeBar.app")
-            guard FileManager.default.fileExists(atPath: appPath.path) else {
+            let appExists = await Task.detached(priority: .utility) {
+                FileManager.default.fileExists(atPath: appPath.path)
+            }.value
+
+            guard appExists else {
                 Log.stats.error("AutoUpdater: ClaudeBar.app not found in extracted zip at \(appPath.path)")
                 return
             }
 
-            // 4. Write a shell script that replaces the bundle after the app has quit.
-            //    The script: sleeps 2s (app finishes termination), replaces the bundle, relaunches.
+            // 4. Write update script to supportDir (user-only writable, no TOCTOU risk)
             let script = """
             #!/bin/sh
             sleep 2
@@ -79,14 +88,15 @@ final class AutoUpdater {
                 open "/Applications/ClaudeBar.app"
             fi
             """
-            let scriptURL = URL(fileURLWithPath: "/tmp/claudebar-update.sh")
-            try script.write(to: scriptURL, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes(
-                [.posixPermissions: 0o755],
-                ofItemAtPath: scriptURL.path
-            )
+            try await Task.detached(priority: .utility) {
+                try script.write(to: scriptURL, atomically: true, encoding: .utf8)
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o755],
+                    ofItemAtPath: scriptURL.path
+                )
+            }.value
 
-            // 5. Launch the script detached (it will outlive the app), then quit
+            // 5. Launch script detached, then quit (back on MainActor)
             let launcher = Process()
             launcher.executableURL = URL(fileURLWithPath: "/bin/sh")
             launcher.arguments = [scriptURL.path]

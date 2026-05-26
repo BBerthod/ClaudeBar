@@ -13,6 +13,7 @@ final class UpdateCheckService {
     private(set) var assetDownloadURL: String?
 
     private let session: URLSession
+    private var isChecking: Bool = false
 
     init(
         currentVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0",
@@ -20,10 +21,14 @@ final class UpdateCheckService {
     ) {
         self.currentVersion = currentVersion
         self.session = session
-        Task { await checkForUpdate() }
+        // Initial check is driven explicitly by AppDelegate.startUpdateCheckTimer()
     }
 
     func checkForUpdate() async {
+        guard !isChecking else { return }
+        isChecking = true
+        defer { isChecking = false }
+
         guard let url = URL(string: "https://api.github.com/repos/BBerthod/ClaudeBar/releases/latest") else { return }
 
         var request = URLRequest(url: url)
