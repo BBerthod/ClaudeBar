@@ -146,31 +146,56 @@ final class SessionService {
 
     // MARK: - Context Estimation
 
-    /// Estimates the context window usage for an active session (0.0 – 1.0).
-    ///
-    /// Reads the session's JSONL transcript and estimates tokens from file size.
-    /// Rough heuristic: ~4 chars per token, JSON overhead ~2×, so tokens ≈ fileSize / 8.
-    ///
-    /// The `projectsDir` parameter allows this method to be called from off-actor
-    /// contexts (e.g. detached tasks) without capturing `self`.
+    /// Context window (tokens) for a model name. Current Claude 4 models support 1M; others default 200K.
+    nonisolated static func contextWindow(forModel model: String) -> Int {
+        if model.contains("opus-4") || model.contains("sonnet-4") { return 1_000_000 }
+        return 200_000
+    }
+
+    /// Pure: given JSONL lines, returns context-window fraction (0.0–1.0) from the LAST
+    /// assistant message's usage (input + cache_read + cache_creation), divided by the model window.
+    nonisolated static func contextFraction(fromLines lines: [String]) -> Double {
+        for line in lines.reversed() {
+            guard let data = line.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  (json["type"] as? String) == "assistant",
+                  let message = json["message"] as? [String: Any],
+                  let usage = message["usage"] as? [String: Any] else { continue }
+
+            let input = (usage["input_tokens"] as? Int) ?? 0
+            let cacheRead = (usage["cache_read_input_tokens"] as? Int) ?? 0
+            let cacheCreate = (usage["cache_creation_input_tokens"] as? Int) ?? 0
+            let contextTokens = input + cacheRead + cacheCreate
+            guard contextTokens > 0 else { continue }
+
+            let model = (message["model"] as? String) ?? ""
+            return min(Double(contextTokens) / Double(contextWindow(forModel: model)), 1.0)
+        }
+        return 0
+    }
+
+    /// Estimates context-window usage (0.0–1.0) for an active session by reading the tail of its
+    /// JSONL transcript and parsing the last assistant message's token usage.
     nonisolated static func estimateContext(for session: ActiveSession, projectsDir: String) -> Double {
-        // ~/.claude/projects/{encoded-cwd}/{sessionId}.jsonl
         let encodedCwd = session.cwd.replacingOccurrences(of: "/", with: "-")
         let jsonlPath = projectsDir + "/" + encodedCwd + "/" + session.sessionId + ".jsonl"
 
+        guard let handle = FileHandle(forReadingAtPath: jsonlPath) else { return 0 }
+        defer { try? handle.close() }
+
         let fm = FileManager.default
         guard let attrs = try? fm.attributesOfItem(atPath: jsonlPath),
-              let fileSize = attrs[.size] as? UInt64 else {
-            return 0
-        }
+              let fileSize = attrs[.size] as? UInt64 else { return 0 }
 
-        // ~4 chars per token, JSON overhead ~2× raw text → effective tokens ≈ fileSize / 8
-        let estimatedTokens = Double(fileSize) / 8.0
+        // Read only the last ~1MB; the last assistant message lives near the end.
+        let tailSize: UInt64 = 1_000_000
+        let offset = fileSize > tailSize ? fileSize - tailSize : 0
+        try? handle.seek(toOffset: offset)
+        guard let data = try? handle.readToEnd(), !data.isEmpty else { return 0 }
 
-        // Default context window is 200K tokens
-        let contextWindow: Double = 200_000
-
-        return min(estimatedTokens / contextWindow, 1.0)
+        // The first line may be partial when the tail starts mid-record.
+        let lines = String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
+        return contextFraction(fromLines: lines)
     }
 
     /// Instance wrapper preserving the original public interface.
