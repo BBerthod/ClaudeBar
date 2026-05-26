@@ -32,9 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let anomalyService = AnomalyService()
     lazy var yearlyHistoryService: YearlyHistoryService = YearlyHistoryService(claudeDir: AppDelegate.claudeDir)
     let updateCheckService = UpdateCheckService()
+    let autoUpdater = AutoUpdater()
     let omlxMonitorService = OmlxMonitorService()
 
     private var refreshTimer: Timer?
+    private var updateCheckTimer: Timer?
     private var globalHotkeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -50,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         setupGlobalHotkey()
+        startUpdateCheckTimer()
         // Hide dock icon AFTER status item is created (respect user preference)
         let showDockIcon = UserDefaults.standard.bool(forKey: "claudebar.showDockIcon")
         NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
@@ -60,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(monitor)
             globalHotkeyMonitor = nil
         }
+        updateCheckTimer?.invalidate()
     }
 
     // MARK: - Status Item
@@ -243,6 +247,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func restartRefreshTimer() {
         refreshTimer?.invalidate()
         startRefreshTimer()
+    }
+
+    // MARK: - Auto-Update
+
+    private func startUpdateCheckTimer() {
+        // Repeat hourly
+        updateCheckTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                await self.updateCheckService.checkForUpdate()
+                await self.installUpdateIfAvailable()
+            }
+        }
+        // Initial trigger: wait 5s for UpdateCheckService.init's Task to finish its first API call
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                await self.installUpdateIfAvailable()
+            }
+        }
+    }
+
+    private func installUpdateIfAvailable() async {
+        guard updateCheckService.updateAvailable,
+              let url = updateCheckService.assetDownloadURL,
+              !autoUpdater.isUpdating else { return }
+        Log.stats.info("AppDelegate: triggering update to \(self.updateCheckService.latestVersion ?? "?")")
+        await autoUpdater.downloadAndInstall(from: url)
     }
 
     /// Opens the full analytics window with NavigationSplitView layout.
