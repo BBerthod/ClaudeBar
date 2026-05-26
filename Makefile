@@ -18,25 +18,27 @@ icon:
 
 # Create .app bundle
 app: release
-	@echo "Bundling ClaudeBar.app..."
-	@rm -rf build/ClaudeBar.app
-	@mkdir -p build/ClaudeBar.app/Contents/MacOS
-	@mkdir -p build/ClaudeBar.app/Contents/Resources
-	@cp .build/release/ClaudeBar build/ClaudeBar.app/Contents/MacOS/
-	@if [ -f Resources/AppIcon.icns ]; then cp Resources/AppIcon.icns build/ClaudeBar.app/Contents/Resources/; fi
-	@/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string io.github.claudebar" \
+	@VERSION=$$(cat VERSION); \
+	echo "Bundling ClaudeBar.app v$$VERSION..."; \
+	rm -rf build/ClaudeBar.app; \
+	mkdir -p build/ClaudeBar.app/Contents/MacOS; \
+	mkdir -p build/ClaudeBar.app/Contents/Resources; \
+	cp .build/release/ClaudeBar build/ClaudeBar.app/Contents/MacOS/; \
+	if [ -f Resources/AppIcon.icns ]; then cp Resources/AppIcon.icns build/ClaudeBar.app/Contents/Resources/; fi; \
+	/usr/libexec/PlistBuddy \
+		-c "Add :CFBundleIdentifier string io.github.claudebar" \
 		-c "Add :CFBundleName string ClaudeBar" \
 		-c "Add :CFBundleDisplayName string ClaudeBar" \
-		-c "Add :CFBundleVersion string 1.0.0" \
-		-c "Add :CFBundleShortVersionString string 1.0.0" \
+		-c "Add :CFBundleVersion string $$VERSION" \
+		-c "Add :CFBundleShortVersionString string $$VERSION" \
 		-c "Add :CFBundlePackageType string APPL" \
 		-c "Add :CFBundleExecutable string ClaudeBar" \
 		-c "Add :LSUIElement bool true" \
 		-c "Add :LSMinimumSystemVersion string 14.0" \
 		-c "Add :NSHighResolutionCapable bool true" \
 		-c "Add :CFBundleIconFile string AppIcon" \
-		build/ClaudeBar.app/Contents/Info.plist
-	@echo "✓ build/ClaudeBar.app created"
+		build/ClaudeBar.app/Contents/Info.plist; \
+	echo "✓ build/ClaudeBar.app v$$VERSION created"
 
 # Dev mode
 run: build
