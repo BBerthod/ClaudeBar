@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Required to create releases and upload assets
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Publish Release
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from VERSION file
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Check if release already exists
+        id: check
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v${{ steps.version.outputs.version }} already exists — skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Release v${{ steps.version.outputs.version }} does not exist — will create."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build .app bundle
+        if: steps.check.outputs.exists == 'false'
+        run: make app
+
+      - name: Zip the app bundle
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          cd build
+          zip -r ClaudeBar.zip ClaudeBar.app
+          echo "Zip size: $(du -sh ClaudeBar.zip | cut -f1)"
+
+      - name: Create GitHub Release with zip asset
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            build/ClaudeBar.zip \
+            --title "ClaudeBar v${{ steps.version.outputs.version }}" \
+            --notes "Automated release from CI — push to main."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
