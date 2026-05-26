@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var refreshTimer: Timer?
     private var updateCheckTimer: Timer?
+    private var historyRefreshTimer: Timer?
     private var globalHotkeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -53,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         setupGlobalHotkey()
         startUpdateCheckTimer()
+        startHistoryRefreshTimer()
         // Hide dock icon AFTER status item is created (respect user preference)
         let showDockIcon = UserDefaults.standard.bool(forKey: "claudebar.showDockIcon")
         NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
@@ -64,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             globalHotkeyMonitor = nil
         }
         updateCheckTimer?.invalidate()
+        historyRefreshTimer?.invalidate()
     }
 
     // MARK: - Status Item
@@ -264,6 +267,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             await updateCheckService.checkForUpdate()
             await installUpdateIfAvailable()
+        }
+    }
+
+    // MARK: - History Precompute + Background Refresh
+
+    private func startHistoryRefreshTimer() {
+        // Precompute at launch so the history view is instant when opened.
+        Task { @MainActor in await yearlyHistoryService.load() }
+        // Refresh every 10 minutes in the background.
+        historyRefreshTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in await self.yearlyHistoryService.refresh() }
         }
     }
 

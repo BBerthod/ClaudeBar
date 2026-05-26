@@ -17,8 +17,16 @@ final class YearlyHistoryService {
         self.projectsDir = NSString(string: claudeDir).expandingTildeInPath + "/projects"
     }
 
+    /// Loads history once (no-op if already loaded). Used for lazy first access.
     func load() async {
-        guard !isLoading && !isLoaded else { return }
+        guard !isLoaded else { return }
+        await refresh()
+    }
+
+    /// Re-scans all projects dirs and updates the published stats.
+    /// Safe to call periodically; guards against overlapping scans.
+    func refresh() async {
+        guard !isLoading else { return }
         isLoading = true
         let dirs = Self.allProjectsDirs()
         let result = await Task.detached(priority: .utility) {
