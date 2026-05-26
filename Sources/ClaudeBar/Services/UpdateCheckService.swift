@@ -5,11 +5,21 @@ import os
 @MainActor
 final class UpdateCheckService {
     private(set) var latestVersion: String?
-    private(set) var currentVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.6.0"
+    private(set) var currentVersion: String
     private(set) var updateAvailable: Bool = false
     private(set) var releaseURL: String?
+    /// Direct download URL for the release zip asset. Set only when a newer version is found
+    /// and the release has a `.zip` asset attached.
+    private(set) var assetDownloadURL: String?
 
-    init() {
+    private let session: URLSession
+
+    init(
+        currentVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0",
+        session: URLSession = .shared
+    ) {
+        self.currentVersion = currentVersion
+        self.session = session
         Task { await checkForUpdate() }
     }
 
@@ -21,7 +31,7 @@ final class UpdateCheckService {
         request.timeoutInterval = 10
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else { return }
@@ -36,12 +46,19 @@ final class UpdateCheckService {
                 latestVersion = remoteVersion
                 releaseURL = htmlURL
                 updateAvailable = true
+
+                // Parse asset download URL (first .zip in assets array)
+                if let assets = json["assets"] as? [[String: Any]],
+                   let zipAsset = assets.first(where: { ($0["name"] as? String)?.hasSuffix(".zip") == true }),
+                   let downloadURL = zipAsset["browser_download_url"] as? String {
+                    assetDownloadURL = downloadURL
+                }
+
                 Log.stats.info("Update available: \(remoteVersion) (current: \(self.currentVersion))")
             } else {
                 Log.stats.debug("ClaudeBar is up to date (\(self.currentVersion))")
             }
         } catch {
-            // Silent failure — best-effort check
             Log.stats.debug("Update check failed silently: \(error.localizedDescription)")
         }
     }
