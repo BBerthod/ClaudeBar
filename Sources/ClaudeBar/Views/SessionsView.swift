@@ -88,6 +88,11 @@ struct SessionsView: View {
                     if let ctx = sessionService.contextEstimates[session.sessionId], ctx > 0 {
                         ContextGauge(percentage: ctx, compact: true)
                     }
+                    if let rc = sessionService.sessionResumeCost[session.sessionId], rc > 0 {
+                        Text("~\(CostCalculator.formatCost(rc))/msg")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
                     if let last = sessionService.sessionLastActivity[session.sessionId],
                        let label = SessionService.idleLabel(lastActivity: last) {
                         Text(label)

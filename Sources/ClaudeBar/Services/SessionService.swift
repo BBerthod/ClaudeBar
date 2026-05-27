@@ -2,6 +2,12 @@ import Foundation
 import Darwin
 import os
 
+struct SessionContextInfo: Sendable {
+    let fraction: Double
+    let tokens: Int
+    let model: String
+}
+
 @Observable
 @MainActor
 final class SessionService {
@@ -9,6 +15,8 @@ final class SessionService {
     private(set) var recentSessions: [SessionIndexEntry] = []
     /// Context estimate for each active session (sessionId -> percentage 0.0-1.0)
     private(set) var contextEstimates: [String: Double] = [:]
+    /// Approx USD cost to send one more message in each active session (context re-read as cache).
+    private(set) var sessionResumeCost: [String: Double] = [:]
     /// Last file-activity date for each active session (sessionId -> jsonl mtime).
     private(set) var sessionLastActivity: [String: Date] = [:]
     private var fileWatcher = FileWatcher()
@@ -65,6 +73,7 @@ final class SessionService {
             let decoder = JSONDecoder()
             var sessions: [ActiveSession] = []
             var estimates: [String: Double] = [:]
+            var resumeCost: [String: Double] = [:]
             var lastActivity: [String: Date] = [:]
 
             for sessionsDir in SessionService.allSessionsDirs() {
@@ -77,7 +86,17 @@ final class SessionService {
                     guard let session = try? decoder.decode(ActiveSession.self, from: data) else { continue }
                     guard kill(Int32(session.pid), 0) == 0 else { continue }
                     sessions.append(session)
-                    estimates[session.sessionId] = SessionService.estimateContext(for: session, projectsDir: projectsDir)
+                    let info = SessionService.contextInfo(for: session, projectsDir: projectsDir)
+                    estimates[session.sessionId] = info.fraction
+                    if info.tokens > 0 {
+                        resumeCost[session.sessionId] = CostCalculator.cost(
+                            modelId: info.model,
+                            input: 0,
+                            output: 0,
+                            cacheRead: info.tokens,
+                            cacheCreation: 0
+                        )
+                    }
                     let jsonlPath = projectsDir + "/" + session.cwd.replacingOccurrences(of: "/", with: "-") + "/" + session.sessionId + ".jsonl"
                     if let attrs = try? fm.attributesOfItem(atPath: jsonlPath),
                        let mtime = attrs[.modificationDate] as? Date {
@@ -88,11 +107,13 @@ final class SessionService {
 
             let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
             let finalEstimates = estimates
+            let finalResumeCost = resumeCost
             let finalLastActivity = lastActivity
 
             await MainActor.run {
                 let previousCount = self.activeSessions.count
                 self.contextEstimates = finalEstimates
+                self.sessionResumeCost = finalResumeCost
                 self.sessionLastActivity = finalLastActivity
                 self.activeSessions = sorted
                 if sorted.count != previousCount {
@@ -257,6 +278,12 @@ final class SessionService {
     /// Pure: given JSONL lines, returns context-window fraction (0.0–1.0) from the LAST
     /// assistant message's usage (input + cache_read + cache_creation), divided by the model window.
     nonisolated static func contextFraction(fromLines lines: [String]) -> Double {
+        contextInfo(fromLines: lines).fraction
+    }
+
+    /// Pure: parses the last assistant message's usage. Returns context fraction,
+    /// absolute context tokens, and model. Zero values if none found.
+    nonisolated static func contextInfo(fromLines lines: [String]) -> SessionContextInfo {
         for line in lines.reversed() {
             guard let data = line.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -271,33 +298,45 @@ final class SessionService {
             guard contextTokens > 0 else { continue }
 
             let model = (message["model"] as? String) ?? ""
-            return min(Double(contextTokens) / Double(contextWindow(forModel: model)), 1.0)
+            let fraction = min(Double(contextTokens) / Double(contextWindow(forModel: model)), 1.0)
+            return SessionContextInfo(fraction: fraction, tokens: contextTokens, model: model)
         }
-        return 0
+        return SessionContextInfo(fraction: 0, tokens: 0, model: "")
     }
 
     /// Estimates context-window usage (0.0–1.0) for an active session by reading the tail of its
     /// JSONL transcript and parsing the last assistant message's token usage.
     nonisolated static func estimateContext(for session: ActiveSession, projectsDir: String) -> Double {
+        contextInfo(for: session, projectsDir: projectsDir).fraction
+    }
+
+    /// Reads the tail of an active session's JSONL transcript and parses context details.
+    nonisolated static func contextInfo(for session: ActiveSession, projectsDir: String) -> SessionContextInfo {
         let encodedCwd = session.cwd.replacingOccurrences(of: "/", with: "-")
         let jsonlPath = projectsDir + "/" + encodedCwd + "/" + session.sessionId + ".jsonl"
 
-        guard let handle = FileHandle(forReadingAtPath: jsonlPath) else { return 0 }
+        guard let handle = FileHandle(forReadingAtPath: jsonlPath) else {
+            return SessionContextInfo(fraction: 0, tokens: 0, model: "")
+        }
         defer { try? handle.close() }
 
         let fm = FileManager.default
         guard let attrs = try? fm.attributesOfItem(atPath: jsonlPath),
-              let fileSize = attrs[.size] as? UInt64 else { return 0 }
+              let fileSize = attrs[.size] as? UInt64 else {
+            return SessionContextInfo(fraction: 0, tokens: 0, model: "")
+        }
 
-        // Read only the last ~1MB; the last assistant message lives near the end.
-        let tailSize: UInt64 = 1_000_000
+        // Read only the last 64KB; the last assistant message lives near the end.
+        let tailSize: UInt64 = 65_536
         let offset = fileSize > tailSize ? fileSize - tailSize : 0
         try? handle.seek(toOffset: offset)
-        guard let data = try? handle.readToEnd(), !data.isEmpty else { return 0 }
+        guard let data = try? handle.readToEnd(), !data.isEmpty else {
+            return SessionContextInfo(fraction: 0, tokens: 0, model: "")
+        }
 
         // The first line may be partial when the tail starts mid-record.
         let lines = String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
-        return contextFraction(fromLines: lines)
+        return contextInfo(fromLines: lines)
     }
 
     /// Instance wrapper preserving the original public interface.
