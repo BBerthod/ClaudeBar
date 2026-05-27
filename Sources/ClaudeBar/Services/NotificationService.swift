@@ -12,6 +12,7 @@ final class NotificationService {
     private(set) var lastDigestDate: String?
     private var lastAlertKeyByThreshold: [Double: String] = [:]
     private var lastCostAlertDay: Date?
+    private var contextAlertArmed: [String: Bool] = [:]
 
     /// Set to `true` by the timer when the digest hour arrives.
     /// The app can observe this and call `sendDailyDigest(...)` then reset it.
@@ -117,6 +118,62 @@ final class NotificationService {
             )
             if soundEnabled { NSSound.beep() }
         }
+    }
+
+    // MARK: - Context Compaction Alert
+
+    /// Decides whether to alert for a session's context fraction, with hysteresis.
+    /// Re-arms when fraction drops below (threshold - 0.20).
+    nonisolated static func contextAlertDecision(
+        fraction: Double,
+        thresholdFraction: Double,
+        armed: Bool
+    ) -> (shouldAlert: Bool, armed: Bool) {
+        let rearm = max(0, thresholdFraction - 0.20)
+        if armed && fraction >= thresholdFraction {
+            return (true, false)
+        }
+        if !armed && fraction < rearm {
+            return (false, true)
+        }
+        return (false, armed)
+    }
+
+    /// Checks active sessions for context-window pressure and notifies on threshold crossing.
+    /// `thresholdPercent` is 0–100; 0 disables.
+    func checkContextThresholds(
+        activeSessions: [ActiveSession],
+        contextEstimates: [String: Double],
+        thresholdPercent: Double
+    ) {
+        guard thresholdPercent > 0 else { return }
+        let thresholdFraction = thresholdPercent / 100.0
+        var activeIds = Set<String>()
+
+        for session in activeSessions {
+            activeIds.insert(session.sessionId)
+            guard let fraction = contextEstimates[session.sessionId], fraction > 0 else { continue }
+
+            let armed = contextAlertArmed[session.sessionId] ?? true
+            let decision = Self.contextAlertDecision(
+                fraction: fraction,
+                thresholdFraction: thresholdFraction,
+                armed: armed
+            )
+            contextAlertArmed[session.sessionId] = decision.armed
+
+            if decision.shouldAlert {
+                let project = URL(fileURLWithPath: session.cwd).lastPathComponent
+                sendNotification(
+                    title: "Contexte élevé — \(project)",
+                    body: "\(Int(fraction * 100))% de la fenêtre de contexte · compaction imminente",
+                    identifier: "compaction_\(session.sessionId)"
+                )
+            }
+        }
+
+        // Prune state for sessions no longer active.
+        contextAlertArmed = contextAlertArmed.filter { activeIds.contains($0.key) }
     }
 
     // MARK: - Cost Alert Threshold

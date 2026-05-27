@@ -230,6 +230,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
                 self.updateStatusLabel()
+                let defaults = UserDefaults.standard
+                let ctxThreshold = defaults.object(forKey: "claudebar.contextAlertThreshold") == nil
+                    ? 90
+                    : defaults.double(forKey: "claudebar.contextAlertThreshold")
+                self.notificationService.checkContextThresholds(
+                    activeSessions: self.sessionService.activeSessions,
+                    contextEstimates: self.sessionService.contextEstimates,
+                    thresholdPercent: ctxThreshold
+                )
                 self.anomalyService.check(burnRateService: self.burnRateService, notificationService: self.notificationService)
 
                 if self.notificationService.digestPending {

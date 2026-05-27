@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage("claudebar.showStatusBarIndicator") private var showStatusBarIndicator: Bool = false
     @AppStorage("claudebar.showIconTinting") private var showIconTinting: Bool = true
     @AppStorage("claudebar.costAlertThreshold") private var costAlertThreshold: Double = 0
+    @AppStorage("claudebar.contextAlertThreshold") private var contextAlertThreshold: Double = 90
     @AppStorage("claudebar.alertThreshold1Enabled") private var threshold1Enabled: Bool = true
     @AppStorage("claudebar.alertThreshold1Value")   private var threshold1Value: Double = 0.25
     @AppStorage("claudebar.alertThreshold2Enabled") private var threshold2Enabled: Bool = true
@@ -104,6 +105,21 @@ struct SettingsView: View {
                         Text("$10").tag(10.0)
                         Text("$25").tag(25.0)
                         Text("$50").tag(50.0)
+                    }
+                    .frame(width: 80)
+                }
+
+                // Context compaction alert threshold
+                HStack {
+                    Label("Context alert", systemImage: "gauge.with.dots.needle.67percent")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("", selection: $contextAlertThreshold) {
+                        Text("Off").tag(0.0)
+                        Text("80%").tag(80.0)
+                        Text("85%").tag(85.0)
+                        Text("90%").tag(90.0)
+                        Text("95%").tag(95.0)
                     }
                     .frame(width: 80)
                 }
