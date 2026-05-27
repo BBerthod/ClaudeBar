@@ -142,6 +142,16 @@ struct AnalyticsView: View {
         // 5h rate limit projection
         if let fiveHour = usageService.usage?.fiveHour {
             let elapsed = usageService.fiveHourElapsedFraction
+            let secondsRemaining = max(
+                fiveHour.resetDate?.timeIntervalSinceNow ?? .greatestFiniteMagnitude,
+                0
+            )
+            let forecast = UsageForecast.limitLabel(
+                utilization: fiveHour.utilization,
+                elapsedFraction: elapsed,
+                secondsRemaining: secondsRemaining
+            )
+            let forecastSuffix = forecast.map { " — \($0)" } ?? ""
             if elapsed > 0.1 {
                 let projected = fiveHour.utilization / elapsed
                 if projected > 100 {
@@ -149,7 +159,7 @@ struct AnalyticsView: View {
                         severity: .critical,
                         icon: "exclamationmark.triangle.fill",
                         title: "Rate Limit Risk",
-                        message: "5h window projected to hit \(Int(min(projected, 999)))% at current pace",
+                        message: "5h window projected to hit \(Int(min(projected, 999)))% at current pace\(forecastSuffix)",
                         timestamp: now
                     ))
                 } else if projected > 80 {
@@ -157,7 +167,7 @@ struct AnalyticsView: View {
                         severity: .warning,
                         icon: "exclamationmark.triangle",
                         title: "Rate Limit Warning",
-                        message: "5h window projected to \(Int(projected))%",
+                        message: "5h window projected to \(Int(projected))%\(forecastSuffix)",
                         timestamp: now
                     ))
                 }

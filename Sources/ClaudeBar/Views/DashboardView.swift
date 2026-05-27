@@ -700,23 +700,6 @@ struct DashboardView: View {
 
             if let fiveHour = usageService.usage?.fiveHour {
                 fiveHourGauge(fiveHour: fiveHour, pace: usageService.fiveHourPace)
-                if let hours = usageService.estimatedHoursUntilLimit,
-                   usageService.fiveHourElapsedFraction >= 0.05 {
-                    let h = Int(hours)
-                    let m = Int((hours - Double(h)) * 60)
-                    let label = h > 0 ? "~\(h)h \(m)m" : "~\(m)m"
-                    if hours < 2.0 {
-                        Text("⚠ Limit in \(label) at current rate")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
-                            .padding(.leading, 4)
-                    } else if hours <= 4.0 {
-                        Text("Limit in \(label) at current rate")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 4)
-                    }
-                }
             }
 
             if let sevenDay = usageService.usage?.sevenDay {
@@ -767,10 +750,18 @@ struct DashboardView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                if let eta = etaToLimit(window: fiveHour, windowHours: 5) {
-                    Text(eta)
+                let secondsRemaining = max(
+                    fiveHour.resetDate?.timeIntervalSinceNow ?? .greatestFiniteMagnitude,
+                    0
+                )
+                if let forecast = UsageForecast.limitLabel(
+                    utilization: fiveHour.utilization,
+                    elapsedFraction: usageService.fiveHourElapsedFraction,
+                    secondsRemaining: secondsRemaining
+                ) {
+                    Text(forecast)
                         .font(.caption2)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(.secondary)
                 }
                 if let pace {
                     Text(pace.rawValue)
@@ -1006,32 +997,6 @@ struct DashboardView: View {
     }
 
     // MARK: - Helpers
-
-    /// Estimates time until the rate limit window reaches 100%, based on the
-    /// current utilization velocity (utilization consumed per elapsed hour).
-    private func etaToLimit(window: UsageWindow, windowHours: Double) -> String? {
-        guard window.utilization > 0, window.utilization < 95 else { return nil }
-        guard let resetDate = window.resetDate else { return nil }
-
-        let windowStart = resetDate.addingTimeInterval(-windowHours * 3600)
-        let elapsed = max(Date().timeIntervalSince(windowStart), 1)
-        let elapsedHours = elapsed / 3600
-
-        let ratePerHour = window.utilization / elapsedHours
-        guard ratePerHour > 0 else { return nil }
-
-        let remainingPct = 100.0 - window.utilization
-        let hoursToFull = remainingPct / ratePerHour
-
-        if hoursToFull > 48 { return nil }
-
-        let h = Int(hoursToFull)
-        let m = Int((hoursToFull - Double(h)) * 60)
-        if h > 0 {
-            return "~full in \(h)h \(m)m"
-        }
-        return "~full in \(m)m"
-    }
 
     private func zoneColor(_ zone: PacingZone) -> Color {
         switch zone {

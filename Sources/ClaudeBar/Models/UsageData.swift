@@ -174,3 +174,38 @@ enum PaceLevel: String, Sendable, CaseIterable {
         }
     }
 }
+
+enum UsageForecast {
+    /// Linear projection of seconds until utilization reaches 100%, given current
+    /// utilization (0-100) and the fraction of the 5h window elapsed (0-1).
+    /// Returns nil when no meaningful forecast (utilization ~0, or elapsed ~0).
+    /// windowSeconds defaults to 5h.
+    static func secondsToLimit(
+        utilization: Double,
+        elapsedFraction: Double,
+        windowSeconds: Double = 5 * 3600
+    ) -> TimeInterval? {
+        guard utilization > 1, elapsedFraction > 0.02, utilization < 100 else { return nil }
+        let elapsedSeconds = elapsedFraction * windowSeconds
+        let ratePerSecond = utilization / elapsedSeconds
+        guard ratePerSecond > 0 else { return nil }
+        return (100 - utilization) / ratePerSecond
+    }
+
+    /// Human label, e.g. "≈ limite dans 1h38" or "pas avant le reset" when the
+    /// projected time-to-limit exceeds the time left in the window.
+    static func limitLabel(
+        utilization: Double,
+        elapsedFraction: Double,
+        secondsRemaining: TimeInterval
+    ) -> String? {
+        guard let seconds = secondsToLimit(
+            utilization: utilization,
+            elapsedFraction: elapsedFraction
+        ) else { return nil }
+        if seconds >= secondsRemaining { return "pas avant le reset" }
+        let h = Int(seconds) / 3600
+        let m = (Int(seconds) % 3600) / 60
+        return h > 0 ? "≈ limite dans \(h)h\(String(format: "%02d", m))" : "≈ limite dans \(m)min"
+    }
+}
