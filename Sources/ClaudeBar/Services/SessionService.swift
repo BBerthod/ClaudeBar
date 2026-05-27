@@ -79,10 +79,11 @@ final class SessionService {
             }
 
             let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
+            let finalEstimates = estimates
 
             await MainActor.run {
                 let previousCount = self.activeSessions.count
-                self.contextEstimates = estimates
+                self.contextEstimates = finalEstimates
                 self.activeSessions = sorted
                 if sorted.count != previousCount {
                     Log.sessions.info("Active sessions: \(sorted.count)")
