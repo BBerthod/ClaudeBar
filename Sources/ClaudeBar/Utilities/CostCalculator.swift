@@ -130,6 +130,16 @@ enum CostCalculator {
         return total
     }
 
+    /// Direct USD cost from the four token types (no scaling; we have all types).
+    static func cost(modelId: String, input: Int, output: Int, cacheRead: Int, cacheCreation: Int) -> Double {
+        let p = pricing(for: modelId)
+        let mTok = 1_000_000.0
+        return Double(input)         / mTok * p.inputPerMTok
+             + Double(output)        / mTok * p.outputPerMTok
+             + Double(cacheRead)     / mTok * p.cacheReadPerMTok
+             + Double(cacheCreation) / mTok * p.cacheWritePerMTok
+    }
+
     /// Formats a cost value as a USD string, e.g. `"$12.34"` or `"$0.00"`.
     static func formatCost(_ cost: Double) -> String {
         String(format: "$%.2f", cost)

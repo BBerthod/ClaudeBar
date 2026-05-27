@@ -6,6 +6,7 @@ final class YearlyHistoryService {
     private(set) var dayStats: [Date: DayStats] = [:]
     private(set) var last30DaysActivity: [DailyActivity] = []
     private(set) var last30DaysTokens: [DailyModelTokens] = []
+    private(set) var last30DaysModelBreakdown: [String: ModelTokenBreakdown] = [:]
     private(set) var isLoading = false
     private(set) var isLoaded = false
 
@@ -35,6 +36,7 @@ final class YearlyHistoryService {
         dayStats = result.dayStats
         last30DaysActivity = result.activity
         last30DaysTokens = result.tokens
+        last30DaysModelBreakdown = result.modelBreakdown
         isLoading = false
         isLoaded = true
     }
@@ -57,14 +59,14 @@ final class YearlyHistoryService {
 
     private nonisolated static func scan(
         projectsDirs: [String]
-    ) -> (dayStats: [Date: DayStats], activity: [DailyActivity], tokens: [DailyModelTokens]) {
+    ) -> (dayStats: [Date: DayStats], activity: [DailyActivity], tokens: [DailyModelTokens], modelBreakdown: [String: ModelTokenBreakdown]) {
         let fm = FileManager.default
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
         guard let cutoff365 = calendar.date(byAdding: .day, value: -364, to: today),
               let cutoff30  = calendar.date(byAdding: .day, value: -29,  to: today) else {
-            return ([:], [], [])
+            return ([:], [], [], [:])
         }
 
         let isoFormatter = ISO8601DateFormatter()
@@ -81,6 +83,7 @@ final class YearlyHistoryService {
 
         // Accumulators for last-30-days model tokens (input+output only per model)
         var dayModelTokenMap: [Date: [String: Int]] = [:]
+        var model30dBreakdown: [String: ModelTokenBreakdown] = [:]
 
         // Deduplication
         var seenMessages: Set<String> = []
@@ -160,6 +163,10 @@ final class YearlyHistoryService {
                         if !model.isEmpty {
                             let io = inputTokens + outputTokens
                             dayModelTokenMap[day, default: [:]][model, default: 0] += io
+                            model30dBreakdown[model, default: ModelTokenBreakdown()].input += inputTokens
+                            model30dBreakdown[model, default: ModelTokenBreakdown()].output += outputTokens
+                            model30dBreakdown[model, default: ModelTokenBreakdown()].cacheRead += cacheRead
+                            model30dBreakdown[model, default: ModelTokenBreakdown()].cacheCreation += cacheWrite
                         }
                     }
                 }
@@ -199,6 +206,11 @@ final class YearlyHistoryService {
             cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor.addingTimeInterval(86_400)
         }
 
-        return (dayStats: resultDayStats, activity: activity, tokens: tokens)
+        return (
+            dayStats: resultDayStats,
+            activity: activity,
+            tokens: tokens,
+            modelBreakdown: model30dBreakdown
+        )
     }
 }

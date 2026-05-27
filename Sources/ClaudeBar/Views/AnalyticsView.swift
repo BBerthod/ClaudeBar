@@ -7,6 +7,7 @@ enum AnalyticsSection: String, CaseIterable {
     case trends   = "Trends"
     case projects = "Projects"
     case sessions = "Sessions"
+    case models   = "Models"
     case savings  = "Savings"
     case system   = "System"
 
@@ -16,6 +17,7 @@ enum AnalyticsSection: String, CaseIterable {
         case .trends:   "chart.line.uptrend.xyaxis"
         case .projects: "folder"
         case .sessions: "terminal"
+        case .models:   "chart.pie"
         case .savings:  "banknote"
         case .system:   "cpu"
         }
@@ -30,6 +32,7 @@ struct AnalyticsView: View {
     @Environment(LiveStatsService.self) private var liveStatsService
     @Environment(McpHealthService.self) private var mcpHealthService
     @Environment(ProjectService.self) private var projectService
+    @Environment(YearlyHistoryService.self) private var yearlyHistoryService
     @Environment(OmlxMonitorService.self) private var omlxMonitorService
     @Environment(ProviderUsageService.self) private var providerUsageService
 
@@ -61,6 +64,7 @@ struct AnalyticsView: View {
             case .trends:   trendsPanel
             case .projects: projectsPanel
             case .sessions: sessionsPanel
+            case .models:   ModelsBreakdownView(breakdown: yearlyHistoryService.last30DaysModelBreakdown)
             case .savings:  savingsPanel
             case .system:   systemPanel
             }
@@ -1822,4 +1826,3 @@ struct AnalyticsView: View {
         return .red
     }
 }
-
