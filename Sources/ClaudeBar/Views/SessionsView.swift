@@ -88,6 +88,16 @@ struct SessionsView: View {
                     if let ctx = sessionService.contextEstimates[session.sessionId], ctx > 0 {
                         ContextGauge(percentage: ctx, compact: true)
                     }
+                    if let last = sessionService.sessionLastActivity[session.sessionId],
+                       let label = SessionService.idleLabel(lastActivity: last) {
+                        Text(label)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
                 }
             }
             .buttonStyle(.plain)

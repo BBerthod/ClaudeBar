@@ -9,6 +9,8 @@ final class SessionService {
     private(set) var recentSessions: [SessionIndexEntry] = []
     /// Context estimate for each active session (sessionId -> percentage 0.0-1.0)
     private(set) var contextEstimates: [String: Double] = [:]
+    /// Last file-activity date for each active session (sessionId -> jsonl mtime).
+    private(set) var sessionLastActivity: [String: Date] = [:]
     private var fileWatcher = FileWatcher()
     private var timer: Timer?
 
@@ -63,6 +65,7 @@ final class SessionService {
             let decoder = JSONDecoder()
             var sessions: [ActiveSession] = []
             var estimates: [String: Double] = [:]
+            var lastActivity: [String: Date] = [:]
 
             for sessionsDir in SessionService.allSessionsDirs() {
                 guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else { continue }
@@ -75,15 +78,22 @@ final class SessionService {
                     guard kill(Int32(session.pid), 0) == 0 else { continue }
                     sessions.append(session)
                     estimates[session.sessionId] = SessionService.estimateContext(for: session, projectsDir: projectsDir)
+                    let jsonlPath = projectsDir + "/" + session.cwd.replacingOccurrences(of: "/", with: "-") + "/" + session.sessionId + ".jsonl"
+                    if let attrs = try? fm.attributesOfItem(atPath: jsonlPath),
+                       let mtime = attrs[.modificationDate] as? Date {
+                        lastActivity[session.sessionId] = mtime
+                    }
                 }
             }
 
             let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
             let finalEstimates = estimates
+            let finalLastActivity = lastActivity
 
             await MainActor.run {
                 let previousCount = self.activeSessions.count
                 self.contextEstimates = finalEstimates
+                self.sessionLastActivity = finalLastActivity
                 self.activeSessions = sorted
                 if sorted.count != previousCount {
                     Log.sessions.info("Active sessions: \(sorted.count)")
@@ -232,6 +242,16 @@ final class SessionService {
     nonisolated static func contextWindow(forModel model: String) -> Int {
         if model.contains("opus-4") || model.contains("sonnet-4") { return 1_000_000 }
         return 200_000
+    }
+
+    /// Returns an "idle" label (e.g. "idle 5h", "idle 2j") when the session has been
+    /// inactive longer than `threshold` (default 4h), else nil.
+    nonisolated static func idleLabel(lastActivity: Date, now: Date = Date(), threshold: TimeInterval = 4 * 3600) -> String? {
+        let idle = now.timeIntervalSince(lastActivity)
+        guard idle >= threshold else { return nil }
+        let hours = Int(idle) / 3600
+        if hours >= 24 { return "idle \(hours / 24)j" }
+        return "idle \(hours)h"
     }
 
     /// Pure: given JSONL lines, returns context-window fraction (0.0–1.0) from the LAST
