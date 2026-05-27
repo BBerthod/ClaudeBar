@@ -208,4 +208,19 @@ enum UsageForecast {
         let m = (Int(seconds) % 3600) / 60
         return h > 0 ? "≈ limite dans \(h)h\(String(format: "%02d", m))" : "≈ limite dans \(m)min"
     }
+
+    /// True when the projected time-to-limit is real (hits before the window resets)
+    /// AND under `threshold` seconds (default 2h) — i.e. the user should be warned urgently.
+    static func isUrgent(
+        utilization: Double,
+        elapsedFraction: Double,
+        secondsRemaining: TimeInterval,
+        threshold: TimeInterval = 2 * 3600
+    ) -> Bool {
+        guard let seconds = secondsToLimit(
+            utilization: utilization,
+            elapsedFraction: elapsedFraction
+        ) else { return false }
+        return seconds < secondsRemaining && seconds < threshold
+    }
 }

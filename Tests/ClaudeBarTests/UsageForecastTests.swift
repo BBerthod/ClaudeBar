@@ -38,4 +38,37 @@ struct UsageForecastTests {
 
         #expect(label == "≈ limite dans 1h38")
     }
+
+    @Test
+    func testIsUrgentWhenLimitIsBeforeResetAndUnderThreshold() {
+        let urgent = UsageForecast.isUrgent(
+            utilization: 80,
+            elapsedFraction: 0.8,
+            secondsRemaining: 100_000
+        )
+
+        #expect(urgent)
+    }
+
+    @Test
+    func testIsUrgentFalseWhenLimitFallsAfterReset() {
+        let urgent = UsageForecast.isUrgent(
+            utilization: 50,
+            elapsedFraction: 0.5,
+            secondsRemaining: 1_000
+        )
+
+        #expect(!urgent)
+    }
+
+    @Test
+    func testIsUrgentFalseWhenLimitIsOverThreshold() {
+        let urgent = UsageForecast.isUrgent(
+            utilization: 20,
+            elapsedFraction: 0.5,
+            secondsRemaining: 100_000
+        )
+
+        #expect(!urgent)
+    }
 }

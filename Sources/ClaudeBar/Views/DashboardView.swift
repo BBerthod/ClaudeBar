@@ -759,9 +759,14 @@ struct DashboardView: View {
                     elapsedFraction: usageService.fiveHourElapsedFraction,
                     secondsRemaining: secondsRemaining
                 ) {
+                    let urgent = UsageForecast.isUrgent(
+                        utilization: fiveHour.utilization,
+                        elapsedFraction: usageService.fiveHourElapsedFraction,
+                        secondsRemaining: secondsRemaining
+                    )
                     Text(forecast)
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(urgent ? .orange : .secondary)
                 }
                 if let pace {
                     Text(pace.rawValue)
