@@ -17,6 +17,11 @@ final class UsageService {
     private var keychainServiceName: String?
     private var retryAfter: Date?
 
+    /// Public OAuth client ID used by Claude Code. The token endpoint rejects any
+    /// other value with HTTP 400 "Invalid request format", which silently breaks
+    /// token refresh. Must match the value Claude Code itself uses.
+    static let oauthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+
     init() {
         loadCredentials()
         Task { await fetchUsage() }
@@ -177,7 +182,7 @@ final class UsageService {
         let body: [String: String] = [
             "grant_type": "refresh_token",
             "refresh_token": refreshTokenValue,
-            "client_id": "cli"
+            "client_id": UsageService.oauthClientID
         ]
         request.httpBody = try? JSONEncoder().encode(body)
 

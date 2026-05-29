@@ -50,4 +50,13 @@ final class UsageServiceEstimatedHoursTests: XCTestCase {
         let window = UsageWindow(utilization: 10, resetsAt: makeResetsAt(hoursFromNow: 1))
         XCTAssertNil(UsageService.estimatedHoursUntilLimit(window: window))
     }
+
+    // MARK: - OAuth client ID
+
+    /// Regression guard: the token endpoint rejects any client_id other than
+    /// Claude Code's public OAuth client ID with HTTP 400, silently breaking
+    /// token refresh. Verified live against console.anthropic.com/v1/oauth/token.
+    func testOAuthClientIDMatchesClaudeCode() {
+        XCTAssertEqual(UsageService.oauthClientID, "9d1c250a-e61b-44d9-88ed-5944d1962f5e")
+    }
 }
