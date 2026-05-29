@@ -8,6 +8,10 @@ A macOS menu bar app for monitoring your [Claude Code](https://claude.ai/code) u
 
 ## Features
 
+### Menu Bar
+- **Brain icon** tinted by 5-hour usage (neutral → orange → red)
+- **5h forecast indicator** (on by default) — shows the estimated time to the 5-hour limit and the reset countdown next to the icon, e.g. `~1h38 → ↻2h10` when you're on pace to hit the limit, or `↻2h10` when usage is calm. Toggle it in Settings › Display & Alerts.
+
 ### Dashboard
 - **Estimated cost** for today, with a live fallback when `stats-cache.json` hasn't updated yet
 - **7-day sparkline** — mini activity chart in the header showing the last week's message trend

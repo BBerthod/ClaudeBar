@@ -4,6 +4,29 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.0.12] — 2026-05-29
+
+### Fixed
+- **5h usage refresh** — the OAuth token refresh used an invalid `client_id`, so once the access token expired the refresh silently failed and the 5h window, forecast, and Dashboard rate-limit section all disappeared. Now uses Claude Code's public OAuth client ID, so refresh works again.
+
+### Changed
+- CI: bumped `actions/checkout` to v5 (Node 20 deprecation)
+
+## [1.0.11] — 2026-05-29
+
+### Added
+- **5h-unavailable banner** — when the OAuth usage API returns no data, the Dashboard now shows the reason (e.g. "Token expired — refresh failed") instead of silently hiding the 5h section
+
+### Changed
+- **Menu bar indicator is now enabled by default**
+- The menu bar no longer shows a bare "●" when 5h data is unavailable — it stays blank, and the Dashboard explains why
+
+## [1.0.10] — 2026-05-29
+
+### Added
+- **Opus 4.8** pricing in the cost calculator
+- **Menu bar 5h forecast** — the status bar indicator now shows the 5h limit forecast and reset countdown (e.g. `~1h38 → ↻2h10`, or `↻2h10` when usage is calm) instead of the daily cost in dollars
+
 ## [0.6.0] — 2026-04-09
 
 ### Added
@@ -61,7 +84,10 @@ All notable changes to ClaudeBar are documented here.
 - Settings view with Claude Code configuration viewer
 - Zero third-party dependencies
 
-[Unreleased]: https://github.com/BBerthod/ClaudeBar/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/BBerthod/ClaudeBar/compare/v1.0.12...HEAD
+[1.0.12]: https://github.com/BBerthod/ClaudeBar/compare/v1.0.11...v1.0.12
+[1.0.11]: https://github.com/BBerthod/ClaudeBar/compare/v1.0.10...v1.0.11
+[1.0.10]: https://github.com/BBerthod/ClaudeBar/compare/v0.6.0...v1.0.10
 [0.6.0]: https://github.com/BBerthod/ClaudeBar/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/BBerthod/ClaudeBar/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/BBerthod/ClaudeBar/compare/v0.3.0...v0.4.0
