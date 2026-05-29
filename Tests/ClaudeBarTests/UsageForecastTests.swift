@@ -71,4 +71,53 @@ struct UsageForecastTests {
 
         #expect(!urgent)
     }
+
+    // MARK: - compactDuration
+
+    @Test
+    func testCompactDurationFormatting() {
+        #expect(UsageForecast.compactDuration(7_200) == "2h00")
+        #expect(UsageForecast.compactDuration(5_890) == "1h38")
+        #expect(UsageForecast.compactDuration(3_600) == "1h00")
+        #expect(UsageForecast.compactDuration(2_280) == "38m")
+        #expect(UsageForecast.compactDuration(65) == "1m")
+        #expect(UsageForecast.compactDuration(-5) == "0m")
+    }
+
+    // MARK: - statusBarText
+
+    @Test
+    func testStatusBarTextCalmShowsResetOnly() {
+        // Limit projected far past the reset → only the reset countdown shows.
+        let text = UsageForecast.statusBarText(
+            utilization: 20,
+            elapsedFraction: 0.5,
+            secondsRemaining: 7_200
+        )
+
+        #expect(text == "↻2h00")
+    }
+
+    @Test
+    func testStatusBarTextLoadedShowsForecastAndReset() {
+        // Same pace as testLimitLabelFormatting (1h38 to limit), reset in 2h30.
+        let text = UsageForecast.statusBarText(
+            utilization: 55,
+            elapsedFraction: 0.4,
+            secondsRemaining: 9_000
+        )
+
+        #expect(text == "~1h38 → ↻2h30")
+    }
+
+    @Test
+    func testStatusBarTextResettingWhenNoTimeLeft() {
+        let text = UsageForecast.statusBarText(
+            utilization: 95,
+            elapsedFraction: 0.9,
+            secondsRemaining: 0
+        )
+
+        #expect(text == "↻…")
+    }
 }

@@ -223,4 +223,37 @@ enum UsageForecast {
         ) else { return false }
         return seconds < secondsRemaining && seconds < threshold
     }
+
+    /// Compact duration without spaces: `2h10`, `1h05`, `38m`. Floors negatives to `0m`.
+    static func compactDuration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds))
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        if h > 0 { return "\(h)h\(String(format: "%02d", m))" }
+        return "\(m)m"
+    }
+
+    /// Menu-bar text combining limit forecast and 5h-window reset countdown.
+    ///
+    /// - Loaded (limit projected before reset): `"~1h38 → ↻2h10"`
+    /// - Calm (no limit before reset): `"↻2h10"`
+    /// - Resetting (no time left in window): `"↻…"`
+    ///
+    /// `~` = estimated time to hit 100% at the current pace; `↻` = time until the
+    /// window resets. Callers should only invoke this when a 5h window exists.
+    static func statusBarText(
+        utilization: Double,
+        elapsedFraction: Double,
+        secondsRemaining: TimeInterval
+    ) -> String {
+        guard secondsRemaining > 0 else { return "↻…" }
+        let resetPart = "↻" + compactDuration(secondsRemaining)
+        if let toLimit = secondsToLimit(
+            utilization: utilization,
+            elapsedFraction: elapsedFraction
+        ), toLimit < secondsRemaining {
+            return "~\(compactDuration(toLimit)) → \(resetPart)"
+        }
+        return resetPart
+    }
 }

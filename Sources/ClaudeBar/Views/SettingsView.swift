@@ -72,7 +72,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Status bar indicator")
                             .font(.subheadline)
-                        Text("Show cost or session dot next to the menu bar icon")
+                        Text("Show the 5h limit forecast and reset countdown next to the menu bar icon")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

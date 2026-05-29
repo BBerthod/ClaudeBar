@@ -340,16 +340,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         button.toolTip = parts.isEmpty ? "ClaudeBar — No activity today" : parts.joined(separator: " · ")
 
-        // Status bar indicator (opt-in, default off)
+        // Status bar indicator (opt-in, default off): 5h limit forecast + reset
+        // countdown — e.g. "~1h38 → ↻2h10" (on pace to hit the limit) or "↻2h10".
         if UserDefaults.standard.bool(forKey: "claudebar.showStatusBarIndicator") {
-            let util = usageService.usage?.fiveHour?.utilization ?? 0
-            let alert = util >= 80 ? " ⚠" : ""
-            if cost > 0 {
-                button.title = CostCalculator.formatCost(cost) + alert
+            if let fiveHour = usageService.usage?.fiveHour, let resetDate = fiveHour.resetDate {
+                button.title = UsageForecast.statusBarText(
+                    utilization: fiveHour.utilization,
+                    elapsedFraction: usageService.fiveHourElapsedFraction,
+                    secondsRemaining: max(resetDate.timeIntervalSinceNow, 0)
+                )
             } else if sessions > 0 {
-                button.title = "●" + alert
+                button.title = "●"
             } else {
-                button.title = alert.isEmpty ? "" : alert
+                button.title = ""
             }
         } else {
             button.title = ""
