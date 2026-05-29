@@ -25,6 +25,14 @@ enum CostCalculator {
     /// Published Anthropic pricing as of May 2026.
     /// Keys are canonical model IDs; aliases are resolved in `pricing(for:)`.
     static let pricing: [String: ModelPricing] = [
+        // Opus 4.8
+        "claude-opus-4-8": ModelPricing(
+            inputPerMTok: 5.00,
+            outputPerMTok: 25.00,
+            cacheReadPerMTok: 0.50,
+            cacheWritePerMTok: 6.25
+        ),
+
         // Opus 4.7
         "claude-opus-4-7": ModelPricing(
             inputPerMTok: 5.00,

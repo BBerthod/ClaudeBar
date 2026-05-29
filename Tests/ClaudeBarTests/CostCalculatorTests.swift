@@ -81,6 +81,14 @@ final class CostCalculatorTests: XCTestCase {
 
     // MARK: - New tests
 
+    func testPricingOpus48ExactMatch() {
+        let p = CostCalculator.pricing(for: "claude-opus-4-8")
+        XCTAssertEqual(p.inputPerMTok, 5.00)
+        XCTAssertEqual(p.outputPerMTok, 25.00)
+        XCTAssertEqual(p.cacheReadPerMTok, 0.50)
+        XCTAssertEqual(p.cacheWritePerMTok, 6.25)
+    }
+
     func testPricingOpus47ExactMatch() {
         let p = CostCalculator.pricing(for: "claude-opus-4-7")
         XCTAssertEqual(p.inputPerMTok, 5.00)
