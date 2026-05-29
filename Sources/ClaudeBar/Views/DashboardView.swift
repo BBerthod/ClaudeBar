@@ -347,6 +347,9 @@ struct DashboardView: View {
                 if usageService.usage != nil {
                     usageSection
                         .padding(.horizontal, 12)
+                } else if let error = usageService.lastError {
+                    usageUnavailableRow(error: error)
+                        .padding(.horizontal, 12)
                 }
 
                 // Optimization hints
@@ -722,6 +725,29 @@ struct DashboardView: View {
         }
         .padding(10)
         .background(Color.primary.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Shown when the OAuth usage API returns no data, so the failure is visible
+    /// instead of the 5h section silently disappearing.
+    @ViewBuilder
+    private func usageUnavailableRow(error: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("5h usage unavailable")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
