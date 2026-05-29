@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State private var staleCleaned = 0
     @AppStorage("claudebar.showDockIcon") private var showDockIcon: Bool = false
     @AppStorage("claudebar.refreshInterval") private var refreshInterval: Double = 30
-    @AppStorage("claudebar.showStatusBarIndicator") private var showStatusBarIndicator: Bool = false
+    @AppStorage("claudebar.showStatusBarIndicator") private var showStatusBarIndicator: Bool = true
     @AppStorage("claudebar.showIconTinting") private var showIconTinting: Bool = true
     @AppStorage("claudebar.costAlertThreshold") private var costAlertThreshold: Double = 0
     @AppStorage("claudebar.contextAlertThreshold") private var contextAlertThreshold: Double = 90
