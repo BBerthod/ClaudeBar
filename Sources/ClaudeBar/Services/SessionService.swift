@@ -259,9 +259,11 @@ final class SessionService {
 
     // MARK: - Context Estimation
 
-    /// Context window (tokens) for a model name. Current Claude 4 models support 1M; others default 200K.
+    /// Context window (tokens) for a model name. Fable/Mythos 5 and current Claude 4
+    /// models support 1M; others default 200K.
     nonisolated static func contextWindow(forModel model: String) -> Int {
-        if model.contains("opus-4") || model.contains("sonnet-4") { return 1_000_000 }
+        if model.contains("fable") || model.contains("mythos")
+            || model.contains("opus-4") || model.contains("sonnet-4") { return 1_000_000 }
         return 200_000
     }
 

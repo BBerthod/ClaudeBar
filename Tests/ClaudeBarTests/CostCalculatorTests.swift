@@ -81,6 +81,26 @@ final class CostCalculatorTests: XCTestCase {
 
     // MARK: - New tests
 
+    func testPricingFable5ExactMatch() {
+        let p = CostCalculator.pricing(for: "claude-fable-5")
+        XCTAssertEqual(p.inputPerMTok, 10.00)
+        XCTAssertEqual(p.outputPerMTok, 50.00)
+        XCTAssertEqual(p.cacheReadPerMTok, 1.00)
+        XCTAssertEqual(p.cacheWritePerMTok, 12.50)
+    }
+
+    func testPricingPartialMatchFable() {
+        let p = CostCalculator.pricing(for: "claude-fable-future")
+        XCTAssertEqual(p.inputPerMTok, 10.00)
+    }
+
+    func testPricingPartialMatchMythos() {
+        // Mythos 5 shares Fable 5 pricing
+        let p = CostCalculator.pricing(for: "claude-mythos-5")
+        XCTAssertEqual(p.inputPerMTok, 10.00)
+        XCTAssertEqual(p.outputPerMTok, 50.00)
+    }
+
     func testPricingOpus48ExactMatch() {
         let p = CostCalculator.pricing(for: "claude-opus-4-8")
         XCTAssertEqual(p.inputPerMTok, 5.00)

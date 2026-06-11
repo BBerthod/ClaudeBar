@@ -103,7 +103,11 @@ final class StatsService {
         // Identify the model family
         let lower = cleaned.lowercased()
         let family: String
-        if lower.contains("opus") {
+        if lower.contains("fable") {
+            family = "Fable"
+        } else if lower.contains("mythos") {
+            family = "Mythos"
+        } else if lower.contains("opus") {
             family = "Opus"
         } else if lower.contains("sonnet") {
             family = "Sonnet"

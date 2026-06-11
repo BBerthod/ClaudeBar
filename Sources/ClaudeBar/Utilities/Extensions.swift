@@ -110,6 +110,9 @@ extension TimeInterval {
 
 extension Color {
 
+    /// Accent color associated with claude-fable-* / claude-mythos-* models (gold/amber).
+    static let fableColor = Color(red: 0.85, green: 0.58, blue: 0.10)
+
     /// Accent color associated with claude-opus-* models (purple/violet).
     static let opusColor = Color(red: 0.55, green: 0.27, blue: 0.80)
 
@@ -124,6 +127,7 @@ extension Color {
     /// Falls back to `sonnetColor` for unrecognised model IDs.
     static func color(for modelId: String) -> Color {
         let lower = modelId.lowercased()
+        if lower.contains("fable") || lower.contains("mythos") { return .fableColor }
         if lower.contains("opus")   { return .opusColor }
         if lower.contains("haiku")  { return .haikuColor }
         return .sonnetColor

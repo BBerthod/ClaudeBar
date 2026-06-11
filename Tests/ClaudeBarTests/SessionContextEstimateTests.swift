@@ -68,6 +68,8 @@ struct SessionContextEstimateTests {
     }
 
     @Test func testContextWindowForModel() {
+        #expect(SessionService.contextWindow(forModel: "claude-fable-5") == 1_000_000)
+        #expect(SessionService.contextWindow(forModel: "claude-mythos-5") == 1_000_000)
         #expect(SessionService.contextWindow(forModel: "claude-opus-4-7") == 1_000_000)
         #expect(SessionService.contextWindow(forModel: "claude-sonnet-4-6") == 1_000_000)
         #expect(SessionService.contextWindow(forModel: "claude-3-5-haiku") == 200_000)
