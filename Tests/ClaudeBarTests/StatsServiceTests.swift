@@ -32,4 +32,12 @@ final class StatsServiceDisplayNameTests: XCTestCase {
     func testOpus47() {
         XCTAssertEqual(StatsService.displayName(for: "claude-opus-4-7"), "Opus 4.7")
     }
+
+    func testFable5() {
+        XCTAssertEqual(StatsService.displayName(for: "claude-fable-5"), "Fable 5")
+    }
+
+    func testMythos5() {
+        XCTAssertEqual(StatsService.displayName(for: "claude-mythos-5"), "Mythos 5")
+    }
 }

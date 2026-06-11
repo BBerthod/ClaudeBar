@@ -25,6 +25,14 @@ enum CostCalculator {
     /// Published Anthropic pricing as of May 2026.
     /// Keys are canonical model IDs; aliases are resolved in `pricing(for:)`.
     static let pricing: [String: ModelPricing] = [
+        // Fable 5 (top tier — also covers Mythos 5, same pricing)
+        "claude-fable-5": ModelPricing(
+            inputPerMTok: 10.00,
+            outputPerMTok: 50.00,
+            cacheReadPerMTok: 1.00,
+            cacheWritePerMTok: 12.50
+        ),
+
         // Opus 4.8
         "claude-opus-4-8": ModelPricing(
             inputPerMTok: 5.00,
@@ -87,10 +95,12 @@ enum CostCalculator {
     static func pricing(for modelId: String) -> ModelPricing {
         if let p = pricing[modelId] { return p }
 
-        // Partial-match aliases: any id containing "sonnet" → sonnet pricing,
-        // any id containing "haiku" → haiku pricing, otherwise opus.
+        // Partial-match aliases: any id containing "fable"/"mythos" → fable pricing,
+        // "sonnet" → sonnet pricing, "haiku" → haiku pricing, otherwise opus.
         let lower = modelId.lowercased()
-        if lower.contains("haiku") {
+        if lower.contains("fable") || lower.contains("mythos") {
+            return pricing["claude-fable-5"]!
+        } else if lower.contains("haiku") {
             return pricing["claude-haiku-4-5-20251001"]!
         } else if lower.contains("sonnet") {
             return pricing["claude-sonnet-4-6"]!

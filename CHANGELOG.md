@@ -4,6 +4,11 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.0.13] — 2026-06-11
+
+### Added
+- **Claude Fable 5** support — pricing ($10/$50 per MTok), "Fable 5" display name, gold accent color, and 1M context window. Also covers Claude Mythos 5 (same pricing/limits).
+
 ## [1.0.12] — 2026-05-29
 
 ### Fixed
