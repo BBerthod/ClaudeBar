@@ -4,6 +4,13 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-09-05
+
+### Added
+- oMLX daily per-model tokens, requests, and throughput from local stats with a persisted daily baseline.
+- Loaded-model status and last access, plus Dashboard API-equivalent savings with a reference-model picker in Analytics › System.
+- All-time oMLX usage totals; local inference cost remains $0.
+
 ## [1.2.0] — 2026-09-05
 
 ### Added

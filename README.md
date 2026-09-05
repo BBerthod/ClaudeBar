@@ -13,6 +13,7 @@ A macOS menu bar app for monitoring your [Claude Code](https://claude.ai/code) u
 - **5h forecast indicator** (on by default) — shows the estimated time to the 5-hour limit and the reset countdown next to the icon, e.g. `~1h38 → ↻2h10` when you're on pace to hit the limit, or `↻2h10` when usage is calm. Toggle it in Settings › Display & Alerts.
 
 ### Dashboard
+- **oMLX local usage** — tokens, requests and throughput per model for today, loaded models, and the API-equivalent cost you avoided
 - **Estimated cost** for today, with a live fallback when `stats-cache.json` hasn't updated yet
 - **7-day sparkline** — mini activity chart in the header showing the last week's message trend
 - **Stats grid** — messages, sessions, tool calls, and tokens
@@ -103,6 +104,7 @@ Data is gathered from the following sources, in priority order:
 | `~/.claude*/projects/**/*.jsonl` | Live fallback & project aggregation — parsed directly across all profile directories when cache is stale. Deduplicates by message ID. |
 | Anthropic OAuth API | Real-time rate limit data (5h / 7d windows). OAuth token read from the system Keychain (`Claude Code-credentials`). Polled every 5 min. Auto-refreshes expired tokens via the OAuth refresh flow. |
 | Local Provider Logs | Codex sessions, tokens, and context limits from `~/.codex/logs_N.sqlite`; Gemini auth status from `~/.gemini/oauth_creds.json`. |
+| oMLX local usage | Daily per-model deltas from `~/.omlx/stats.json` and loaded-model status from `/v1/models/status`, polled every 30 seconds. API key read from `~/.omlx/settings.json`, never displayed or logged. |
 | Local oMLX Server | Status, engine pool memory, and loaded models polled from `http://127.0.0.1:8000/health`. |
 
 Active sessions are detected by scanning `~/.claude*/sessions/` and confirming each stored PID is still alive.
@@ -127,7 +129,7 @@ AppDelegate (pure AppKit)
 └── OverlayManager     ← floating PiP session NSPanel (FloatingOverlay)
 ```
 
-All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observation model) and run on `@MainActor`. There is no persistence layer — state lives in memory and is re-derived from files on every refresh cycle (30-second timer + file watching).
+All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observation model) and run on `@MainActor`. Usage state is re-derived from files on refresh (timers + file watching). oMLX daily deltas use a persisted baseline at `~/Library/Application Support/ClaudeBar/omlx-baseline.json`.
 
 ### Services
 
@@ -142,6 +144,7 @@ All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observat
 | `HookHealthService` | Validates Claude Code hook configuration |
 | `McpHealthService` | Validates configured MCP server connectivity (`~/.claude.json`) |
 | `ProviderUsageService` | Tracks local Codex and Gemini usage and token metrics |
+| `OmlxUsageService` | Tracks daily per-model tokens, requests, throughput, loaded models, and API-equivalent cost against a selectable reference model in Analytics › System |
 | `OmlxMonitorService` | Polls local oMLX inference server health, models, and memory |
 | `AnomalyService` | Spend anomaly detection (flags daily spend ≥ 2× 30-day average) |
 | `YearlyHistoryService` | 365-day token and cost history across profiles for heatmap & trends |
@@ -161,11 +164,12 @@ All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observat
 
 ClaudeBar never sends your usage data anywhere. All processing happens locally:
 
-- Stats are read from local `~/.claude*`, `~/.codex`, and `~/.gemini` files on your machine
+- Stats are read from local `~/.claude*`, `~/.codex`, `~/.gemini`, and `~/.omlx` files on your machine
 - The only outbound network calls are to:
   - `api.anthropic.com/api/oauth/usage` (rate-limit data) and `console.anthropic.com/v1/oauth/token` (token refresh), both using your existing OAuth credentials
   - `api.github.com/repos/BBerthod/ClaudeBar/releases/latest` (version check for updates)
   - `raw.githubusercontent.com` (LiteLLM model catalog download; no usage data sent)
+  - `http://127.0.0.1:<port>/v1/models/status` (local oMLX model status; port and API key read from `~/.omlx/settings.json`, key never displayed or logged)
   - `http://127.0.0.1:8000/health` (local oMLX inference health monitoring, entirely on localhost)
 
 ---
