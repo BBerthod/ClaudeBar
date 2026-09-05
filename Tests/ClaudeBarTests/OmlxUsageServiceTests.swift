@@ -92,6 +92,18 @@ final class OmlxUsageServiceTests: XCTestCase {
         XCTAssertEqual(try baseline(directory).stats, stats())
     }
 
+    func testRepeatedReloadDoesNotDoubleCountRequests() throws {
+        let (service, directory, _, _) = try fixture()
+        try write(stats(), to: directory)
+        service.reload()
+        try write(stats(requests: 12, prompt: 1200, completion: 600), to: directory)
+        service.reload()
+        service.reload()
+        XCTAssertTrue(service.isAvailable)
+        XCTAssertEqual(service.today?.totals.requests, 2)
+        XCTAssertEqual(service.today?.totals.completionTokens, 100)
+    }
+
     func testBaselineRollsOverAtMidnight() throws {
         let (service, directory, clock, _) = try fixture()
         clock.date = Calendar.current.startOfDay(for: clock.date).addingTimeInterval(-1)

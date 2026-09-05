@@ -32,15 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
     let mcpHealthService = McpHealthService()
-    lazy var providerUsageService: ProviderUsageService = ProviderUsageService(
-        claudeDir: AppDelegate.claudeDir
-    )
+    lazy var providerUsageService: ProviderUsageService = ProviderUsageService()
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
     lazy var yearlyHistoryService: YearlyHistoryService = YearlyHistoryService(claudeDir: AppDelegate.claudeDir, modelCatalogService: modelCatalogService)
     let updateCheckService = UpdateCheckService()
     let autoUpdater = AutoUpdater()
     let omlxMonitorService = OmlxMonitorService()
+    let omlxUsageService = OmlxUsageService()
 
     private var refreshTimer: Timer?
     private var updateCheckTimer: Timer?
@@ -170,6 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environment(yearlyHistoryService)
         .environment(updateCheckService)
         .environment(omlxMonitorService)
+        .environment(omlxUsageService)
 
         popover = NSPopover()
         popover.contentSize = NSSize(width: 420, height: 520)
@@ -321,6 +321,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environment(updateCheckService)
             .environment(providerUsageService)
             .environment(omlxMonitorService)
+            .environment(omlxUsageService)
         mainWindowManager.show(content: analyticsView)
         popover?.performClose(nil)
     }
