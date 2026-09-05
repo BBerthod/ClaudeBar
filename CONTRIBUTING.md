@@ -123,6 +123,20 @@ Releases are automated via GitHub Actions (`.github/workflows/release.yml`):
 2. The workflow verifies the release tag `vX.Y.Z` does not already exist, builds the application bundle (`make app`), archives it into `ClaudeBar.zip`, and publishes a GitHub Release with the zip asset attached.
 3. Installed ClaudeBar apps automatically check for updates against the GitHub API (`https://api.github.com/repos/BBerthod/ClaudeBar/releases/latest`) on startup and hourly (`UpdateCheckService`). When a newer release is found, `AutoUpdater` downloads the zip, extracts the `.app` bundle, and swaps in the new bundle in place of the running app (with rollback if the copy fails), then relaunches.
 
+To enable Developer ID signing and Apple notarization, create all five repository secrets in GitHub under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `MACOS_CERTIFICATE_P12` | Base64-encoded `.p12` export of the **Developer ID Application** certificate and its private key (for example, `base64 -i certificate.p12 \| pbcopy` on macOS). |
+| `MACOS_CERTIFICATE_PASSWORD` | Password protecting the `.p12` export. |
+| `APPLE_ID` | Apple Account email used for notarization. |
+| `APPLE_TEAM_ID` | Apple Developer team ID associated with the certificate. |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password for that Apple Account. |
+
+When all five secrets are nonempty, CI imports the certificate into a temporary keychain, signs with hardened runtime and a timestamp, verifies the signature, submits the zip for notarization, staples the ticket to the app, recreates the zip, and verifies it with Gatekeeper before publishing. The temporary certificate and keychain are cleaned up even if the job fails. Signing or notarization errors fail the release when signing is enabled.
+
+If any secret is missing, CI publishes an unsigned build and emits an explicit `unsigned build — configure secrets … to sign` notice; missing secrets never block a release. Both paths archive with `ditto -c -k --keepParent` to preserve the bundle metadata. Local `make app` remains unchanged and requires no signing secrets or entitlements.
+
 ## Reporting Issues
 
 Open an issue on GitHub with:

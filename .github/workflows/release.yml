@@ -12,6 +12,9 @@ jobs:
   release:
     name: Build and Publish Release
     runs-on: macos-15
+    env:
+      KEYCHAIN_PATH: ${{ runner.temp }}/claudebar-signing.keychain-db
+      CERTIFICATE_PATH: ${{ runner.temp }}/claudebar-certificate.p12
 
     steps:
       - name: Checkout
@@ -38,12 +41,68 @@ jobs:
         if: steps.check.outputs.exists == 'false'
         run: make app
 
+      - name: Check signing configuration
+        id: signing
+        if: steps.check.outputs.exists == 'false'
+        env:
+          HAS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+          HAS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          HAS_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+          HAS_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+        run: |
+          if [[ "$HAS_CERTIFICATE" == 'true' && "$HAS_CERTIFICATE_PASSWORD" == 'true' && "$HAS_APPLE_ID" == 'true' && "$HAS_TEAM_ID" == 'true' && "$HAS_APP_PASSWORD" == 'true' ]]; then
+            echo "has_signing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_signing=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::unsigned build — configure secrets MACOS_CERTIFICATE_P12, MACOS_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD to sign"
+          fi
+
+      - name: Import Developer ID certificate into temporary keychain
+        if: steps.signing.outputs.has_signing == 'true'
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          python3 - <<'PY'
+          import os, shlex, subprocess
+          keychains = shlex.split(subprocess.check_output(["security", "list-keychains", "-d", "user"], text=True))
+          subprocess.run(["security", "list-keychains", "-d", "user", "-s", *keychains, os.environ["KEYCHAIN_PATH"]], check=True)
+          PY
+          rm -f "$CERTIFICATE_PATH"
+
+      - name: Sign and verify the app bundle
+        if: steps.signing.outputs.has_signing == 'true'
+        run: |
+          codesign --force --deep --options runtime --timestamp --sign "Developer ID Application" build/ClaudeBar.app
+          codesign --verify --deep --strict --verbose=2 build/ClaudeBar.app
+
       - name: Zip the app bundle
         if: steps.check.outputs.exists == 'false'
         run: |
-          cd build
-          zip -r ClaudeBar.zip ClaudeBar.app
-          echo "Zip size: $(du -sh ClaudeBar.zip | cut -f1)"
+          ditto -c -k --keepParent build/ClaudeBar.app build/ClaudeBar.zip
+          echo "Zip size: $(du -sh build/ClaudeBar.zip | cut -f1)"
+
+      - name: Notarize, staple, and verify the app bundle
+        if: steps.signing.outputs.has_signing == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          xcrun notarytool submit build/ClaudeBar.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
+          xcrun stapler staple build/ClaudeBar.app
+          rm -f build/ClaudeBar.zip
+          ditto -c -k --keepParent build/ClaudeBar.app build/ClaudeBar.zip
+          spctl --assess --type execute --verbose=2 build/ClaudeBar.app
 
       - name: Create GitHub Release with zip asset
         if: steps.check.outputs.exists == 'false'
@@ -54,3 +113,11 @@ jobs:
             --notes "Automated release from CI — push to main."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove temporary signing credentials
+        if: always() && steps.signing.outputs.has_signing == 'true'
+        run: |
+          rm -f "$CERTIFICATE_PATH"
+          if [[ -f "$KEYCHAIN_PATH" ]]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
