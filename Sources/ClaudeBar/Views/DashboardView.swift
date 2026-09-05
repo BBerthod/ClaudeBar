@@ -1,11 +1,5 @@
 import SwiftUI
 
-struct OptimizationHint: Identifiable {
-    let id = UUID()
-    let icon: String
-    let text: String
-    let color: Color
-}
 
 struct DashboardView: View {
     @Environment(StatsService.self) private var statsService
@@ -70,70 +64,6 @@ struct DashboardView: View {
         return "\(minutes / 60)h \(minutes % 60)m ago"
     }
 
-    /// Derives active provider information from available stats.
-    private var providers: [ProviderInfo] {
-        let claudeConfigured = statsService.todayTokens > 0 || statsService.totalCostEstimate > 0
-        let claudeTokens = statsService.todayTokens
-        let claudeProvider = ProviderInfo(
-            name: "Claude",
-            icon: "brain.head.profile",
-            isConfigured: true,
-            totalTokens: claudeTokens > 0 ? claudeTokens : nil,
-            estimatedCost: claudeConfigured ? statsService.todayCostEstimate : nil,
-            details: nil,
-            sessionCount: nil,
-            contextLimitHits: nil
-        )
-
-        let hasGemini = mcpHealthService.hasGeminiConfigured || statsService.tokensByModelToday.contains {
-            $0.model.lowercased().contains("gemini")
-        }
-        let geminiProvider = ProviderInfo(
-            name: "Gemini",
-            icon: "sparkles",
-            isConfigured: hasGemini || providerUsageService.isGeminiAuthenticated,
-            totalTokens: nil,
-            estimatedCost: nil,
-            details: providerUsageService.isGeminiAuthenticated
-                ? (providerUsageService.geminiTokenValid ? nil : "Token expired")
-                : "Not configured",
-            sessionCount: nil,
-            contextLimitHits: nil
-        )
-
-        let hasCodex = mcpHealthService.hasCodexConfigured || statsService.tokensByModelToday.contains {
-            $0.model.lowercased().contains("codex") || $0.model.lowercased().contains("gpt")
-        }
-        let codexProvider = ProviderInfo(
-            name: "Codex",
-            icon: "chevron.left.forwardslash.chevron.right",
-            isConfigured: hasCodex || providerUsageService.isCodexAvailable,
-            totalTokens: providerUsageService.isCodexAvailable ? providerUsageService.codexTokensToday : nil,
-            estimatedCost: nil,
-            details: (hasCodex || providerUsageService.isCodexAvailable) ? nil : "Not tracked",
-            sessionCount: providerUsageService.isCodexAvailable ? providerUsageService.codexSessionsToday : nil,
-            contextLimitHits: providerUsageService.codexContextLimitHitsToday > 0 ? providerUsageService.codexContextLimitHitsToday : nil
-        )
-
-        let hasOmlxMcp = mcpHealthService.servers.contains {
-            $0.name.lowercased().contains("omlx")
-        }
-        let omlxProvider = ProviderInfo(
-            name: "oMLX",
-            icon: "cpu.fill",
-            isConfigured: omlxMonitorService.isOnline || hasOmlxMcp,
-            totalTokens: nil,
-            estimatedCost: nil,
-            details: omlxMonitorService.isOnline
-                ? omlxMonitorService.defaultModel
-                : (hasOmlxMcp ? "Offline" : nil),
-            sessionCount: providerUsageService.omlxCallsToday > 0
-                ? providerUsageService.omlxCallsToday
-                : nil,
-            contextLimitHits: nil
-        )
-        return [claudeProvider, geminiProvider, codexProvider, omlxProvider]
-    }
 
     // MARK: - 7-day sparkline data
 
@@ -141,100 +71,9 @@ struct DashboardView: View {
         statsService.last30DaysActivity.suffix(7).map(\.messageCount)
     }
 
-    // MARK: - Human cost (ROI)
 
-    private var devHoursEquivalent: Double {
-        HumanCostCalculator.estimateHumanHours(messages: effectiveMessages, toolCalls: effectiveToolCalls)
-    }
-
-    private var devCostEquivalent: Double {
-        HumanCostCalculator.estimateHumanCost(messages: effectiveMessages, toolCalls: effectiveToolCalls)
-    }
-
-    private var roiMultiplier: Double {
-        HumanCostCalculator.roiMultiplier(humanCost: devCostEquivalent, claudeCost: effectiveCost)
-    }
-
-    // MARK: - Cache Savings
-
-    /// How much prompt caching saved vs paying full input price for those tokens.
-    private var cacheSavings: Double {
-        guard let modelUsage = statsService.stats?.modelUsage else { return 0 }
-        var savings = 0.0
-        for (modelId, usage) in modelUsage {
-            savings += CostCalculator.cacheSavings(
-                modelId: modelId,
-                cacheReadTokens: usage.cacheReadInputTokens
-            )
-        }
-        return savings
-    }
-
-    /// Cache savings as a percentage of what the total cost would have been without caching.
-    private var cacheSavingsPercent: Double {
-        guard let modelUsage = statsService.stats?.modelUsage else { return 0 }
-        return CostCalculator.cacheSavingsPercent(modelUsage: modelUsage)
-    }
-
-    // MARK: - Optimization Hints
-
-    private var optimizationHints: [OptimizationHint] {
-        var hints: [OptimizationHint] = []
-
-        // Rule 1: Opus tokens > 50% of total → suggest Sonnet for simpler tasks
-        let tokensByModel = effectiveTokensByModel
-        let totalTokens = tokensByModel.reduce(0) { $0 + $1.tokens }
-        if totalTokens > 0 {
-            let opusTokens = tokensByModel
-                .filter { $0.model.lowercased().contains("opus") }
-                .reduce(0) { $0 + $1.tokens }
-            if Double(opusTokens) / Double(totalTokens) > 0.5 {
-                hints.append(OptimizationHint(
-                    icon: "arrow.down.circle",
-                    text: "Opus is \(Int(Double(opusTokens) / Double(totalTokens) * 100))% of tokens — use Sonnet for simpler tasks",
-                    color: .purple
-                ))
-            }
-        }
-
-        // Rule 2: Low cache savings with significant cost → suggest caching
-        if cacheSavings < 0.01 && effectiveCost > 0.10 && statsService.cacheHitRate == nil {
-            hints.append(OptimizationHint(
-                icon: "bolt.horizontal.circle",
-                text: "Low cache savings — enable prompt caching to reduce costs",
-                color: .orange
-            ))
-        }
-
-        // Rule 3: Cache efficiency feedback based on hit rate
-        if let rate = statsService.cacheHitRate {
-            let pct = String(format: "%.0f%%", rate * 100)
-            if rate >= 0.7 {
-                hints.append(OptimizationHint(
-                    icon: "bolt.fill",
-                    text: "Cache efficiency: \(pct) (alltime) — prompt caching is saving you tokens",
-                    color: .green
-                ))
-            } else if rate < 0.4 {
-                hints.append(OptimizationHint(
-                    icon: "bolt",
-                    text: "Cache efficiency: \(pct) (alltime) — consider structuring prompts to benefit from caching",
-                    color: .orange
-                ))
-            }
-        }
-
-        // Rule 4: Hot/critical burn rate → show projected vs average
-        if let rate = burnRateService.burnRate,
-           rate.zone == .hot || rate.zone == .critical {
-            hints.append(OptimizationHint(
-                icon: rate.zone.icon,
-                text: "Projected \(rate.projectedCostFormatted) today vs \(CostCalculator.formatCost(rate.averageDailyCost)) average",
-                color: rate.zone == .critical ? .red : .orange
-            ))
-        }
-
-        return hints
+    private var dashboardSavingsRow: DashboardSavingsRow {
+        DashboardSavingsRow(statsService: statsService)
     }
 
     var body: some View {
@@ -329,67 +168,36 @@ struct DashboardView: View {
                     .padding(.horizontal, 12)
                     .help("Message count trend over the last 7 days")
 
-                // Provider summary pills
-                providerSummary
+                DashboardProviderSummary(
+                    statsService: statsService,
+                    mcpHealthService: mcpHealthService,
+                    providerUsageService: providerUsageService,
+                    omlxMonitorService: omlxMonitorService
+                )
                     .padding(.horizontal, 12)
 
-                // Rate limit usage (live from API)
-                if usageService.usage != nil {
-                    usageSection
-                        .padding(.horizontal, 12)
-                }
-                if usageService.isStale {
-                    usageUnavailableRow(error: usageService.lastError ?? "Usage data is out of date")
-                        .padding(.horizontal, 12)
-                }
+                DashboardUsageSection(usageService: usageService)
 
-                // Optimization hints
-                if !optimizationHints.isEmpty {
-                    optimizationHintsSection
-                        .padding(.horizontal, 12)
-                }
+                DashboardOptimizationHints(
+                    statsService: statsService,
+                    burnRateService: burnRateService,
+                    effectiveTokensByModel: effectiveTokensByModel,
+                    effectiveCost: effectiveCost,
+                    cacheSavings: dashboardSavingsRow.cacheSavings
+                )
 
-                // Burn Rate indicator + 5h projection
-                if let rate = burnRateService.burnRate {
-                    VStack(alignment: .leading, spacing: 4) {
-                        burnRateCard(rate)
-                            .help("Compares today's projected cost to your 30-day average")
+                DashboardBurnRateCard(
+                    burnRateService: burnRateService,
+                    usageService: usageService
+                )
 
-                        // 5h window projection — only shown after 10% of the window has elapsed
-                        // to avoid wildly misleading projections at window start.
-                        if let fiveHour = usageService.usage?.fiveHour,
-                           let pace = usageService.fiveHourPace,
-                           usageService.fiveHourElapsedFraction >= 0.10 {
-                            let projected = fiveHour.utilization / usageService.fiveHourElapsedFraction
-                            HStack(spacing: 4) {
-                                Text("5h projected: \(Int(min(projected, 999)))%")
-                                    .font(.caption2)
-                                    .foregroundStyle(projected > 100 ? .red : .secondary)
-                                Text("·")
-                                    .foregroundStyle(.tertiary)
-                                Text(pace.rawValue)
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(projected > 100 ? .red : .secondary)
-                            }
-                            .padding(.leading, 4)
-                            .help("Extrapolation based on current pace — only shown after 10% of the 5h window has elapsed")
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                }
+                DashboardHumanCostRow(
+                    effectiveMessages: effectiveMessages,
+                    effectiveToolCalls: effectiveToolCalls,
+                    effectiveCost: effectiveCost
+                )
 
-                // Human cost comparison row
-                if effectiveCost > 0 && effectiveMessages > 0 {
-                    humanCostRow
-                        .padding(.horizontal, 12)
-                }
-
-                // Cache savings row
-                if cacheSavings > 0.001 {
-                    cacheSavingsRow
-                        .padding(.horizontal, 12)
-                }
+                dashboardSavingsRow
 
                 // Extra Usage monthly cap (Max plan)
                 if let extra = usageService.usage?.extraUsage, extra.isEnabled,
@@ -404,58 +212,7 @@ struct DashboardView: View {
                         .padding(.horizontal, 12)
                 }
 
-                // Active sessions
-                if !sessionService.activeSessions.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Active Sessions")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-
-                            // Longest session badge
-                            if let longest = sessionService.activeSessions.max(by: { $0.duration < $1.duration }) {
-                                Text("longest: \(longest.duration.formattedDuration)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
-
-                            Spacer()
-                            Text("\(sessionService.activeSessions.count)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.green.opacity(0.15))
-                                .clipShape(Capsule())
-                        }
-                        .padding(.horizontal, 12)
-
-                        ForEach(sessionService.activeSessions) { session in
-                            HStack(spacing: 6) {
-                                SessionRow(
-                                    projectName: session.projectName,
-                                    detail: session.cwd,
-                                    duration: session.duration.formattedDuration,
-                                    isActive: true
-                                )
-                                if let ctx = sessionService.contextEstimates[session.sessionId],
-                                   ctx > 0 {
-                                    ContextGauge(percentage: ctx, compact: true)
-                                        .help("Estimated context window usage (approximation based on JSONL file size — actual usage may differ)")
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                ProcessHelper.focusTerminal(forChildPID: session.pid)
-                            }
-                            .onHover { hovering in
-                                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
+                DashboardActiveSessionsSection(sessionService: sessionService)
 
                 // Stats grid (2x2)
                 if hasStats {
@@ -518,98 +275,6 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Human Cost Row
-
-    private var humanCostRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "person.badge.clock")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-
-            Text("≈ \(Int(devHoursEquivalent * 60)) dev-min")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            if roiMultiplier > 0 {
-                Text("×\(Int(roiMultiplier)) ROI")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.blue)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(Capsule())
-                    .help("How many times cheaper Claude is vs equivalent developer time")
-            }
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 10)
-        .background(Color.primary.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    // MARK: - Optimization Hints Section
-
-    private var optimizationHintsSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Optimization Hints")
-                .font(.subheadline)
-                .fontWeight(.medium)
-
-            ForEach(optimizationHints) { hint in
-                HStack(spacing: 8) {
-                    Image(systemName: hint.icon)
-                        .font(.system(size: 11))
-                        .foregroundStyle(hint.color)
-
-                    Text(hint.text)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                .padding(.vertical, 5)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(hint.color.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
-    }
-
-    // MARK: - Cache Savings Row
-
-    private var cacheSavingsRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "bolt.horizontal.circle")
-                .font(.system(size: 12))
-                .foregroundStyle(.green)
-
-            Text("Cache saved \(CostCalculator.formatCost(cacheSavings))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            if cacheSavingsPercent > 0 {
-                Text("\(Int(cacheSavingsPercent))% cheaper")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.green)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.green.opacity(0.1))
-                    .clipShape(Capsule())
-                    .help("Percentage saved on cache-eligible tokens vs full input price")
-            }
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 10)
-        .background(Color.green.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
     // MARK: - Extra Usage Row
 
     @ViewBuilder
@@ -669,334 +334,6 @@ struct DashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    // MARK: - Usage Section
-
-    private var usageSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Rate Limits")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Spacer()
-                HStack(spacing: 4) {
-                    Text(usageService.plan.displayName)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                    Text(usageService.tier.displayName)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.accentColor.opacity(0.1))
-                .clipShape(Capsule())
-            }
-
-            if let fiveHour = usageService.usage?.fiveHour {
-                fiveHourGauge(fiveHour: fiveHour, pace: usageService.fiveHourPace)
-            }
-
-            if let sevenDay = usageService.usage?.sevenDay {
-                usageBar(
-                    label: "7d Window",
-                    utilization: sevenDay.utilization,
-                    timeRemaining: sevenDay.timeRemaining,
-                    pace: usageService.sevenDayPace
-                )
-            }
-
-            if let sonnet = usageService.usage?.sevenDaySonnet {
-                usageBar(
-                    label: "Sonnet 7d",
-                    utilization: sonnet.utilization,
-                    timeRemaining: sonnet.timeRemaining,
-                    pace: nil
-                )
-            }
-        }
-        .padding(10)
-        .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    /// Shown when the OAuth usage API returns no data, so the failure is visible
-    /// instead of the 5h section silently disappearing.
-    @ViewBuilder
-    private func usageUnavailableRow(error: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("5h usage unavailable")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Text(error)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(10)
-        .background(Color.orange.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    @ViewBuilder
-    private func fiveHourGauge(fiveHour: UsageWindow, pace: PaceLevel?) -> some View {
-        HStack(spacing: 12) {
-            // Circular gauge
-            Gauge(value: min(fiveHour.utilization, 100), in: 0...100) {
-                // Label (not shown in accessoryCircular)
-            } currentValueLabel: {
-                Text("\(Int(fiveHour.utilization))%")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-            }
-            .gaugeStyle(.accessoryCircular)
-            .tint(Gradient(colors: [.green, .yellow, .orange, .red]))
-            .scaleEffect(0.8)
-            .frame(width: 44, height: 44)
-
-            // Details
-            VStack(alignment: .leading, spacing: 2) {
-                Text("5h Window")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                if let remaining = fiveHour.timeRemaining {
-                    Text("Resets in \(remaining)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                let secondsRemaining = max(
-                    fiveHour.resetDate?.timeIntervalSinceNow ?? .greatestFiniteMagnitude,
-                    0
-                )
-                if let forecast = UsageForecast.limitLabel(
-                    utilization: fiveHour.utilization,
-                    elapsedFraction: usageService.fiveHourElapsedFraction,
-                    secondsRemaining: secondsRemaining
-                ) {
-                    let urgent = UsageForecast.isUrgent(
-                        utilization: fiveHour.utilization,
-                        elapsedFraction: usageService.fiveHourElapsedFraction,
-                        secondsRemaining: secondsRemaining
-                    )
-                    Text(forecast)
-                        .font(.caption2)
-                        .foregroundStyle(urgent ? .orange : .secondary)
-                }
-                if let pace {
-                    Text(pace.rawValue)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundStyle(pace.color)
-                }
-            }
-
-            Spacer()
-        }
-    }
-
-    @ViewBuilder
-    private func usageBar(label: String, utilization: Double, timeRemaining: String?, pace: PaceLevel?) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if let pace {
-                    Text(pace.rawValue)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundStyle(pace.color)
-                }
-                Text("\(Int(utilization))%")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                if let remaining = timeRemaining {
-                    Text("(\(remaining))")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.primary.opacity(0.08))
-                        .frame(height: 6)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(utilizationColor(utilization))
-                        .frame(width: geo.size.width * min(utilization / 100, 1.0), height: 6)
-                }
-            }
-            .frame(height: 6)
-        }
-    }
-
-    private func utilizationColor(_ pct: Double) -> Color {
-        switch pct {
-        case ..<30:   return .green
-        case 30..<60: return .blue
-        case 60..<80: return .orange
-        default:      return .red
-        }
-    }
-
-    // MARK: - Burn Rate Card
-
-    @ViewBuilder
-    private func burnRateCard(_ rate: BurnRate) -> some View {
-        HStack(spacing: 10) {
-            // Zone icon + label
-            HStack(spacing: 5) {
-                Image(systemName: rate.zone.icon)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(zoneColor(rate.zone))
-                Text(rate.zone.rawValue)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(zoneColor(rate.zone))
-            }
-
-            Spacer()
-
-            // Cost per hour
-            VStack(alignment: .trailing, spacing: 1) {
-                Text(rate.costPerHourFormatted)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Text("/hr")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            // Divider
-            Rectangle()
-                .fill(Color.secondary.opacity(0.2))
-                .frame(width: 1, height: 24)
-
-            // Projected daily cost
-            VStack(alignment: .trailing, spacing: 1) {
-                Text(rate.projectedCostFormatted)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Text("projected")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            // Divider
-            Rectangle()
-                .fill(Color.secondary.opacity(0.2))
-                .frame(width: 1, height: 24)
-
-            // % of average
-            VStack(alignment: .trailing, spacing: 1) {
-                Text("\(Int(rate.percentOfAverage * 100))%")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundStyle(rate.percentOfAverage > 1.5 ? zoneColor(rate.zone) : .primary)
-                Text("of avg")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(zoneColor(rate.zone).opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(zoneColor(rate.zone).opacity(0.2), lineWidth: 0.5)
-        )
-    }
-
-    // MARK: - Provider Summary
-
-    private var providerSummary: some View {
-        HStack(spacing: 8) {
-            ForEach(providers) { provider in
-                providerPill(provider)
-            }
-            Spacer()
-        }
-    }
-
-    @ViewBuilder
-    private func providerPill(_ provider: ProviderInfo) -> some View {
-        let hasUsageData = provider.sessionCount != nil || provider.totalTokens != nil
-
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 5) {
-                Image(systemName: provider.icon)
-                    .font(.system(size: 10))
-                    .foregroundStyle(provider.isConfigured ? .primary : .secondary)
-
-                Text(provider.name)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundStyle(provider.isConfigured ? .primary : .secondary)
-
-                Circle()
-                    .fill(provider.isConfigured ? Color.green : Color.secondary.opacity(0.4))
-                    .frame(width: 5, height: 5)
-            }
-
-            if hasUsageData {
-                HStack(spacing: 3) {
-                    if let sessions = provider.sessionCount, sessions > 0 {
-                        Text("\(sessions) sess")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if provider.sessionCount != nil, provider.totalTokens != nil {
-                        Text("·")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    if let tokens = provider.totalTokens, tokens > 0 {
-                        Text(tokens.abbreviatedTokenCount)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let hits = provider.contextLimitHits {
-                        Text("·")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        Text("\(hits)⚠")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
-                    }
-                }
-            } else if let details = provider.details {
-                Text(details)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(
-            provider.isConfigured
-                ? Color.green.opacity(0.1)
-                : Color.secondary.opacity(0.08)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(
-                    provider.isConfigured
-                        ? Color.green.opacity(0.3)
-                        : Color.secondary.opacity(0.15),
-                    lineWidth: 0.5
-                )
-        )
-    }
-
     // MARK: - Empty State
 
     private var emptyState: some View {
@@ -1016,17 +353,6 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-    }
-
-    // MARK: - Helpers
-
-    private func zoneColor(_ zone: PacingZone) -> Color {
-        switch zone {
-        case .chill:    return .blue
-        case .onTrack:  return .green
-        case .hot:      return .orange
-        case .critical: return .red
-        }
     }
 
 }
