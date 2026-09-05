@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DashboardProviderSummary: View {
+    @Environment(OmlxUsageService.self) private var omlxUsageService
     let statsService: StatsService
     let mcpHealthService: McpHealthService
     let providerUsageService: ProviderUsageService
@@ -54,24 +55,7 @@ struct DashboardProviderSummary: View {
             contextLimitHits: providerUsageService.codexContextLimitHitsToday > 0 ? providerUsageService.codexContextLimitHitsToday : nil
         )
 
-        let hasOmlxMcp = mcpHealthService.servers.contains {
-            $0.name.lowercased().contains("omlx")
-        }
-        let omlxProvider = ProviderInfo(
-            name: "oMLX",
-            icon: "cpu.fill",
-            isConfigured: omlxMonitorService.isOnline || hasOmlxMcp,
-            totalTokens: nil,
-            estimatedCost: nil,
-            details: omlxMonitorService.isOnline
-                ? omlxMonitorService.defaultModel
-                : (hasOmlxMcp ? "Offline" : nil),
-            sessionCount: providerUsageService.omlxCallsToday > 0
-                ? providerUsageService.omlxCallsToday
-                : nil,
-            contextLimitHits: nil
-        )
-        return [claudeProvider, geminiProvider, codexProvider, omlxProvider]
+        return [claudeProvider, geminiProvider, codexProvider]
     }
 
     // MARK: - Provider Summary
@@ -81,8 +65,36 @@ struct DashboardProviderSummary: View {
             ForEach(providers) { provider in
                 providerPill(provider)
             }
+            if omlxUsageService.isAvailable {
+                omlxCard
+            }
             Spacer()
         }
+    }
+
+    private var omlxCard: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label("oMLX", systemImage: "cpu.fill")
+                .fontWeight(.medium)
+            Text("\(omlxUsageService.today?.totals.requests ?? 0) req today")
+            Text("\((omlxUsageService.today?.totals.completionTokens ?? 0).abbreviatedTokenCount) output tokens")
+            if let model = omlxUsageService.loadedModels.first(where: { $0.isLoaded })?.id
+                ?? omlxMonitorService.defaultModel {
+                Text(model)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(model)
+            }
+            Text("≈ \(CostCalculator.formatCost(omlxUsageService.todayApiEquivalentCost)) saved")
+                .help("API-equivalent cost if these tokens had gone to \(omlxUsageService.referenceModelId)")
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(Color.green.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.green.opacity(0.3), lineWidth: 0.5))
     }
 
     @ViewBuilder

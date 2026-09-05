@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct AnalyticsSystemPanel: View {
+    @Environment(OmlxUsageService.self) private var omlxUsageService
     let statsService: StatsService
     let sessionService: SessionService
     let usageService: UsageService
@@ -158,9 +159,9 @@ struct AnalyticsSystemPanel: View {
                             Divider().padding(.horizontal, 8)
                             systemInfoRow("Error", value: err, valueColor: .red)
                         }
-                        if providerUsageService.omlxCallsToday > 0 {
+                        if omlxUsageService.isAvailable {
                             Divider().padding(.horizontal, 8)
-                            systemInfoRow("Calls today", value: "\(providerUsageService.omlxCallsToday)")
+                            omlxUsageDetails
                         }
                     }
                     .padding(4)
@@ -227,6 +228,68 @@ struct AnalyticsSystemPanel: View {
                 .padding(.horizontal)
             }
         }
+    }
+
+    private var omlxUsageDetails: some View {
+        @Bindable var usage = omlxUsageService
+        return VStack(alignment: .leading, spacing: 10) {
+            systemInfoRow("Requests today", value: "\(usage.today?.totals.requests ?? 0)")
+            ScrollView(.horizontal) {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Model")
+                        Text("Prompt")
+                        Text("Completion")
+                        Text("Requests")
+                        Text("tok/s")
+                        Text("Last access")
+                    }
+                    .foregroundStyle(.secondary)
+                    ForEach(usage.today?.perModel ?? []) { model in
+                        GridRow {
+                            Text(model.model)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .frame(width: 180, alignment: .leading)
+                                .help(model.model)
+                            Text(model.promptTokens.abbreviatedTokenCount)
+                            Text(model.completionTokens.abbreviatedTokenCount)
+                            Text("\(model.requests)")
+                            Text(model.generationTokensPerSecond, format: .number.precision(.fractionLength(1)))
+                            Text(usage.loadedModels.first { $0.id == model.model }?.lastAccess?.timeAgoString ?? "—")
+                        }
+                    }
+                }
+                .font(.caption)
+                .monospacedDigit()
+            }
+            if usage.today?.perModel.isEmpty != false {
+                Text("No usage recorded today")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Picker("Reference model", selection: $usage.referenceModelId) {
+                Text("Sonnet 5").tag("claude-sonnet-5")
+                Text("Opus 5").tag("claude-opus-5")
+                Text("Haiku 4.5").tag("claude-haiku-4-5")
+                Text("Fable 5.1").tag("claude-fable-5-1")
+            }
+            .controlSize(.small)
+            systemInfoRow("Local cost today", value: "$0")
+            systemInfoRow("API-equivalent today", value: "≈ \(CostCalculator.formatCost(usage.todayApiEquivalentCost))")
+                .help("API-equivalent cost if these tokens had gone to \(usage.referenceModelId)")
+            if let totals = usage.allTime {
+                Text("All time: \(totals.totalRequests) requests · \(totals.totalPromptTokens.abbreviatedTokenCount) prompt · \(totals.totalCompletionTokens.abbreviatedTokenCount) completion · \(totals.totalCachedTokens.abbreviatedTokenCount) cached tokens")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let error = usage.lastError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(8)
     }
 
     @ViewBuilder
