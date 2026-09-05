@@ -15,12 +15,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var statsService: StatsService = StatsService(claudeDir: AppDelegate.claudeDir)
     lazy var sessionService: SessionService = SessionService(claudeDir: AppDelegate.claudeDir)
     lazy var settingsService: SettingsService = SettingsService(claudeDir: AppDelegate.claudeDir)
-    lazy var projectService: ProjectService = ProjectService(claudeDir: AppDelegate.claudeDir)
+    lazy var projectService: ProjectService = ProjectService(claudeDir: AppDelegate.claudeDir, modelCatalogService: modelCatalogService)
     let hookHealthService = HookHealthService()
     let burnRateService = BurnRateService()
     let notificationService = NotificationService()
+    lazy var modelCatalogService: ModelCatalogService = {
+        let service = ModelCatalogService()
+        service.onNewModelDetected = { [weak notificationService] id, basedOn in
+            notificationService?.sendNewModelDetected(id: id, basedOn: basedOn)
+        }
+        return service
+    }()
     let usageService = UsageService()
-    lazy var liveStatsService: LiveStatsService = LiveStatsService(claudeDir: AppDelegate.claudeDir)
+    lazy var liveStatsService: LiveStatsService = LiveStatsService(claudeDir: AppDelegate.claudeDir, modelCatalogService: modelCatalogService)
     let overlayManager = OverlayManager()
     let desktopWidgetManager = DesktopWidgetManager()
     let launchAtLoginService = LaunchAtLoginService()
@@ -30,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     let mainWindowManager = MainWindowManager()
     let anomalyService = AnomalyService()
-    lazy var yearlyHistoryService: YearlyHistoryService = YearlyHistoryService(claudeDir: AppDelegate.claudeDir)
+    lazy var yearlyHistoryService: YearlyHistoryService = YearlyHistoryService(claudeDir: AppDelegate.claudeDir, modelCatalogService: modelCatalogService)
     let updateCheckService = UpdateCheckService()
     let autoUpdater = AutoUpdater()
     let omlxMonitorService = OmlxMonitorService()
@@ -152,6 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environment(hookHealthService)
         .environment(burnRateService)
         .environment(notificationService)
+        .environment(modelCatalogService)
         .environment(usageService)
         .environment(liveStatsService)
         .environment(overlayManager)
@@ -302,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opens the full analytics window with NavigationSplitView layout.
     func openAnalytics() {
         let analyticsView = AnalyticsView()
+            .environment(modelCatalogService)
             .environment(statsService)
             .environment(sessionService)
             .environment(burnRateService)

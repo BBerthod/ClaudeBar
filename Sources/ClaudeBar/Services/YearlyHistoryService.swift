@@ -12,7 +12,10 @@ final class YearlyHistoryService {
 
     private let projectsDir: String
 
-    init(claudeDir: String = "~/.claude") {
+    private let modelCatalogService: ModelCatalogService?
+
+    init(claudeDir: String = "~/.claude", modelCatalogService: ModelCatalogService? = nil) {
+        self.modelCatalogService = modelCatalogService
         // claudeDir param kept for backward compat but we auto-detect all dirs in scan.
         // Store it but don't use it — allProjectsDirs() finds all dirs automatically.
         self.projectsDir = NSString(string: claudeDir).expandingTildeInPath + "/projects"
@@ -31,8 +34,9 @@ final class YearlyHistoryService {
         isLoading = true
         let dirs = JSONLLocator.allProjectsDirectories()
         let result = await Task.detached(priority: .utility) {
-            YearlyHistoryService.scan(projectsDirs: dirs)
+            YearlyHistoryService.scanWithModels(projectsDirs: dirs)
         }.value
+        modelCatalogService?.noteModels(result.models)
         dayStats = result.dayStats
         last30DaysActivity = result.activity
         last30DaysTokens = result.tokens
@@ -46,12 +50,20 @@ final class YearlyHistoryService {
     nonisolated static func scan(
         projectsDirs: [String]
     ) -> (dayStats: [Date: DayStats], activity: [DailyActivity], tokens: [DailyModelTokens], modelBreakdown: [String: ModelTokenBreakdown]) {
+        let result = scanWithModels(projectsDirs: projectsDirs)
+        return (result.dayStats, result.activity, result.tokens, result.modelBreakdown)
+    }
+
+    nonisolated static func scanWithModels(
+        projectsDirs: [String]
+    ) -> (dayStats: [Date: DayStats], activity: [DailyActivity], tokens: [DailyModelTokens], modelBreakdown: [String: ModelTokenBreakdown], models: Set<String>) {
+        var models = Set<String>()
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
         guard let cutoff365 = calendar.date(byAdding: .day, value: -364, to: today),
               let cutoff30  = calendar.date(byAdding: .day, value: -29,  to: today) else {
-            return ([:], [], [], [:])
+            return ([:], [], [], [:], [])
         }
 
         let isoFormatter = ISO8601DateFormatter()
@@ -93,6 +105,7 @@ final class YearlyHistoryService {
                         let messageObj = json["message"] as? [String: Any]
                         let msgId = messageObj?["id"] as? String ?? ""
                         let model = messageObj?["model"] as? String ?? ""
+                        models.insert(model)
                         let usageObj = messageObj?["usage"] as? [String: Any]
                         let inputTokens  = usageObj?["input_tokens"]                  as? Int ?? 0
                         let outputTokens = usageObj?["output_tokens"]                 as? Int ?? 0
@@ -190,7 +203,8 @@ final class YearlyHistoryService {
             dayStats: resultDayStats,
             activity: activity,
             tokens: tokens,
-            modelBreakdown: model30dBreakdown
+            modelBreakdown: model30dBreakdown,
+            models: models
         )
     }
 }

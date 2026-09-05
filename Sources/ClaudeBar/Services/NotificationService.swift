@@ -204,6 +204,12 @@ final class NotificationService {
         if soundEnabled { NSSound.beep() }
     }
 
+    func sendNewModelDetected(id: String, basedOn: String) {
+        sendNotification(title: "New model detected: \(StatsService.displayName(for: id))",
+                         body: "\(id) is not in the pricing catalog yet — costs are estimated from \(basedOn).",
+                         identifier: "claudebar.new-model.\(id)")
+    }
+
     // MARK: - Daily Digest
 
     func sendDailyDigest(

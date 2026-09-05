@@ -27,7 +27,10 @@ final class LiveStatsService {
     private var timer: Timer?
     private var isParsing = false
 
-    init(claudeDir: String = "~/.claude") {
+    private let modelCatalogService: ModelCatalogService?
+
+    init(claudeDir: String = "~/.claude", modelCatalogService: ModelCatalogService? = nil) {
+        self.modelCatalogService = modelCatalogService
         let requestedProjects = NSString(string: claudeDir).expandingTildeInPath + "/projects"
         var directories = JSONLLocator.allProjectsDirectories()
         var isDirectory: ObjCBool = false
@@ -77,6 +80,7 @@ final class LiveStatsService {
         todayToolCalls = snapshot.toolCalls
         todayCost = snapshot.cost
         tokensByModel = snapshot.tokensByModel
+        modelCatalogService?.noteModels(snapshot.tokensByModel.map(\.model))
         firstActivityToday = snapshot.firstActivity
     }
 

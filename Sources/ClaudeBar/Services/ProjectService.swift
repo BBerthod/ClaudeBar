@@ -6,7 +6,10 @@ final class ProjectService {
     private(set) var projects: [ProjectStats] = []
     private(set) var isLoading = false
 
-    init(claudeDir: String = "~/.claude") {
+    private let modelCatalogService: ModelCatalogService?
+
+    init(claudeDir: String = "~/.claude", modelCatalogService: ModelCatalogService? = nil) {
+        self.modelCatalogService = modelCatalogService
         reload()
     }
 
@@ -20,9 +23,10 @@ final class ProjectService {
         isLoading = true
         Task.detached(priority: .utility) { [weak self] in
             let dirs = JSONLLocator.allProjectsDirectories()
-            let result = ProjectService.scanAllProjects(dirs: dirs)
+            let result = ProjectService.scanWithModels(dirs: dirs)
             await MainActor.run { [weak self] in
-                self?.projects = result
+                self?.projects = result.projects
+                self?.modelCatalogService?.noteModels(result.models)
                 self?.isLoading = false
             }
         }
@@ -33,6 +37,11 @@ final class ProjectService {
     /// Scans all project subdirs across every supplied projects directory.
     /// Returns ProjectStats grouped by `cwd`, sorted by estimated cost descending.
     nonisolated static func scanAllProjects(dirs: [String]) -> [ProjectStats] {
+        scanWithModels(dirs: dirs).projects
+    }
+
+    nonisolated static func scanWithModels(dirs: [String]) -> (projects: [ProjectStats], models: Set<String>) {
+        var models = Set<String>()
         let fm = FileManager.default
 
         let isoFull = ISO8601DateFormatter()
@@ -117,6 +126,10 @@ final class ProjectService {
                             }
                         }
 
+                        if let message = obj["message"] as? [String: Any], let model = message["model"] as? String {
+                            models.insert(model)
+                        }
+
                         // Cost from token usage
                         if shouldCountUsage,
                            let message = obj["message"] as? [String: Any],
@@ -166,6 +179,6 @@ final class ProjectService {
         }
 
         result.sort()
-        return result
+        return (result, models)
     }
 }
