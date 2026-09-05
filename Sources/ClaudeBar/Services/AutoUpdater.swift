@@ -30,6 +30,8 @@ final class AutoUpdater {
         guard normalizedURL.pathExtension == "app" else { return false }
         guard path != "/tmp", !path.hasPrefix("/tmp/") else { return false }
         guard path != "/private/tmp", !path.hasPrefix("/private/tmp/") else { return false }
+        // Gatekeeper runs quarantined apps from a read-only translocated copy.
+        guard !path.contains("/AppTranslocation/") else { return false }
 
         let directoryComponents = normalizedURL.deletingLastPathComponent().pathComponents
         return !directoryComponents.contains { component in
@@ -60,6 +62,8 @@ final class AutoUpdater {
                 mv "$backup_app" "$target_app" 2>/dev/null || true
             fi
             rm -rf "$new_app" 2>/dev/null || true
+            # The app already quit for the update: bring the previous version back.
+            [ -d "$target_app" ] && open "$target_app"
         }
 
         if [ ! -d "$source_app" ]; then
@@ -147,7 +151,8 @@ final class AutoUpdater {
             }
 
             let targetApp = Bundle.main.bundleURL.standardizedFileURL
-            guard Self.isReplaceableBundle(targetApp) else {
+            guard Self.isReplaceableBundle(targetApp),
+                  FileManager.default.isWritableFile(atPath: targetApp.deletingLastPathComponent().path) else {
                 Log.stats.error("AutoUpdater: refusing to replace bundle at \(targetApp.path)")
                 return
             }

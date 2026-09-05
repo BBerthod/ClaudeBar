@@ -15,6 +15,7 @@ final class AutoUpdaterTests: XCTestCase {
         XCTAssertTrue(script.contains("cp -R \"$source_app\" \"$new_app\""))
         XCTAssertTrue(script.contains("mv \"$backup_app\" \"$target_app\""))
         XCTAssertTrue(script.contains("if ! mv \"$new_app\" \"$target_app\"; then\n    rollback"))
+        XCTAssertTrue(script.contains("[ -d \"$target_app\" ] && open \"$target_app\""))
     }
 
     func testUpdateScriptRemovesBackupOnlyAfterSuccessfulSwap() {
@@ -25,7 +26,8 @@ final class AutoUpdaterTests: XCTestCase {
 
         let backupCreation = try! XCTUnwrap(script.range(of: "mv \"$target_app\" \"$backup_app\""))
         let successfulSwap = try! XCTUnwrap(script.range(of: "if ! mv \"$new_app\" \"$target_app\"; then"))
-        let open = try! XCTUnwrap(script.range(of: "open \"$target_app\""))
+        // The last `open` is the final relaunch (an earlier one lives in rollback).
+        let open = try! XCTUnwrap(script.ranges(of: "open \"$target_app\"").last)
         let removals = script.ranges(of: "rm -rf \"$backup_app\"")
 
         // Only the stale-backup cleanup (before the swap) and the final cleanup
@@ -62,6 +64,9 @@ final class AutoUpdaterTests: XCTestCase {
         ))
         XCTAssertFalse(AutoUpdater.isReplaceableBundle(
             URL(fileURLWithPath: "/tmp/ClaudeBar.app")
+        ))
+        XCTAssertFalse(AutoUpdater.isReplaceableBundle(
+            URL(fileURLWithPath: "/private/var/folders/ab/T/AppTranslocation/1234-ABCD/d/ClaudeBar.app")
         ))
         XCTAssertFalse(AutoUpdater.isReplaceableBundle(
             URL(fileURLWithPath: "/private/tmp/ClaudeBar.app")
