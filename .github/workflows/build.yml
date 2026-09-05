@@ -25,6 +25,11 @@ jobs:
             exit 1
           fi
 
+      - name: Unit tests
+        # Snapshot tests depend on the runner's exact text rasterisation and are
+        # validated locally; every other suite runs here.
+        run: swift test --skip SnapshotTests 2>&1 | tail -40
+
       - name: Binary size
         run: |
           BIN=$(swift build -c release --show-bin-path 2>/dev/null)/ClaudeBar
