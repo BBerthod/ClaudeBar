@@ -3,6 +3,7 @@ import AppKit
 import Darwin
 
 struct SettingsAppSection: View {
+    @Environment(ModelCatalogService.self) private var modelCatalogService
     let launchAtLoginService: LaunchAtLoginService
     let statsService: StatsService
 
@@ -88,6 +89,32 @@ struct SettingsAppSection: View {
                 Text("Claude Code recalculates this automatically between sessions")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+            }
+            .padding(8)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Model catalog")
+                        .font(.subheadline)
+                    Spacer()
+                    Button("Refresh now") {
+                        Task { await modelCatalogService.refresh() }
+                    }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(modelCatalogService.isRefreshing)
+                }
+                Text("\(modelCatalogService.catalog.entries.count) models · \(modelCatalogService.source.rawValue) · updated \((modelCatalogService.lastUpdated ?? modelCatalogService.catalog.generatedAt).formatted(.relative(presentation: .named)))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let error = modelCatalogService.lastError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
             .padding(8)
 
@@ -214,4 +241,3 @@ struct SettingsAppSection: View {
         NSApp.terminate(nil)
     }
 }
-

@@ -80,6 +80,13 @@ struct ModelsBreakdownView: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .monospacedDigit()
+                if summary.breakdown.total > 0 && CostCalculator.isEstimated(summary.model) {
+                    let basedOn = ModelCatalogService.current.resolve(summary.model)?.basedOn ?? "claude-opus-5"
+                    Text("~")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .help("Estimated — \(summary.model) is priced like \(basedOn)")
+                }
             }
 
             ProgressView(value: min(max(share, 0), 1))

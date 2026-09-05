@@ -7,6 +7,7 @@ final class ModelCatalogService {
     private(set) var source: Source
     private(set) var lastUpdated: Date?
     private(set) var lastError: String?
+    private(set) var isRefreshing = false
     private(set) var unknownModelsSeen: [String: String] = [:]
     var onNewModelDetected: ((String, String) -> Void)?
 
@@ -71,6 +72,8 @@ final class ModelCatalogService {
 
     func refresh() async {
         if let refreshTask { await refreshTask.value; return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         let task = Task { await fetchCatalog() }
         refreshTask = task
         await task.value

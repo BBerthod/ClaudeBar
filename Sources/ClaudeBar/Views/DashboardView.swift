@@ -43,6 +43,16 @@ struct DashboardView: View {
         effectiveMessages > 0 || effectiveSessions > 0
     }
 
+    private var estimatedCostHelp: String {
+        effectiveTokensByModel
+            .filter { $0.tokens > 0 && CostCalculator.isEstimated($0.model) }
+            .map { entry in
+                let basedOn = ModelCatalogService.current.resolve(entry.model)?.basedOn ?? "claude-opus-5"
+                return "Estimated — \(entry.model) is priced like \(basedOn)"
+            }
+            .joined(separator: "\n")
+    }
+
     private var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -139,11 +149,20 @@ struct DashboardView: View {
                     // Right: cost + 5h gauge
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .trailing, spacing: 2) {
-                            Text(CostCalculator.formatCost(effectiveCost))
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.primary)
-                                .help("API-equivalent cost (not what you pay on Max subscription)")
+                            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                Text(CostCalculator.formatCost(effectiveCost))
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                                    .help("API-equivalent cost (not what you pay on Max subscription)")
+                                let estimatedHelp = estimatedCostHelp
+                                if !estimatedHelp.isEmpty {
+                                    Text("~")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .help(estimatedHelp)
+                                }
+                            }
                             HStack(spacing: 3) {
                                 if liveStatsService.isStale {
                                     Image(systemName: "bolt.fill")
