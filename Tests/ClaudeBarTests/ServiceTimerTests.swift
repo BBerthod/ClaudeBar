@@ -26,11 +26,21 @@ final class ServiceTimerTests: XCTestCase {
         XCTAssertNil(owner.timer)
     }
 
+    /// The init kicks off detached scans that briefly retain `self` while hopping back to
+    /// the main actor; spin the run loop so deallocation can actually happen.
+    private func waitForInvalidation(of timer: Timer) {
+        let deadline = Date().addingTimeInterval(2)
+        while timer.isValid && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+    }
+
     func testSessionServiceInvalidatesTimerOnDeinit() throws {
         var service: SessionService? = SessionService(claudeDir: "/nonexistent/claudebar-timer-test")
         let timer = try scheduledTimer(in: XCTUnwrap(service))
         XCTAssertTrue(timer.isValid)
         service = nil
+        waitForInvalidation(of: timer)
         XCTAssertFalse(timer.isValid)
     }
 
@@ -39,6 +49,7 @@ final class ServiceTimerTests: XCTestCase {
         let timer = try scheduledTimer(in: XCTUnwrap(service))
         XCTAssertTrue(timer.isValid)
         service = nil
+        waitForInvalidation(of: timer)
         XCTAssertFalse(timer.isValid)
     }
 }
