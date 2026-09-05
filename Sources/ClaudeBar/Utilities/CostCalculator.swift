@@ -140,7 +140,10 @@ enum CostCalculator {
         } else if lower.contains("haiku") {
             return pricing["claude-haiku-4-5"]!
         } else if lower.contains("sonnet") {
-            return pricing["claude-sonnet-5"]!
+            // Sonnet 3.x / 4.x were priced $3/$15; only Sonnet 5 moved to $2/$10.
+            let legacy = lower.contains("sonnet-3") || lower.contains("3-5-sonnet")
+                || lower.contains("3-7-sonnet") || lower.contains("sonnet-4")
+            return pricing[legacy ? "claude-sonnet-4-6" : "claude-sonnet-5"]!
         }
         return pricing["claude-opus-5"]!
     }

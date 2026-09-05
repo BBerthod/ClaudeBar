@@ -69,6 +69,11 @@ final class CostCalculatorTests: XCTestCase {
         XCTAssertEqual(p.inputPerMTok, 2.00)
     }
 
+    func testPricingLegacySonnetKeepsOldRate() {
+        XCTAssertEqual(CostCalculator.pricing(for: "claude-3-7-sonnet-20250219").inputPerMTok, 3.00)
+        XCTAssertEqual(CostCalculator.pricing(for: "claude-sonnet-4-1").inputPerMTok, 3.00)
+    }
+
     func testPricingPartialMatchOpus() {
         let p = CostCalculator.pricing(for: "claude-opus-future")
         XCTAssertEqual(p.inputPerMTok, 5.00)
