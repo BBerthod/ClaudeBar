@@ -57,12 +57,3 @@ struct SessionIndexEntry: Codable, Sendable, Identifiable {
         URL(fileURLWithPath: projectPath).lastPathComponent
     }
 }
-
-// MARK: - SessionIndex
-
-/// Root object decoded from a `sessions-index.json` file.
-struct SessionIndex: Codable, Sendable {
-    let version: Int
-    let entries: [SessionIndexEntry]
-    let originalPath: String
-}

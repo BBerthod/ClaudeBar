@@ -29,7 +29,7 @@ final class YearlyHistoryService {
     func refresh() async {
         guard !isLoading else { return }
         isLoading = true
-        let dirs = Self.allProjectsDirs()
+        let dirs = JSONLLocator.allProjectsDirectories()
         let result = await Task.detached(priority: .utility) {
             YearlyHistoryService.scan(projectsDirs: dirs)
         }.value
@@ -41,26 +41,11 @@ final class YearlyHistoryService {
         isLoaded = true
     }
 
-    // MARK: - Directory discovery
-
-    private nonisolated static func allProjectsDirs() -> [String] {
-        let home = NSHomeDirectory()
-        let fm = FileManager.default
-        return ((try? fm.contentsOfDirectory(atPath: home)) ?? [])
-            .filter { $0 == ".claude" || $0.hasPrefix(".claude-") }
-            .compactMap { name -> String? in
-                let path = (home as NSString).appendingPathComponent(name) + "/projects"
-                var isDir: ObjCBool = false
-                return fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue ? path : nil
-            }
-    }
-
     // MARK: - Background scan (nonisolated)
 
-    private nonisolated static func scan(
+    nonisolated static func scan(
         projectsDirs: [String]
     ) -> (dayStats: [Date: DayStats], activity: [DailyActivity], tokens: [DailyModelTokens], modelBreakdown: [String: ModelTokenBreakdown]) {
-        let fm = FileManager.default
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
@@ -88,13 +73,7 @@ final class YearlyHistoryService {
         // Deduplication
         var seenMessages: Set<String> = []
 
-        for projectsDir in projectsDirs {
-            guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { continue }
-            for dir in projectDirs {
-                let dirPath = projectsDir + "/" + dir
-                guard let files = try? fm.contentsOfDirectory(atPath: dirPath) else { continue }
-                for file in files where file.hasSuffix(".jsonl") {
-                    let path = dirPath + "/" + file
+        for path in JSONLLocator.files(inProjectsDirectories: projectsDirs) {
                     guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { continue }
                     for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
                         guard let data = line.data(using: .utf8),
@@ -129,7 +108,9 @@ final class YearlyHistoryService {
                             seenMessages.insert(msgKey)
                         }
 
-                        // ---- 365-day dayStats (not deduplicated for cost — follow original behaviour) ----
+                        guard !isDuplicate else { continue }
+
+                        // ---- 365-day dayStats ----
                         var cost = 0.0
                         if !model.isEmpty && totalTokens > 0 {
                             cost = CostCalculator.cost(
@@ -144,7 +125,7 @@ final class YearlyHistoryService {
                         dayCostMap[day,  default: 0.0] += cost
 
                         // ---- 30-day activity & token data (deduplicated) ----
-                        guard day >= cutoff30, !isDuplicate else { continue }
+                        guard day >= cutoff30 else { continue }
 
                         // Session count per day
                         if !sessionId.isEmpty {
@@ -170,8 +151,6 @@ final class YearlyHistoryService {
                             model30dBreakdown[model, default: ModelTokenBreakdown()].cacheCreation += cacheWrite
                         }
                     }
-                }
-            }
         }
 
         // Build dayStats

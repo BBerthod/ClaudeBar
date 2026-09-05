@@ -7,6 +7,9 @@ All notable changes to ClaudeBar are documented here.
 ### Fixed
 - Updated pricing for Claude Sonnet 5, Opus 5, and Fable 5.1.
 - Corrected the 1M context window for Claude Opus 5 and Sonnet 5.
+- Deduplicated streamed assistant chunks in project, yearly, and live token/cost statistics.
+- Included nested sub-agent transcripts and filtered live statistics by each line's timestamp.
+- Based burn-rate projections on today's first activity instead of time since midnight.
 
 ## [1.0.13] — 2026-06-11
 

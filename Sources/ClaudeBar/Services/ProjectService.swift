@@ -6,11 +6,7 @@ final class ProjectService {
     private(set) var projects: [ProjectStats] = []
     private(set) var isLoading = false
 
-    /// Kept for backward compatibility; internally we now discover all ~/.claude* dirs.
-    private let claudeDir: String
-
     init(claudeDir: String = "~/.claude") {
-        self.claudeDir = claudeDir
         reload()
     }
 
@@ -23,7 +19,7 @@ final class ProjectService {
         guard !isLoading else { return }
         isLoading = true
         Task.detached(priority: .utility) { [weak self] in
-            let dirs = ProjectService.allProjectsDirs()
+            let dirs = JSONLLocator.allProjectsDirectories()
             let result = ProjectService.scanAllProjects(dirs: dirs)
             await MainActor.run { [weak self] in
                 self?.projects = result
@@ -32,28 +28,12 @@ final class ProjectService {
         }
     }
 
-    // MARK: - Multi-installation discovery
-
-    /// Returns all ~/.claude*/projects/ paths that actually exist as directories.
-    private nonisolated static func allProjectsDirs() -> [String] {
-        let home = NSHomeDirectory()
-        let fm = FileManager.default
-        return ((try? fm.contentsOfDirectory(atPath: home)) ?? [])
-            .filter { $0 == ".claude" || $0.hasPrefix(".claude-") }
-            .compactMap { name -> String? in
-                let path = (home as NSString).appendingPathComponent(name) + "/projects"
-                var isDir: ObjCBool = false
-                return fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue ? path : nil
-            }
-    }
-
     // MARK: - Scanning
 
     /// Scans all project subdirs across every supplied projects directory.
     /// Returns ProjectStats grouped by `cwd`, sorted by estimated cost descending.
-    private nonisolated static func scanAllProjects(dirs: [String]) -> [ProjectStats] {
+    nonisolated static func scanAllProjects(dirs: [String]) -> [ProjectStats] {
         let fm = FileManager.default
-        let decoder = JSONDecoder()
 
         let isoFull = ISO8601DateFormatter()
         isoFull.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -70,6 +50,7 @@ final class ProjectService {
         struct Accum {
             var sessionCount = 0
             var messageIds = Set<String>()
+            var anonymousMessageCount = 0
             var branches = Set<String>()
             var lastActive: Date? = nil
             var estimatedCost: Double = 0
@@ -83,48 +64,8 @@ final class ProjectService {
             for subdirName in subdirs {
                 let subdirPath = projectsDir + "/" + subdirName
 
-                // Fast path: try sessions-index.json for forward compatibility
-                let indexPath = subdirPath + "/sessions-index.json"
-                if let data = try? Data(contentsOf: URL(fileURLWithPath: indexPath)),
-                   let index = try? decoder.decode(SessionIndex.self, from: data) {
-                    for entry in index.entries {
-                        let key = entry.projectPath
-                        var accum = grouped[key] ?? Accum()
-                        accum.sessionCount += 1
-                        if let count = entry.messageCount {
-                            // No real message IDs from index — use synthetic ones to avoid
-                            // collision across sessions from different dirs.
-                            for i in 0..<count {
-                                accum.messageIds.insert(entry.sessionId + "-\(i)")
-                            }
-                        }
-                        if let branch = entry.gitBranch, !branch.isEmpty {
-                            accum.branches.insert(branch)
-                        }
-                        if let modStr = entry.modified,
-                           let date = isoFull.date(from: modStr) ?? isoBasic.date(from: modStr) {
-                            if let current = accum.lastActive {
-                                if date > current { accum.lastActive = date }
-                            } else {
-                                accum.lastActive = date
-                            }
-                            // Sparkline: bucket by modified date
-                            let dayStart = calendar.startOfDay(for: date)
-                            if let idx = sparklineDays.firstIndex(of: dayStart) {
-                                accum.dailyCounts[idx] += entry.messageCount ?? 1
-                            }
-                        }
-                        grouped[key] = accum
-                    }
-                    continue // index loaded — skip JSONL scan for this subdir
-                }
-
-                // Fallback: scan JSONL files directly
-                guard let files = try? fm.contentsOfDirectory(atPath: subdirPath) else { continue }
-                let jsonlFiles = files.filter { $0.hasSuffix(".jsonl") }
-
-                for filename in jsonlFiles {
-                    let filePath = subdirPath + "/" + filename
+                // sessions-index.json has no token usage, so JSONL remains authoritative.
+                for filePath in JSONLLocator.files(inProjectDirectory: subdirPath) {
                     guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
                     let lines = data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
 
@@ -145,10 +86,16 @@ final class ProjectService {
 
                         var accum = grouped[key] ?? Accum()
 
-                        // Unique message dedup via message.id
+                        // Unique message dedup via message.id. Lines without an ID are
+                        // independent messages and remain counted individually.
+                        let shouldCountUsage: Bool
                         if let message = obj["message"] as? [String: Any],
-                           let msgId = message["id"] as? String {
-                            accum.messageIds.insert(msgId)
+                           let msgId = message["id"] as? String,
+                           !msgId.isEmpty {
+                            shouldCountUsage = accum.messageIds.insert(msgId).inserted
+                        } else {
+                            accum.anonymousMessageCount += 1
+                            shouldCountUsage = true
                         }
 
                         // Git branch
@@ -165,13 +112,14 @@ final class ProjectService {
                                 accum.lastActive = date
                             }
                             let dayStart = calendar.startOfDay(for: date)
-                            if let idx = sparklineDays.firstIndex(of: dayStart) {
+                            if shouldCountUsage, let idx = sparklineDays.firstIndex(of: dayStart) {
                                 accum.dailyCounts[idx] += 1
                             }
                         }
 
                         // Cost from token usage
-                        if let message = obj["message"] as? [String: Any],
+                        if shouldCountUsage,
+                           let message = obj["message"] as? [String: Any],
                            let model = message["model"] as? String,
                            let usage = message["usage"] as? [String: Any] {
                             let input      = (usage["input_tokens"] as? Int) ?? 0
@@ -209,7 +157,7 @@ final class ProjectService {
                 projectPath: projectPath,
                 projectName: projectName,
                 sessionCount: accum.sessionCount,
-                totalMessages: accum.messageIds.count,
+                totalMessages: accum.messageIds.count + accum.anonymousMessageCount,
                 branches: accum.branches,
                 lastActive: accum.lastActive,
                 estimatedCost: accum.estimatedCost,

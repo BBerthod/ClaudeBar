@@ -7,18 +7,26 @@ final class BurnRateService {
 
     /// Call this when stats update to recalculate burn rate.
     /// Falls back to `liveStatsService` when stats-cache has no entry for today.
-    func update(statsService: StatsService, liveStatsService: LiveStatsService? = nil) {
+    func update(
+        statsService: StatsService,
+        liveStatsService: LiveStatsService? = nil,
+        now: Date = Date()
+    ) {
         guard let stats = statsService.stats else {
             burnRate = nil
             return
         }
 
         // 1. Calculate hours active today
-        let now = Date()
         let calendar = Calendar.current
-        let currentHour = calendar.component(.hour, from: now)
-        let minuteInHour = calendar.component(.minute, from: now)
-        let hoursActive = max(Double(currentHour) + Double(minuteInHour) / 60.0, 1.0)
+        let hoursActive: Double
+        if let firstActivity = liveStatsService?.firstActivityToday {
+            hoursActive = max(now.timeIntervalSince(firstActivity) / 3_600, 0.25)
+        } else {
+            let currentHour = calendar.component(.hour, from: now)
+            let minuteInHour = calendar.component(.minute, from: now)
+            hoursActive = max(Double(currentHour) + Double(minuteInHour) / 60.0, 1.0)
+        }
 
         // 2. Calculate current rates (prefer stats-cache, fallback to live JSONL)
         let todayTokens = statsService.todayTokens > 0

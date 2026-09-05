@@ -198,4 +198,38 @@ final class BurnRateServiceTests: XCTestCase {
             "With no historical days, averageDailyTokens must fall back to today's token count"
         )
     }
+
+    /// A short late-day session uses its actual active duration, capped at 15 minutes.
+    func testHoursActiveStartsAtFirstLiveActivity() throws {
+        let (_, statsService) = try makeTempStatsDir(
+            todayTokens: 0,
+            historicalTokens: 10_000,
+            historicalDaysCount: 1
+        )
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let now = calendar.date(byAdding: .hour, value: 16, to: today)!
+        let firstActivity = now.addingTimeInterval(-5 * 60)
+        let liveStatsService = LiveStatsService(claudeDir: "/tmp/nonexistent-claude-profile")
+        liveStatsService.apply(LiveStatsSnapshot(
+            messages: 10,
+            tokens: 100,
+            toolCalls: 0,
+            cost: 1,
+            tokensByModel: [],
+            firstActivity: firstActivity
+        ))
+
+        let burnRateService = BurnRateService()
+        burnRateService.update(
+            statsService: statsService,
+            liveStatsService: liveStatsService,
+            now: now
+        )
+
+        let burnRate = try XCTUnwrap(burnRateService.burnRate)
+        XCTAssertEqual(burnRate.hoursActive, 0.25, accuracy: 0.000_001)
+        XCTAssertEqual(burnRate.tokensPerHour, 400, accuracy: 0.000_001)
+        XCTAssertEqual(burnRate.projectedDailyTokens, 4_000)
+    }
 }
