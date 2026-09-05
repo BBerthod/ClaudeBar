@@ -117,6 +117,8 @@ swift test
 
 ## Release Process
 
+Run `make catalog` before a release to refresh the bundled model catalog snapshot. CI fails if the snapshot is older than 90 days.
+
 Releases are automated via GitHub Actions (`.github/workflows/release.yml`):
 
 1. Update the version string in the `VERSION` file and push to `main`.

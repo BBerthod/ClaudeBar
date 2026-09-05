@@ -4,6 +4,16 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-05
+
+### Added
+- Auto-updating LiteLLM model catalog for pricing and context windows, refreshed daily with a bundled offline fallback.
+- Unknown-model pricing estimation, flagged with "~", and a notification when a new model is detected.
+- Settings row showing model catalog count, source, last update, refresh button, and errors.
+
+### Changed
+- Removed the hard-coded pricing table in favor of the model catalog.
+
 ## [1.1.1] — 2026-09-05
 
 ### Changed

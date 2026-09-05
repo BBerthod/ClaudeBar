@@ -98,6 +98,7 @@ Data is gathered from the following sources, in priority order:
 
 | Source | What it provides |
 |--------|-----------------|
+| LiteLLM model catalog | Pricing and context windows for Claude, OpenAI and Gemini models, refreshed daily (bundled snapshot as fallback). Unknown models are estimated from their family and flagged "~". |
 | `~/.claude*/stats-cache.json` | Primary stats — messages, sessions, tokens, model usage, 30-day history. Auto-detects active directory and file-watched for instant updates. |
 | `~/.claude*/projects/**/*.jsonl` | Live fallback & project aggregation — parsed directly across all profile directories when cache is stale. Deduplicates by message ID. |
 | Anthropic OAuth API | Real-time rate limit data (5h / 7d windows). OAuth token read from the system Keychain (`Claude Code-credentials`). Polled every 5 min. Auto-refreshes expired tokens via the OAuth refresh flow. |
@@ -164,6 +165,7 @@ ClaudeBar never sends your usage data anywhere. All processing happens locally:
 - The only outbound network calls are to:
   - `api.anthropic.com/api/oauth/usage` (rate-limit data) and `console.anthropic.com/v1/oauth/token` (token refresh), both using your existing OAuth credentials
   - `api.github.com/repos/BBerthod/ClaudeBar/releases/latest` (version check for updates)
+  - `raw.githubusercontent.com` (LiteLLM model catalog download; no usage data sent)
   - `http://127.0.0.1:8000/health` (local oMLX inference health monitoring, entirely on localhost)
 
 ---
