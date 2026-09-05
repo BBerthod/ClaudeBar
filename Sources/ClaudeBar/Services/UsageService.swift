@@ -16,16 +16,33 @@ final class UsageService {
     private var cachedToken: KeychainCredentials.OAuthTokens?
     private var keychainServiceName: String?
     private var retryAfter: Date?
+    private let session: URLSession
+    private var fetchTask: (id: UUID, task: Task<Void, Never>)?
+    private var tokenRefreshTask: (id: UUID, task: Task<Bool, Never>)?
+
+    private static let pollingInterval: TimeInterval = 300
+    nonisolated private static let staleInterval: TimeInterval = 900
 
     /// Public OAuth client ID used by Claude Code. The token endpoint rejects any
     /// other value with HTTP 400 "Invalid request format", which silently breaks
     /// token refresh. Must match the value Claude Code itself uses.
-    static let oauthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    nonisolated static let oauthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 
-    init() {
-        loadCredentials()
-        Task { await fetchUsage() }
-        startPolling()
+    init(
+        session: URLSession = .shared,
+        disablePolling: Bool = false,
+        credentials: KeychainCredentials.OAuthTokens? = nil
+    ) {
+        self.session = session
+        if let credentials {
+            cachedToken = credentials
+        } else {
+            loadCredentials()
+        }
+        if !disablePolling {
+            Task { await fetchUsage() }
+            startPolling()
+        }
     }
 
     // MARK: - Computed
@@ -40,6 +57,21 @@ final class UsageService {
         guard let window = usage?.sevenDay else { return nil }
         let elapsed = elapsedFraction(for: window, windowHours: 168)
         return PaceLevel(utilization: window.utilization, elapsedFraction: elapsed)
+    }
+
+    var isStale: Bool {
+        Self.isStale(lastError: lastError, lastFetched: lastFetched)
+    }
+
+    nonisolated static func isStale(
+        lastError: String?,
+        lastFetched: Date?,
+        now: Date = Date()
+    ) -> Bool {
+        if lastError != nil { return true }
+        // No fetch yet (start-up, request in flight): nothing to be stale about.
+        guard let lastFetched else { return false }
+        return now.timeIntervalSince(lastFetched) > staleInterval
     }
 
     /// Extracted for testability.
@@ -80,7 +112,7 @@ final class UsageService {
 
     private func startPolling() {
         // Poll every 5 minutes — the usage endpoint is rate-limited by Anthropic
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: Self.pollingInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.fetchUsage()
@@ -172,6 +204,24 @@ final class UsageService {
     }
 
     private func refreshToken() async -> Bool {
+        if let tokenRefreshTask {
+            return await tokenRefreshTask.task.value
+        }
+
+        let id = UUID()
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return false }
+            return await self.performTokenRefresh()
+        }
+        tokenRefreshTask = (id, task)
+        let result = await task.value
+        if tokenRefreshTask?.id == id {
+            tokenRefreshTask = nil
+        }
+        return result
+    }
+
+    private func performTokenRefresh() async -> Bool {
         guard let refreshTokenValue = cachedToken?.refreshToken else { return false }
 
         let url = URL(string: "https://console.anthropic.com/v1/oauth/token")!
@@ -187,7 +237,7 @@ final class UsageService {
         request.httpBody = try? JSONEncoder().encode(body)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else { return false }
 
@@ -218,6 +268,24 @@ final class UsageService {
     // MARK: - API
 
     func fetchUsage() async {
+        if let fetchTask {
+            await fetchTask.task.value
+            return
+        }
+
+        let id = UUID()
+        let task = Task { @MainActor [weak self] () -> Void in
+            guard let self else { return }
+            await self.performFetchUsage()
+        }
+        fetchTask = (id, task)
+        await task.value
+        if fetchTask?.id == id {
+            fetchTask = nil
+        }
+    }
+
+    private func performFetchUsage() async {
         // Respect backoff from a previous 429
         if let until = retryAfter, Date() < until { return }
 
@@ -239,31 +307,38 @@ final class UsageService {
             }
         }
 
-        guard let currentToken = cachedToken else {
+        guard var currentToken = cachedToken else {
             lastError = "Token lost after refresh"
             return
         }
 
-        let url = URL(string: "https://api.anthropic.com/api/oauth/usage")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(currentToken.accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                lastError = "Invalid response"
-                return
-            }
+            var (data, httpResponse) = try await requestUsage(with: currentToken)
 
             if httpResponse.statusCode == 401 {
                 // Token might be stale — reload from Keychain and retry once
+                let rejectedAccessToken = currentToken.accessToken
                 loadCredentials()
-                lastError = "Auth failed (401)"
-                return
+
+                guard var reloadedToken = cachedToken else {
+                    lastError = "Auth failed (401) — no OAuth token found"
+                    return
+                }
+
+                if reloadedToken.isExpired || reloadedToken.accessToken == rejectedAccessToken {
+                    guard await refreshToken(), let refreshedToken = cachedToken else {
+                        lastError = "Auth failed (401) — token refresh failed"
+                        return
+                    }
+                    reloadedToken = refreshedToken
+                }
+
+                currentToken = reloadedToken
+                (data, httpResponse) = try await requestUsage(with: currentToken)
+                guard httpResponse.statusCode != 401 else {
+                    lastError = "Auth failed (401) after retry"
+                    return
+                }
             }
 
             if httpResponse.statusCode == 429 {
@@ -287,6 +362,23 @@ final class UsageService {
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    private func requestUsage(
+        with token: KeychainCredentials.OAuthTokens
+    ) async throws -> (Data, HTTPURLResponse) {
+        let url = URL(string: "https://api.anthropic.com/api/oauth/usage")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        return (data, httpResponse)
     }
 
     // MARK: - Helpers

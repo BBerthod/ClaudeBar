@@ -337,8 +337,9 @@ struct DashboardView: View {
                 if usageService.usage != nil {
                     usageSection
                         .padding(.horizontal, 12)
-                } else if let error = usageService.lastError {
-                    usageUnavailableRow(error: error)
+                }
+                if usageService.isStale {
+                    usageUnavailableRow(error: usageService.lastError ?? "Usage data is out of date")
                         .padding(.horizontal, 12)
                 }
 
