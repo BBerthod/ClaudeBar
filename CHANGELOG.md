@@ -4,8 +4,11 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-09-05
+
 ### Changed
 - Added conditional Developer ID signing, notarization, and stapling to GitHub releases, with unsigned publishing when signing secrets are missing.
+
 ### Fixed
 - Ignored stale active and recent session scans.
 - Invalidated service timers on teardown.
