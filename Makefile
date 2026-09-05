@@ -1,4 +1,4 @@
-.PHONY: build release app run install uninstall clean update icon
+.PHONY: build release app run install uninstall clean update icon catalog
 
 # Development build
 build:
@@ -72,3 +72,7 @@ update:
 clean:
 	swift package clean
 	rm -rf build/
+
+# Refresh the bundled LiteLLM model catalog
+catalog:
+	swift scripts/generate_model_catalog.swift

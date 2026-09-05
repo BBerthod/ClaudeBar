@@ -74,3 +74,11 @@ struct ModelCatalog: Codable, Sendable {
         return Resolution(entry: best, isEstimated: true, basedOn: best.id)
     }
 }
+
+extension ModelCatalog {
+    static func bundled() throws -> ModelCatalog {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(ModelCatalog.self, from: Data(ModelCatalogSnapshot.json.utf8))
+    }
+}

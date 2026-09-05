@@ -15,6 +15,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Model catalog freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          GENERATED_AT=$(grep -o 'static let generatedAt = "[^"]*"' Sources/ClaudeBar/Models/ModelCatalogSnapshot.swift | cut -d '"' -f 2)
+          GENERATED_EPOCH=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$GENERATED_AT" +%s)
+          AGE=$(( $(date +%s) - GENERATED_EPOCH ))
+          if (( AGE > 90 * 24 * 60 * 60 )); then
+            echo "::error::Model catalog is older than 90 days; run make catalog."
+            exit 1
+          fi
+
       - name: Build (release)
         # Without pipefail the step's status is tee's, so a failed compile stays green.
         shell: bash
