@@ -10,6 +10,8 @@ All notable changes to ClaudeBar are documented here.
 - Deduplicated streamed assistant chunks in project, yearly, and live token/cost statistics.
 - Included nested sub-agent transcripts and filtered live statistics by each line's timestamp.
 - Based burn-rate projections on today's first activity instead of time since midnight.
+- Made self-updates transactional with rollback when installation fails.
+- Replaced the running app bundle instead of always targeting `/Applications`.
 
 ## [1.0.13] — 2026-06-11
 

@@ -3,7 +3,7 @@ import Foundation
 import os
 
 /// Downloads a new ClaudeBar release zip, extracts it, and silently replaces
-/// /Applications/ClaudeBar.app via a shell script that runs after the app quits.
+/// the running app bundle via a shell script that runs after the app quits.
 @Observable
 @MainActor
 final class AutoUpdater {
@@ -21,6 +21,75 @@ final class AutoUpdater {
         ).first!
         supportDir = appSupport.appendingPathComponent("ClaudeBar", isDirectory: true)
         try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
+    }
+
+    nonisolated static func isReplaceableBundle(_ url: URL) -> Bool {
+        let normalizedURL = url.standardizedFileURL
+        let path = normalizedURL.path
+
+        guard normalizedURL.pathExtension == "app" else { return false }
+        guard path != "/tmp", !path.hasPrefix("/tmp/") else { return false }
+        guard path != "/private/tmp", !path.hasPrefix("/private/tmp/") else { return false }
+
+        let directoryComponents = normalizedURL.deletingLastPathComponent().pathComponents
+        return !directoryComponents.contains { component in
+            component == ".build" || component.lowercased() == "build"
+        }
+    }
+
+    nonisolated static func updateScript(stagingApp: URL, targetApp: URL) -> String {
+        let newApp = URL(fileURLWithPath: targetApp.path + ".new")
+        let backupApp = URL(fileURLWithPath: targetApp.path + ".bak")
+
+        func shellQuote(_ value: String) -> String {
+            "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        }
+
+        return """
+        #!/bin/sh
+        sleep 2
+
+        source_app=\(shellQuote(stagingApp.path))
+        target_app=\(shellQuote(targetApp.path))
+        new_app=\(shellQuote(newApp.path))
+        backup_app=\(shellQuote(backupApp.path))
+
+        rollback() {
+            if [ -e "$backup_app" ]; then
+                rm -rf "$target_app" 2>/dev/null || true
+                mv "$backup_app" "$target_app" 2>/dev/null || true
+            fi
+            rm -rf "$new_app" 2>/dev/null || true
+        }
+
+        if [ ! -d "$source_app" ]; then
+            exit 1
+        fi
+
+        # A leftover backup from an interrupted run must not block every future update.
+        if [ -e "$backup_app" ]; then
+            rm -rf "$backup_app" 2>/dev/null || exit 1
+        fi
+
+        rm -rf "$new_app" 2>/dev/null || exit 1
+        if ! cp -R "$source_app" "$new_app"; then
+            rollback
+            exit 1
+        fi
+
+        if ! mv "$target_app" "$backup_app"; then
+            rollback
+            exit 1
+        fi
+
+        if ! mv "$new_app" "$target_app"; then
+            rollback
+            exit 1
+        fi
+
+        rm -rf "$backup_app" 2>/dev/null || true
+        open "$target_app"
+        """
     }
 
     /// Downloads the zip at `urlString`, extracts it, writes an update script,
@@ -77,17 +146,14 @@ final class AutoUpdater {
                 return
             }
 
+            let targetApp = Bundle.main.bundleURL.standardizedFileURL
+            guard Self.isReplaceableBundle(targetApp) else {
+                Log.stats.error("AutoUpdater: refusing to replace bundle at \(targetApp.path)")
+                return
+            }
+
             // 4. Write update script to supportDir (user-only writable, no TOCTOU risk)
-            let script = """
-            #!/bin/sh
-            sleep 2
-            if [ -d "/tmp/ClaudeBar-update/ClaudeBar.app" ]; then
-                mv "/Applications/ClaudeBar.app" "/Applications/ClaudeBar.app.bak" 2>/dev/null || true
-                cp -R "/tmp/ClaudeBar-update/ClaudeBar.app" "/Applications/"
-                rm -rf "/Applications/ClaudeBar.app.bak" 2>/dev/null || true
-                open "/Applications/ClaudeBar.app"
-            fi
-            """
+            let script = Self.updateScript(stagingApp: appPath, targetApp: targetApp)
             try await Task.detached(priority: .utility) {
                 try script.write(to: scriptURL, atomically: true, encoding: .utf8)
                 try FileManager.default.setAttributes(
