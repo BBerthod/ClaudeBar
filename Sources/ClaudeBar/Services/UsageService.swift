@@ -1,5 +1,4 @@
 import Foundation
-import Security
 import os
 
 /// Fetches real-time usage/rate-limit data from the Anthropic OAuth API.
@@ -12,11 +11,19 @@ final class UsageService {
     private(set) var lastError: String?
     private(set) var lastFetched: Date?
 
-    private var refreshTimer: Timer?
+    // The holder invalidates its timer on destruction without accessing actor-isolated
+    // state from UsageService's nonisolated deinit.
+    private final class PollingTimer {
+        var timer: Timer?
+        deinit { timer?.invalidate() }
+    }
+
+    private let refreshTimer = PollingTimer()
     private var cachedToken: KeychainCredentials.OAuthTokens?
     private var keychainServiceName: String?
     private var retryAfter: Date?
     private let session: URLSession
+    private let credentialStore: CredentialStore
     private var fetchTask: (id: UUID, task: Task<Void, Never>)?
     private var tokenRefreshTask: (id: UUID, task: Task<Bool, Never>)?
 
@@ -31,9 +38,11 @@ final class UsageService {
     init(
         session: URLSession = .shared,
         disablePolling: Bool = false,
-        credentials: KeychainCredentials.OAuthTokens? = nil
+        credentials: KeychainCredentials.OAuthTokens? = nil,
+        credentialStore: CredentialStore = KeychainCredentialStore()
     ) {
         self.session = session
+        self.credentialStore = credentialStore
         if let credentials {
             cachedToken = credentials
         } else {
@@ -112,7 +121,7 @@ final class UsageService {
 
     private func startPolling() {
         // Poll every 5 minutes — the usage endpoint is rate-limited by Anthropic
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: Self.pollingInterval, repeats: true) { [weak self] _ in
+        refreshTimer.timer = Timer.scheduledTimer(withTimeInterval: Self.pollingInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.fetchUsage()
@@ -134,7 +143,7 @@ final class UsageService {
         }
 
         // Try discovering prefixed service names (Claude Code v2.1.52+)
-        if let service = discoverKeychainService() {
+        if let service = credentialStore.discoverService() {
             if let creds = readKeychain(service: service) {
                 cachedToken = creds.claudeAiOauth
                 keychainServiceName = service
@@ -145,48 +154,43 @@ final class UsageService {
     }
 
     private func readKeychain(service: String) -> KeychainCredentials? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        guard status == errSecSuccess, let data = result as? Data else {
-            return nil
-        }
-
+        guard let data = credentialStore.readRaw(service: service) else { return nil }
         return try? JSONDecoder().decode(KeychainCredentials.self, from: data)
     }
 
-    /// Discovers the prefixed Keychain service name used by newer Claude Code versions.
-    /// Uses SecItemCopyMatching to search for matching entries instead of dumping
-    /// the entire keychain via the `security` CLI.
-    private func discoverKeychainService() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll
-        ]
+    /// Merge into the latest JSON so fields owned by Claude Code survive refresh.
+    private func persistRefreshedToken(
+        _ token: KeychainCredentials.OAuthTokens,
+        replacing accessToken: String,
+        service: String
+    ) {
+        do {
+            guard let data = credentialStore.readRaw(service: service),
+                  var payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  var oauth = payload["claudeAiOauth"] as? [String: Any],
+                  let storedAccessToken = oauth["accessToken"] as? String else {
+                Log.usage.error("Cannot persist refreshed OAuth token: missing or invalid Keychain payload")
+                return
+            }
 
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if storedAccessToken != accessToken {
+                let credentials = try JSONDecoder().decode(KeychainCredentials.self, from: data)
+                cachedToken = credentials.claudeAiOauth
+                plan = SubscriptionPlan(rawValue: credentials.claudeAiOauth.subscriptionType ?? "unknown") ?? .unknown
+                tier = RateLimitTier(raw: credentials.claudeAiOauth.rateLimitTier)
+                Log.usage.info("Using OAuth token refreshed by another Keychain client")
+                return
+            }
 
-        guard status == errSecSuccess,
-              let items = result as? [[String: Any]] else {
-            return nil
+            oauth["accessToken"] = token.accessToken
+            oauth["refreshToken"] = token.refreshToken
+            oauth["expiresAt"] = token.expiresAt
+            payload["claudeAiOauth"] = oauth
+            let updatedData = try JSONSerialization.data(withJSONObject: payload)
+            try credentialStore.writeRaw(updatedData, service: service)
+        } catch {
+            Log.usage.error("Cannot persist refreshed OAuth token: \(error.localizedDescription)")
         }
-
-        for item in items {
-            guard let service = item[kSecAttrService as String] as? String,
-                  service.hasPrefix("Claude Code-credentials-") else { continue }
-            return service
-        }
-
-        return nil
     }
 
     // MARK: - Token Refresh
@@ -222,7 +226,9 @@ final class UsageService {
     }
 
     private func performTokenRefresh() async -> Bool {
-        guard let refreshTokenValue = cachedToken?.refreshToken else { return false }
+        guard let oldToken = cachedToken else { return false }
+        let refreshTokenValue = oldToken.refreshToken
+        let service = keychainServiceName
 
         let url = URL(string: "https://console.anthropic.com/v1/oauth/token")!
         var request = URLRequest(url: url)
@@ -246,17 +252,19 @@ final class UsageService {
             // expiresAt is in milliseconds
             let expiresAt = Int(Date().timeIntervalSince1970 * 1000) + (decoded.expiresIn * 1000)
 
-            let oldToken = cachedToken
             let newOAuthTokens = KeychainCredentials.OAuthTokens(
                 accessToken: decoded.accessToken,
                 refreshToken: decoded.refreshToken,
                 expiresAt: expiresAt,
-                scopes: oldToken?.scopes ?? [],
-                subscriptionType: oldToken?.subscriptionType,
-                rateLimitTier: oldToken?.rateLimitTier
+                scopes: oldToken.scopes,
+                subscriptionType: oldToken.subscriptionType,
+                rateLimitTier: oldToken.rateLimitTier
             )
 
             cachedToken = newOAuthTokens
+            if let service {
+                persistRefreshedToken(newOAuthTokens, replacing: oldToken.accessToken, service: service)
+            }
             Log.usage.info("OAuth token refreshed successfully")
             return true
         } catch {

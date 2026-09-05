@@ -10,6 +10,7 @@ All notable changes to ClaudeBar are documented here.
 - Ignored stale active and recent session scans.
 - Invalidated service timers on teardown.
 - Checked executable paths before accepting session PIDs.
+- Persist refreshed Claude OAuth tokens in the original Keychain item, preserving unknown fields and concurrent Claude Code updates; invalidate the usage polling timer on teardown.
 
 ## [1.1.0] — 2026-09-05
 

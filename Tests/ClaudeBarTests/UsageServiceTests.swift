@@ -171,3 +171,138 @@ final class UsageServiceNetworkTests: XCTestCase {
         ))
     }
 }
+
+private final class MemoryCredentialStore: CredentialStore {
+    let service: String
+    var data: Data
+    var replacementOnNextRead: Data?
+    var failWrites = false
+    private(set) var writeCount = 0
+
+    init(service: String = "Claude Code-credentials", data: Data) {
+        self.service = service
+        self.data = data
+    }
+
+    func readRaw(service: String) -> Data? {
+        guard service == self.service else { return nil }
+        if let replacementOnNextRead {
+            data = replacementOnNextRead
+            self.replacementOnNextRead = nil
+        }
+        return data
+    }
+
+    func writeRaw(_ data: Data, service: String) throws {
+        XCTAssertEqual(service, self.service)
+        writeCount += 1
+        if failWrites { throw CocoaError(.fileWriteNoPermission) }
+        self.data = data
+    }
+
+    func discoverService() -> String? { service }
+}
+
+@MainActor
+final class UsageServiceCredentialPersistenceTests: XCTestCase {
+    private func payload(access: String = "old-access", refresh: String = "old-refresh", expires: Int = 1) throws -> Data {
+        try JSONSerialization.data(withJSONObject: [
+            "foo": ["bar": 1],
+            "other": [true, NSNull(), "preserve"],
+            "claudeAiOauth": [
+                "accessToken": access,
+                "refreshToken": refresh,
+                "expiresAt": expires,
+                "scopes": ["user:profile", "user:inference"],
+                "subscriptionType": "max",
+                "rateLimitTier": "default_claude_max_20x",
+                "unexpected": ["nested": [1, 2, 3]]
+            ]
+        ])
+    }
+
+    private func installResponses(expectedAccess: String) {
+        UsageMockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/v1/oauth/token" {
+                XCTAssertEqual(request.httpMethod, "POST")
+                return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                        Data(#"{"access_token":"new-access","refresh_token":"new-refresh","expires_in":3600}"#.utf8))
+            }
+            XCTAssertEqual(request.url?.path, "/api/oauth/usage")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer \(expectedAccess)")
+            return (makeUsageResponse(), Data(#"{"five_hour":{"utilization":12.5,"resets_at":"2026-09-05T12:00:00Z"}}"#.utf8))
+        }
+    }
+
+    func testRefreshPreservesEntirePayloadForStandardAndDiscoveredServices() async throws {
+        for serviceName in ["Claude Code-credentials", "Claude Code-credentials-prefixed"] {
+            let original = try payload()
+            let store = MemoryCredentialStore(service: serviceName, data: original)
+            let session = makeUsageMockSession()
+            defer { session.invalidateAndCancel(); UsageMockURLProtocol.requestHandler = nil }
+            installResponses(expectedAccess: "new-access")
+            let service = UsageService(session: session, disablePolling: true, credentialStore: store)
+            let before = Int(Date().timeIntervalSince1970 * 1000) + 3_600_000
+            await service.fetchUsage()
+            let after = Int(Date().timeIntervalSince1970 * 1000) + 3_600_000
+
+            XCTAssertNil(service.lastError)
+            XCTAssertEqual(service.usage?.fiveHour?.utilization, 12.5)
+            XCTAssertEqual(store.writeCount, 1)
+            let result = try XCTUnwrap(JSONSerialization.jsonObject(with: store.data) as? [String: Any])
+            let oauth = try XCTUnwrap(result["claudeAiOauth"] as? [String: Any])
+            XCTAssertEqual(oauth["accessToken"] as? String, "new-access")
+            XCTAssertEqual(oauth["refreshToken"] as? String, "new-refresh")
+            let expiry = try XCTUnwrap(oauth["expiresAt"] as? Int)
+            XCTAssertGreaterThanOrEqual(expiry, before)
+            XCTAssertLessThanOrEqual(expiry, after)
+            // Compare the complete object after restoring only the three changed fields.
+            var restored = result
+            var restoredOAuth = oauth
+            restoredOAuth["accessToken"] = "old-access"
+            restoredOAuth["refreshToken"] = "old-refresh"
+            restoredOAuth["expiresAt"] = 1
+            restored["claudeAiOauth"] = restoredOAuth
+            let expected = try JSONSerialization.jsonObject(with: original) as! NSDictionary
+            XCTAssertEqual(restored as NSDictionary, expected)
+        }
+    }
+
+    func testWriteFailureKeepsRefreshedTokenInMemory() async throws {
+        let original = try payload()
+        let store = MemoryCredentialStore(data: original)
+        store.failWrites = true
+        let session = makeUsageMockSession()
+        defer { session.invalidateAndCancel(); UsageMockURLProtocol.requestHandler = nil }
+        installResponses(expectedAccess: "new-access")
+        let service = UsageService(session: session, disablePolling: true, credentialStore: store)
+        await service.fetchUsage()
+        await service.fetchUsage()
+
+        XCTAssertNil(service.lastError)
+        XCTAssertEqual(service.usage?.fiveHour?.utilization, 12.5)
+        XCTAssertEqual(store.writeCount, 1) // A second fetch used the unexpired cached token.
+        XCTAssertEqual(store.data, original)
+    }
+
+    func testConcurrentClaudeCodeRefreshIsAdoptedWithoutWriting() async throws {
+        let store = MemoryCredentialStore(data: try payload())
+        let session = makeUsageMockSession()
+        defer { session.invalidateAndCancel(); UsageMockURLProtocol.requestHandler = nil }
+        installResponses(expectedAccess: "third-party-access")
+        let service = UsageService(session: session, disablePolling: true, credentialStore: store)
+        let thirdParty = try payload(
+            access: "third-party-access", refresh: "third-party-refresh",
+            expires: Int(Date().addingTimeInterval(7200).timeIntervalSince1970 * 1000)
+        )
+        // The initial read is complete; replace the item at the pre-write reread.
+        store.replacementOnNextRead = thirdParty
+        await service.fetchUsage()
+        await service.fetchUsage()
+
+        XCTAssertNil(service.lastError)
+        XCTAssertEqual(service.usage?.fiveHour?.utilization, 12.5)
+        XCTAssertEqual(store.writeCount, 0)
+        XCTAssertEqual(store.data, thirdParty)
+    }
+}
