@@ -27,6 +27,7 @@ enum ModelIdNormalizer {
         }
         if let at = id.firstIndex(of: "@") { id = String(id[..<at]) }                 // claude-opus-4-5@20251101
         if let r = id.range(of: #"-\d{8}$"#, options: .regularExpression) { id = String(id[..<r.lowerBound]) }
+        if let r = id.range(of: #"-\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) { id = String(id[..<r.lowerBound]) }
         return id
     }
 
@@ -44,8 +45,10 @@ enum ModelIdNormalizer {
         let after = parts[(familyIdx + 1)...].prefix { $0.allSatisfy(\.isNumber) }
         let before = parts[..<familyIdx].reversed().prefix { $0.allSatisfy(\.isNumber) }.reversed()
         let digits = after.isEmpty ? Array(before) : Array(after)
-        guard let major = digits.first.flatMap(Double.init) else { return nil }
-        let minor = digits.dropFirst().first.flatMap(Double.init) ?? 0
+        // A generation is at most two digits; anything longer is a date or build number, not a minor.
+        guard let majorText = digits.first, majorText.count <= 2, let major = Double(majorText) else { return nil }
+        let minorText = digits.dropFirst().first
+        let minor = (minorText?.count ?? 0) <= 2 ? (minorText.flatMap(Double.init) ?? 0) : 0
         return major + minor / 10
     }
 }

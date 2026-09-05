@@ -302,7 +302,15 @@ final class SessionService {
     /// Context window (tokens) for a model name. Current Fable, Mythos, Opus, and
     /// Sonnet models support 1M; Haiku and unknown models use 200K.
     nonisolated static func contextWindow(forModel model: String) -> Int {
-        ModelCatalogService.current.resolve(model)?.entry.contextWindow ?? 200_000
+        let catalog = ModelCatalogService.current.resolve(model)?.entry.contextWindow ?? 200_000
+        // Claude 4+ (Opus/Sonnet/Fable/Mythos) sessions run with the 1M window in Claude Code even
+        // when the catalog lists the default 200K for older 4.x ids.
+        if let family = ModelIdNormalizer.family(of: model),
+           ["opus", "sonnet", "fable", "mythos"].contains(family),
+           (ModelIdNormalizer.version(of: model) ?? 0) >= 4 {
+            return max(catalog, 1_000_000)
+        }
+        return catalog
     }
 
     /// Returns an "idle" label (e.g. "idle 5h", "idle 2j") when the session has been

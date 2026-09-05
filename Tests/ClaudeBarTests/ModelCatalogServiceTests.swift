@@ -19,7 +19,7 @@ private final class CatalogURLProtocol: URLProtocol {
 
 @MainActor
 final class ModelCatalogServiceTests: XCTestCase {
-    private func service(cacheData: Data? = nil) throws -> (ModelCatalogService, URL) {
+    private func service(cacheData: Data? = nil, minimumRemoteEntries: Int = 1) throws -> (ModelCatalogService, URL) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let file = directory.appendingPathComponent("model-catalog.json")
@@ -31,11 +31,11 @@ final class ModelCatalogServiceTests: XCTestCase {
             session.invalidateAndCancel()
             try FileManager.default.removeItem(at: directory)
             await MainActor.run {
-                _ = ModelCatalogService(cacheDirectory: directory, session: session, disablePolling: true)
+                _ = ModelCatalogService(cacheDirectory: directory, session: session, disablePolling: true, minimumRemoteEntries: 1)
                 CatalogURLProtocol.handler = nil
             }
         }
-        return (ModelCatalogService(cacheDirectory: directory, session: session, disablePolling: true), file)
+        return (ModelCatalogService(cacheDirectory: directory, session: session, disablePolling: true, minimumRemoteEntries: minimumRemoteEntries), file)
     }
     private func response(_ status: Int = 200, headers: [String: String]? = nil) -> HTTPURLResponse {
         HTTPURLResponse(url: ModelCatalogService.remoteURL, statusCode: status, httpVersion: nil, headerFields: headers)!
@@ -88,6 +88,28 @@ final class ModelCatalogServiceTests: XCTestCase {
         XCTAssertEqual(service.source, .remote)
         XCTAssertNil(service.lastError)
     }
+    func testRefreshMergesRemoteOverBundledEntries() async throws {
+        let payload = Data(#"{"claude-remote-only":{"litellm_provider":"anthropic","input_cost_per_token":1e-6,"output_cost_per_token":2e-6,"max_input_tokens":1000}}"#.utf8)
+        let ok = response(headers: ["ETag": "\"x\""])
+        CatalogURLProtocol.handler = { _ in (ok, payload) }
+        let (service, _) = try service()
+        await service.refresh()
+        XCTAssertEqual(service.source, .remote)
+        XCTAssertNotNil(service.catalog.entries["claude-remote-only"])
+        XCTAssertEqual(service.catalog.entries["claude-sonnet-4-6"]?.inputPerMTok, 3)   // bundled entry survives
+    }
+
+    func testImplausiblySmallRemoteCatalogIsRejected() async throws {
+        let payload = Data(#"{"claude-only-one":{"litellm_provider":"anthropic","input_cost_per_token":1e-6,"output_cost_per_token":2e-6}}"#.utf8)
+        let ok = response()
+        CatalogURLProtocol.handler = { _ in (ok, payload) }
+        let (service, _) = try service(minimumRemoteEntries: 50)
+        await service.refresh()
+        XCTAssertEqual(service.source, .bundled)
+        XCTAssertNotNil(service.lastError)
+        XCTAssertNil(service.catalog.entries["claude-only-one"])
+    }
+
     func testRefreshFailureKeepsCatalog() async throws {
         let failure = response(500)
         CatalogURLProtocol.handler = { _ in (failure, Data()) }
@@ -133,7 +155,8 @@ final class ModelCatalogServiceTests: XCTestCase {
 
 extension ModelCatalogServiceTests {
     func testCostAndContextUseCurrentCatalog() throws {
-        let entry = ModelCatalogEntry(id: "claude-opus-99", provider: "anthropic", family: "opus", inputPerMTok: 7, outputPerMTok: 31, cacheReadPerMTok: 0.7, cacheWritePerMTok: 8.75, contextWindow: 345678)
+        // Haiku: no 1M floor applies, so the catalog value must come through untouched.
+        let entry = ModelCatalogEntry(id: "claude-haiku-99", provider: "anthropic", family: "haiku", inputPerMTok: 7, outputPerMTok: 31, cacheReadPerMTok: 0.7, cacheWritePerMTok: 8.75, contextWindow: 345678)
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         let (service, _) = try service(cacheData: encoder.encode(ModelCatalog(generatedAt: Date(), entries: [entry.id: entry])))
         XCTAssertEqual(service.source, .cache)

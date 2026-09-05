@@ -13,6 +13,8 @@ final class ModelCatalogService {
 
     static let remoteURL = URL(string: "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json")!
     static let refreshInterval: TimeInterval = 24 * 3600
+    /// Below this the remote payload is treated as broken (the real file has hundreds of entries).
+    private let minimumRemoteEntries: Int
     private let cacheURL: URL
     /// Ids already reported to the user — persisted so a restart does not re-notify.
     private let seenModelsURL: URL
@@ -39,8 +41,10 @@ final class ModelCatalogService {
         cacheDirectory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ClaudeBar", isDirectory: true),
         session: URLSession = .shared,
-        disablePolling: Bool = false
+        disablePolling: Bool = false,
+        minimumRemoteEntries: Int = 50
     ) {
+        self.minimumRemoteEntries = minimumRemoteEntries
         self.cacheURL = cacheDirectory.appendingPathComponent("model-catalog.json")
         self.seenModelsURL = cacheDirectory.appendingPathComponent("unknown-models.json")
         self.session = session
@@ -94,8 +98,15 @@ final class ModelCatalogService {
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw URLError(.cannotParseResponse)
             }
-            let updated = try ModelCatalogImporter.normalise(litellm: json, generatedAt: Date())
-            guard !updated.entries.isEmpty else { throw URLError(.cannotParseResponse) }
+            let remote = try ModelCatalogImporter.normalise(litellm: json, generatedAt: Date())
+            // A truncated or partial payload must never wipe reliable prices: refuse implausibly
+            // small catalogs and always keep bundled entries the remote file no longer lists.
+            let bundled = (try? ModelCatalog.bundled())?.entries ?? [:]
+            guard remote.entries.count >= minimumRemoteEntries else {
+                throw URLError(.cannotParseResponse)
+            }
+            let updated = ModelCatalog(generatedAt: remote.generatedAt,
+                                       entries: bundled.merging(remote.entries) { _, fresh in fresh })
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             let encoded = try encoder.encode(updated)

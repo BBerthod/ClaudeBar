@@ -88,6 +88,17 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertNil(catalog.resolve("llama-4-70b"))                 // unknown family
     }
 
+    func testDatedIdsDoNotBecomeHugeVersions() throws {
+        XCTAssertEqual(ModelIdNormalizer.normalize("gpt-5-2025-08-07"), "gpt-5")
+        XCTAssertEqual(try XCTUnwrap(ModelIdNormalizer.version(of: "gpt-5-2025-08-07")), 5.0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(ModelIdNormalizer.version(of: "gpt-4.1-2025-04-14")), 4.1, accuracy: 0.001)
+        var entries = catalog.entries
+        entries["gpt-6-astra"] = entry("gpt-6-astra", provider: "openai", family: "gpt", input: 10, output: 50, read: 1, write: 12.5, context: 922_000)
+        entries["gpt-5-2025-08-07"] = entry("gpt-5-2025-08-07", provider: "openai", family: "gpt", input: 1.25, output: 10, read: 0.125, write: 1.5, context: 272_000)
+        let c = ModelCatalog(generatedAt: Date(), entries: entries)
+        XCTAssertEqual(c.resolve("gpt-7-nova")?.basedOn, "gpt-6-astra")
+    }
+
     func testCodableRoundTrip() throws {
         let data = try JSONEncoder().encode(catalog)
         let decoded = try JSONDecoder().decode(ModelCatalog.self, from: data)
