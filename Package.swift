@@ -26,7 +26,9 @@ let package = Package(
                 "ClaudeBarLib",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
-            path: "Tests/ClaudeBarTests"
+            path: "Tests/ClaudeBarTests",
+            exclude: ["__Snapshots__"],
+            resources: [.copy("Fixtures")]
         )
     ]
 )
