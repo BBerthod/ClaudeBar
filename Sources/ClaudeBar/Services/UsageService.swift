@@ -21,6 +21,9 @@ final class UsageService {
     private let refreshTimer = PollingTimer()
     private var cachedToken: KeychainCredentials.OAuthTokens?
     private var keychainServiceName: String?
+    /// Access token as last read from (or successfully written to) the Keychain item.
+    /// Compared on write to detect refreshes made by another client (e.g. Claude Code).
+    private var keychainAccessToken: String?
     private var retryAfter: Date?
     private let session: URLSession
     private let credentialStore: CredentialStore
@@ -137,6 +140,7 @@ final class UsageService {
         if let creds = readKeychain(service: standardService) {
             cachedToken = creds.claudeAiOauth
             keychainServiceName = standardService
+            keychainAccessToken = creds.claudeAiOauth.accessToken
             plan = SubscriptionPlan(rawValue: creds.claudeAiOauth.subscriptionType ?? "unknown") ?? .unknown
             tier = RateLimitTier(raw: creds.claudeAiOauth.rateLimitTier)
             return
@@ -147,6 +151,7 @@ final class UsageService {
             if let creds = readKeychain(service: service) {
                 cachedToken = creds.claudeAiOauth
                 keychainServiceName = service
+                keychainAccessToken = creds.claudeAiOauth.accessToken
                 plan = SubscriptionPlan(rawValue: creds.claudeAiOauth.subscriptionType ?? "unknown") ?? .unknown
                 tier = RateLimitTier(raw: creds.claudeAiOauth.rateLimitTier)
             }
@@ -173,9 +178,13 @@ final class UsageService {
                 return
             }
 
+            // Compare with what we last saw in the Keychain, not with the in-memory
+            // token: after a failed write the cache is ahead of the Keychain, and that
+            // must not be mistaken for a refresh made by another client.
             if storedAccessToken != accessToken {
                 let credentials = try JSONDecoder().decode(KeychainCredentials.self, from: data)
                 cachedToken = credentials.claudeAiOauth
+                keychainAccessToken = credentials.claudeAiOauth.accessToken
                 plan = SubscriptionPlan(rawValue: credentials.claudeAiOauth.subscriptionType ?? "unknown") ?? .unknown
                 tier = RateLimitTier(raw: credentials.claudeAiOauth.rateLimitTier)
                 Log.usage.info("Using OAuth token refreshed by another Keychain client")
@@ -188,6 +197,7 @@ final class UsageService {
             payload["claudeAiOauth"] = oauth
             let updatedData = try JSONSerialization.data(withJSONObject: payload)
             try credentialStore.writeRaw(updatedData, service: service)
+            keychainAccessToken = token.accessToken
         } catch {
             Log.usage.error("Cannot persist refreshed OAuth token: \(error.localizedDescription)")
         }
@@ -262,8 +272,8 @@ final class UsageService {
             )
 
             cachedToken = newOAuthTokens
-            if let service {
-                persistRefreshedToken(newOAuthTokens, replacing: oldToken.accessToken, service: service)
+            if let service, let lastRead = keychainAccessToken {
+                persistRefreshedToken(newOAuthTokens, replacing: lastRead, service: service)
             }
             Log.usage.info("OAuth token refreshed successfully")
             return true

@@ -285,6 +285,32 @@ final class UsageServiceCredentialPersistenceTests: XCTestCase {
         XCTAssertEqual(store.data, original)
     }
 
+    func testRefreshAfterFailedWriteStillPersistsNextToken() async throws {
+        let original = try payload()
+        let store = MemoryCredentialStore(data: original)
+        store.failWrites = true
+        let session = makeUsageMockSession()
+        defer { session.invalidateAndCancel(); UsageMockURLProtocol.requestHandler = nil }
+        // Tokens expire immediately so every fetch refreshes again.
+        UsageMockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/v1/oauth/token" {
+                return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                        Data(#"{"access_token":"new-access","refresh_token":"new-refresh","expires_in":0}"#.utf8))
+            }
+            return (makeUsageResponse(), Data(#"{"five_hour":{"utilization":12.5,"resets_at":"2026-09-05T12:00:00Z"}}"#.utf8))
+        }
+        let service = UsageService(session: session, disablePolling: true, credentialStore: store)
+        await service.fetchUsage()                 // refresh, write fails → Keychain still original
+        XCTAssertEqual(store.data, original)
+
+        store.failWrites = false
+        await service.fetchUsage()                 // refresh again → must NOT be mistaken for an external refresh
+
+        XCTAssertNil(service.lastError)
+        XCTAssertEqual(store.writeCount, 2)
+        XCTAssertTrue(String(decoding: store.data, as: UTF8.self).contains("new-refresh"))
+    }
+
     func testConcurrentClaudeCodeRefreshIsAdoptedWithoutWriting() async throws {
         let store = MemoryCredentialStore(data: try payload())
         let session = makeUsageMockSession()
