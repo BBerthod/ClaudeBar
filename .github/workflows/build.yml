@@ -30,7 +30,8 @@ jobs:
       - name: Unit tests
         # Snapshot tests depend on the runner's exact text rasterisation and are
         # validated locally; every other suite runs here.
-        run: swift test --skip SnapshotTests 2>&1 | tail -40
+        shell: bash
+        run: set -o pipefail; swift test --skip SnapshotTests 2>&1 | tail -40
 
       - name: Binary size
         run: |
