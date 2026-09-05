@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct AnalyticsSystemPanel: View {
+    @Environment(GeminiActivityService.self) private var geminiActivityService
     @Environment(OmlxUsageService.self) private var omlxUsageService
     let statsService: StatsService
     let sessionService: SessionService
@@ -127,6 +128,27 @@ struct AnalyticsSystemPanel: View {
                                     Divider().padding(.horizontal, 8)
                                 }
                             }
+                        }
+                    }
+                    .padding(4)
+                }
+                .padding(.horizontal)
+
+                GroupBox("Gemini — Antigravity Activity") {
+                    VStack(spacing: 0) {
+                        if geminiActivityService.isInstalled {
+                            systemInfoRow("Status", value: geminiActivityService.activity.isLoggedIn ? "Logged in" : "Logged out")
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Agents today", value: geminiActivityService.activity.agentsToday.joined(separator: ", "))
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Workspaces today", value: geminiActivityService.activity.workspacesToday.joined(separator: ", "))
+                            Divider().padding(.horizontal, 8)
+                            systemInfoRow("Last prompt", value: geminiActivityService.activity.lastPromptAt?.timeAgoString ?? "—")
+                            if let error = geminiActivityService.lastError {
+                                systemInfoRow("Error", value: error, valueColor: .red)
+                            }
+                        } else {
+                            systemInfoRow("Status", value: "Antigravity not installed", valueColor: .secondary)
                         }
                     }
                     .padding(4)

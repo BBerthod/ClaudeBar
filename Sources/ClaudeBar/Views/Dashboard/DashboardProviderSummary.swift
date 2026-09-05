@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DashboardProviderSummary: View {
+    @Environment(GeminiActivityService.self) private var geminiActivityService
     @Environment(OmlxUsageService.self) private var omlxUsageService
     let statsService: StatsService
     let mcpHealthService: McpHealthService
@@ -25,22 +26,6 @@ struct DashboardProviderSummary: View {
             contextLimitHits: nil
         )
 
-        let hasGemini = mcpHealthService.hasGeminiConfigured || statsService.tokensByModelToday.contains {
-            $0.model.lowercased().contains("gemini")
-        }
-        let geminiProvider = ProviderInfo(
-            name: "Gemini",
-            icon: "sparkles",
-            isConfigured: hasGemini || providerUsageService.isGeminiAuthenticated,
-            totalTokens: nil,
-            estimatedCost: nil,
-            details: providerUsageService.isGeminiAuthenticated
-                ? (providerUsageService.geminiTokenValid ? nil : "Token expired")
-                : "Not configured",
-            sessionCount: nil,
-            contextLimitHits: nil
-        )
-
         let hasCodex = mcpHealthService.hasCodexConfigured || statsService.tokensByModelToday.contains {
             $0.model.lowercased().contains("codex") || $0.model.lowercased().contains("gpt")
         }
@@ -55,7 +40,7 @@ struct DashboardProviderSummary: View {
             contextLimitHits: providerUsageService.codexContextLimitHitsToday > 0 ? providerUsageService.codexContextLimitHitsToday : nil
         )
 
-        return [claudeProvider, geminiProvider, codexProvider]
+        return [claudeProvider, codexProvider]
     }
 
     // MARK: - Provider Summary
@@ -64,12 +49,53 @@ struct DashboardProviderSummary: View {
         HStack(spacing: 8) {
             ForEach(providers) { provider in
                 providerPill(provider)
+                if provider.name == "Claude" {
+                    geminiCard
+                }
             }
             if omlxUsageService.isAvailable {
                 omlxCard
             }
             Spacer()
         }
+    }
+
+    private var geminiCard: some View {
+        let activity = geminiActivityService.activity
+        let installed = geminiActivityService.isInstalled
+        return VStack(alignment: .leading, spacing: 2) {
+            Label("Gemini", systemImage: "sparkles")
+                .fontWeight(.medium)
+            if installed {
+                Text("\(activity.promptsToday) prompts · \(activity.conversationsToday) conversations today")
+                if activity.activeConversations > 0 {
+                    Text("\(activity.activeConversations) active")
+                        .padding(.horizontal, 4)
+                        .background(Color.green.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(activity.isLoggedIn ? Color.green : Color.secondary.opacity(0.4))
+                        .frame(width: 5, height: 5)
+                    Text(activity.isLoggedIn ? "logged in" : "logged out")
+                }
+            } else {
+                Text("Antigravity not installed")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(installed ? .primary : .secondary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(installed ? Color.green.opacity(0.1) : Color.secondary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(installed ? Color.green.opacity(0.3) : Color.secondary.opacity(0.15), lineWidth: 0.5)
+        )
+        .help("Antigravity does not expose token counts — activity only")
     }
 
     private var omlxCard: some View {

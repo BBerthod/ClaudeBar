@@ -10,9 +10,6 @@ final class ProviderUsageService {
     private(set) var codexContextLimitHitsToday: Int = 0
     private(set) var isCodexAvailable: Bool = false
 
-    private(set) var isGeminiAuthenticated: Bool = false
-    private(set) var geminiTokenValid: Bool = false
-
     private nonisolated let refreshTimer = ServiceTimer()
 
     deinit {
@@ -32,10 +29,6 @@ final class ProviderUsageService {
             }
             .max(by: { $0.n < $1.n })
         return best?.path ?? (codexDir + "/logs_1.sqlite")
-    }()
-
-    private static let geminiCredsPath: String = {
-        NSString(string: "~/.gemini/oauth_creds.json").expandingTildeInPath
     }()
 
     init() {
@@ -58,7 +51,6 @@ final class ProviderUsageService {
 
     func refresh() async {
         await refreshCodex()
-        refreshGemini()
     }
 
     // MARK: - Codex
@@ -197,28 +189,4 @@ final class ProviderUsageService {
             return (success: false, rows: [])
         }
     }
-
-    // MARK: - Gemini
-
-    private func refreshGemini() {
-        let credsPath = Self.geminiCredsPath
-        guard FileManager.default.fileExists(atPath: credsPath) else {
-            isGeminiAuthenticated = false
-            geminiTokenValid = false
-            return
-        }
-
-        isGeminiAuthenticated = true
-
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: credsPath)),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let expiryDateMs = json["expiry_date"] as? Int64 else {
-            geminiTokenValid = false
-            return
-        }
-
-        let expiryDate = Date(timeIntervalSince1970: Double(expiryDateMs) / 1000.0)
-        geminiTokenValid = expiryDate > Date()
-    }
-
 }
