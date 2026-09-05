@@ -71,9 +71,10 @@ enum ModelCatalogImporter {
         return ModelIdNormalizer.normalize(id)
     }
 
-    /// Remove binary multiplication noise while retaining sub-cent precision.
+    /// USD per million tokens, rounded to 4 decimals: removes float noise from the
+    /// per-token source values (2.99999 → 3.0) while keeping $0.0001/MTok granularity.
     private static func perMillion(_ price: Double) -> Double {
-        (price * 1_000_000 * 1_000_000_000).rounded() / 1_000_000_000
+        (price * 1_000_000 * 10_000).rounded() / 10_000
     }
 
     static func normalise(litellm: [String: Any], generatedAt: Date) throws -> ModelCatalog {
@@ -109,6 +110,16 @@ enum ModelCatalogImporter {
                                             inputPerMTok: perMillion(input), outputPerMTok: perMillion(output),
                                             cacheReadPerMTok: perMillion(read), cacheWritePerMTok: perMillion(write),
                                             contextWindow: context)
+        }
+        // Mythos models are priced like their Fable counterpart but are not listed by LiteLLM.
+        for (id, entry) in entries where entry.family == "fable" {
+            let mythosId = id.replacingOccurrences(of: "fable", with: "mythos")
+            if entries[mythosId] == nil {
+                entries[mythosId] = ModelCatalogEntry(id: mythosId, provider: entry.provider, family: "mythos",
+                                                      inputPerMTok: entry.inputPerMTok, outputPerMTok: entry.outputPerMTok,
+                                                      cacheReadPerMTok: entry.cacheReadPerMTok, cacheWritePerMTok: entry.cacheWritePerMTok,
+                                                      contextWindow: entry.contextWindow)
+            }
         }
         return ModelCatalog(generatedAt: generatedAt, entries: entries)
     }
