@@ -81,7 +81,8 @@ final class CostCalculatorTests: XCTestCase {
 
     func testPricingFallbackToOpus() {
         let unknown = CostCalculator.pricing(for: "some-unknown-model")
-        let opus = CostCalculator.pricing(for: "claude-opus-4-6")
+        let opus = CostCalculator.pricing(for: "claude-opus-5")
+        XCTAssertEqual(unknown.inputPerMTok, 5)
         XCTAssertEqual(unknown.inputPerMTok, opus.inputPerMTok)
         XCTAssertEqual(unknown.outputPerMTok, opus.outputPerMTok)
     }

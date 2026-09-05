@@ -10,6 +10,9 @@ enum CostCalculator {
     // MARK: - ModelPricing
 
     struct ModelPricing: Sendable {
+        static let opus5Fallback = ModelPricing(inputPerMTok: 5, outputPerMTok: 25,
+                                               cacheReadPerMTok: 0.5, cacheWritePerMTok: 6.25)
+
         /// USD per million input tokens.
         let inputPerMTok: Double
         /// USD per million output tokens.
@@ -20,132 +23,18 @@ enum CostCalculator {
         let cacheWritePerMTok: Double
     }
 
-    // MARK: - Pricing table
-
-    /// Published Anthropic pricing as of September 2026.
-    /// Keys are canonical model IDs; aliases are resolved in `pricing(for:)`.
-    static let pricing: [String: ModelPricing] = [
-        // Fable 5.1 / Mythos 5.1
-        "claude-fable-5-1": ModelPricing(
-            inputPerMTok: 10.00,
-            outputPerMTok: 50.00,
-            cacheReadPerMTok: 0.25,
-            cacheWritePerMTok: 12.50
-        ),
-        "claude-mythos-5-1": ModelPricing(
-            inputPerMTok: 10.00,
-            outputPerMTok: 50.00,
-            cacheReadPerMTok: 0.25,
-            cacheWritePerMTok: 12.50
-        ),
-
-        // Fable 5 (top tier — also covers Mythos 5, same pricing)
-        "claude-fable-5": ModelPricing(
-            inputPerMTok: 10.00,
-            outputPerMTok: 50.00,
-            cacheReadPerMTok: 1.00,
-            cacheWritePerMTok: 12.50
-        ),
-
-        // Opus 5
-        "claude-opus-5": ModelPricing(
-            inputPerMTok: 5.00,
-            outputPerMTok: 25.00,
-            cacheReadPerMTok: 0.50,
-            cacheWritePerMTok: 6.25
-        ),
-
-        // Opus 4.8
-        "claude-opus-4-8": ModelPricing(
-            inputPerMTok: 5.00,
-            outputPerMTok: 25.00,
-            cacheReadPerMTok: 0.50,
-            cacheWritePerMTok: 6.25
-        ),
-
-        // Opus 4.7
-        "claude-opus-4-7": ModelPricing(
-            inputPerMTok: 5.00,
-            outputPerMTok: 25.00,
-            cacheReadPerMTok: 0.50,
-            cacheWritePerMTok: 6.25
-        ),
-
-        // Opus 4.6 / Opus 4.5 (legacy)
-        "claude-opus-4-6": ModelPricing(
-            inputPerMTok: 5.00,
-            outputPerMTok: 25.00,
-            cacheReadPerMTok: 0.50,
-            cacheWritePerMTok: 6.25
-        ),
-        "claude-opus-4-5-20251101": ModelPricing(
-            inputPerMTok: 5.00,
-            outputPerMTok: 25.00,
-            cacheReadPerMTok: 0.50,
-            cacheWritePerMTok: 6.25
-        ),
-
-        // Sonnet 4.6 / Sonnet 4.5 (legacy)
-        "claude-sonnet-4-6": ModelPricing(
-            inputPerMTok: 3.00,
-            outputPerMTok: 15.00,
-            cacheReadPerMTok: 0.30,
-            cacheWritePerMTok: 3.75
-        ),
-        "claude-sonnet-4-5-20250929": ModelPricing(
-            inputPerMTok: 3.00,
-            outputPerMTok: 15.00,
-            cacheReadPerMTok: 0.30,
-            cacheWritePerMTok: 3.75
-        ),
-
-        // Sonnet 5
-        "claude-sonnet-5": ModelPricing(
-            inputPerMTok: 2.00,
-            outputPerMTok: 10.00,
-            cacheReadPerMTok: 0.20,
-            cacheWritePerMTok: 2.50
-        ),
-
-        // Haiku 4.5
-        "claude-haiku-4-5": ModelPricing(
-            inputPerMTok: 1.00,
-            outputPerMTok: 5.00,
-            cacheReadPerMTok: 0.10,
-            cacheWritePerMTok: 1.25
-        ),
-        "claude-haiku-4-5-20251001": ModelPricing(
-            inputPerMTok: 1.00,
-            outputPerMTok: 5.00,
-            cacheReadPerMTok: 0.10,
-            cacheWritePerMTok: 1.25
-        ),
-    ]
-
     // MARK: - Public API
 
-    /// Returns the pricing for a given model ID.
-    ///
-    /// Falls back to opus pricing for unknown model IDs — a conservative
-    /// (over-) estimate rather than silently returning zero.
     static func pricing(for modelId: String) -> ModelPricing {
-        if let p = pricing[modelId] { return p }
+        let catalog = ModelCatalogService.current
+        guard let entry = catalog.resolve(modelId)?.entry
+            ?? catalog.entries["claude-opus-5"] else { return ModelPricing.opus5Fallback }
+        return ModelPricing(inputPerMTok: entry.inputPerMTok, outputPerMTok: entry.outputPerMTok,
+                            cacheReadPerMTok: entry.cacheReadPerMTok, cacheWritePerMTok: entry.cacheWritePerMTok)
+    }
 
-        // Partial-match aliases resolve to the current generation for each family.
-        let lower = modelId.lowercased()
-        if lower.contains("fable-5-1") || lower.contains("mythos-5-1") {
-            return pricing["claude-fable-5-1"]!
-        } else if lower.contains("fable") || lower.contains("mythos") {
-            return pricing["claude-fable-5"]!
-        } else if lower.contains("haiku") {
-            return pricing["claude-haiku-4-5"]!
-        } else if lower.contains("sonnet") {
-            // Sonnet 3.x / 4.x were priced $3/$15; only Sonnet 5 moved to $2/$10.
-            let legacy = lower.contains("sonnet-3") || lower.contains("3-5-sonnet")
-                || lower.contains("3-7-sonnet") || lower.contains("sonnet-4")
-            return pricing[legacy ? "claude-sonnet-4-6" : "claude-sonnet-5"]!
-        }
-        return pricing["claude-opus-5"]!
+    static func isEstimated(_ modelId: String) -> Bool {
+        ModelCatalogService.current.resolve(modelId)?.isEstimated ?? true
     }
 
     /// Estimates the USD-equivalent API cost for a day given the per-model

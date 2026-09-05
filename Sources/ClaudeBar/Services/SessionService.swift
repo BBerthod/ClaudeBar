@@ -302,11 +302,7 @@ final class SessionService {
     /// Context window (tokens) for a model name. Current Fable, Mythos, Opus, and
     /// Sonnet models support 1M; Haiku and unknown models use 200K.
     nonisolated static func contextWindow(forModel model: String) -> Int {
-        let lower = model.lowercased()
-        if lower.contains("haiku") { return 200_000 }
-        if lower.contains("fable") || lower.contains("mythos")
-            || lower.contains("opus") || lower.contains("sonnet") { return 1_000_000 }
-        return 200_000
+        ModelCatalogService.current.resolve(model)?.entry.contextWindow ?? 200_000
     }
 
     /// Returns an "idle" label (e.g. "idle 5h", "idle 2j") when the session has been
