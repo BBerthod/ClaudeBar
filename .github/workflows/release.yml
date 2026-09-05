@@ -12,9 +12,6 @@ jobs:
   release:
     name: Build and Publish Release
     runs-on: macos-15
-    env:
-      KEYCHAIN_PATH: ${{ runner.temp }}/claudebar-signing.keychain-db
-      CERTIFICATE_PATH: ${{ runner.temp }}/claudebar-certificate.p12
 
     steps:
       - name: Checkout
@@ -51,6 +48,9 @@ jobs:
           HAS_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
           HAS_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
         run: |
+          # The runner context is not available in job-level env, so export paths here.
+          echo "KEYCHAIN_PATH=$RUNNER_TEMP/claudebar-signing.keychain-db" >> "$GITHUB_ENV"
+          echo "CERTIFICATE_PATH=$RUNNER_TEMP/claudebar-certificate.p12" >> "$GITHUB_ENV"
           if [[ "$HAS_CERTIFICATE" == 'true' && "$HAS_CERTIFICATE_PASSWORD" == 'true' && "$HAS_APPLE_ID" == 'true' && "$HAS_TEAM_ID" == 'true' && "$HAS_APP_PASSWORD" == 'true' ]]; then
             echo "has_signing=true" >> "$GITHUB_OUTPUT"
           else
