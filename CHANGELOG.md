@@ -4,6 +4,8 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-05
+
 ### Fixed
 - Cleared stale update state after failed checks or releases without ZIP assets.
 - Made version comparison strict while supporting pre-release suffixes.
@@ -17,6 +19,9 @@ All notable changes to ClaudeBar are documented here.
 
 ### Changed
 - Added conditional GitHub release checks and rate-limit backoff.
+- CI now runs the unit test suite and fails when the build (not only `tee`) fails; committed `AppIcon.icns` so CI-built releases ship the app icon.
+- Split `AnalyticsView`, `SettingsView` and `DashboardView` into per-panel files; centralised cost math in `CostCalculator`.
+- README and CONTRIBUTING now describe the full feature set (Analytics window, oMLX, Codex/Gemini tracking, auto-update, export…).
 
 ## [1.0.13] — 2026-06-11
 
