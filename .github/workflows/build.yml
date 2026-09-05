@@ -31,7 +31,15 @@ jobs:
         # Snapshot tests depend on the runner's exact text rasterisation and are
         # validated locally; every other suite runs here.
         shell: bash
-        run: set -o pipefail; swift test --skip SnapshotTests 2>&1 | tail -40
+        run: |
+          set -o pipefail
+          if ! swift test --skip SnapshotTests > test.log 2>&1; then
+            echo "::error::swift test failed — failing cases and errors:"
+            grep -E "error:|failed|Fatal error" test.log | head -60
+            tail -20 test.log
+            exit 1
+          fi
+          grep -E "Executed [0-9]+ tests|Test run with" test.log | tail -3
 
       - name: Binary size
         run: |
