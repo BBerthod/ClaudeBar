@@ -64,13 +64,13 @@ final class UpdateCheckService {
 
             guard httpResponse.statusCode == 200 else { return }
 
-            etag = httpResponse.value(forHTTPHeaderField: "ETag")
-
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tagName = json["tag_name"] as? String,
                   let htmlURL = json["html_url"] as? String else { return }
 
             let remoteVersion = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
+            // Only remember the ETag once the payload proved usable.
+            etag = httpResponse.value(forHTTPHeaderField: "ETag")
 
             if isNewer(remote: remoteVersion, current: currentVersion) {
                 latestVersion = remoteVersion
@@ -95,6 +95,8 @@ final class UpdateCheckService {
     }
 
     private func resetReleaseState() {
+        // Drop the ETag too: a later 304 must not freeze a cleared state.
+        etag = nil
         latestVersion = nil
         updateAvailable = false
         releaseURL = nil
