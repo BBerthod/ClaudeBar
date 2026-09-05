@@ -32,10 +32,10 @@ private func makeMockSession() -> URLSession {
     return URLSession(configuration: config)
 }
 
-private func makeResponse(status: Int = 200) -> HTTPURLResponse {
+private func makeResponse(status: Int = 200, headers: [String: String]? = nil) -> HTTPURLResponse {
     HTTPURLResponse(
         url: URL(string: "https://api.github.com")!,
-        statusCode: status, httpVersion: nil, headerFields: nil
+        statusCode: status, httpVersion: nil, headerFields: headers
     )!
 }
 
@@ -136,5 +136,92 @@ final class UpdateCheckServiceNetworkTests: XCTestCase {
         await service.checkForUpdate()
 
         XCTAssertEqual(service.assetDownloadURL, "https://github.com/.../ClaudeBar.zip")
+    }
+
+    func testReleaseWithoutAssetClearsPreviousAssetState() async throws {
+        let releaseWithAsset = """
+        {
+          "tag_name": "v1.1.0",
+          "html_url": "https://github.com/BBerthod/ClaudeBar/releases/tag/v1.1.0",
+          "assets": [{
+            "name": "ClaudeBar.zip",
+            "browser_download_url": "https://github.com/.../ClaudeBar-1.1.0.zip"
+          }]
+        }
+        """.data(using: .utf8)!
+        let releaseWithoutAsset = """
+        {
+          "tag_name": "v1.2.0",
+          "html_url": "https://github.com/BBerthod/ClaudeBar/releases/tag/v1.2.0",
+          "assets": []
+        }
+        """.data(using: .utf8)!
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { _ in
+            requestCount += 1
+            return (makeResponse(), requestCount == 1 ? releaseWithAsset : releaseWithoutAsset)
+        }
+
+        let service = UpdateCheckService(currentVersion: "1.0.0", session: makeMockSession())
+        await service.checkForUpdate()
+        XCTAssertNotNil(service.assetDownloadURL)
+
+        await service.checkForUpdate()
+
+        XCTAssertNil(service.assetDownloadURL)
+        XCTAssertTrue(service.updateAvailable)
+        XCTAssertEqual(service.latestVersion, "1.2.0")
+    }
+
+    func testNotModifiedPreservesStateAndSendsConditionalHeaders() async throws {
+        let responseData = """
+        {
+          "tag_name": "v1.1.0",
+          "html_url": "https://github.com/BBerthod/ClaudeBar/releases/tag/v1.1.0",
+          "assets": [{
+            "name": "ClaudeBar.zip",
+            "browser_download_url": "https://github.com/.../ClaudeBar.zip"
+          }]
+        }
+        """.data(using: .utf8)!
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { request in
+            requestCount += 1
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/vnd.github+json")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "ClaudeBar/1.0.0")
+            if requestCount == 1 {
+                XCTAssertNil(request.value(forHTTPHeaderField: "If-None-Match"))
+                return (makeResponse(headers: ["ETag": "\"release-etag\""]), responseData)
+            }
+
+            XCTAssertEqual(request.value(forHTTPHeaderField: "If-None-Match"), "\"release-etag\"")
+            return (makeResponse(status: 304), Data())
+        }
+
+        let service = UpdateCheckService(currentVersion: "1.0.0", session: makeMockSession())
+        await service.checkForUpdate()
+        await service.checkForUpdate()
+
+        XCTAssertEqual(requestCount, 2)
+        XCTAssertTrue(service.updateAvailable)
+        XCTAssertEqual(service.latestVersion, "1.1.0")
+        XCTAssertEqual(service.assetDownloadURL, "https://github.com/.../ClaudeBar.zip")
+    }
+
+    func testRetryAfterOn429SuspendsNextCheck() async throws {
+        var requestCount = 0
+        MockURLProtocol.requestHandler = { _ in
+            requestCount += 1
+            return (makeResponse(status: 429, headers: ["Retry-After": "3600"]), Data())
+        }
+
+        let service = UpdateCheckService(currentVersion: "1.0.0", session: makeMockSession())
+        await service.checkForUpdate()
+        let retryAfter = try XCTUnwrap(service.retryAfter)
+        XCTAssertGreaterThan(retryAfter, Date())
+
+        await service.checkForUpdate()
+
+        XCTAssertEqual(requestCount, 1)
     }
 }

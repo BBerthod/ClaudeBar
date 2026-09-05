@@ -11,9 +11,11 @@ final class UpdateCheckService {
     /// Direct download URL for the release zip asset. Set only when a newer version is found
     /// and the release has a `.zip` asset attached.
     private(set) var assetDownloadURL: String?
+    private(set) var retryAfter: Date?
 
     private let session: URLSession
     private var isChecking: Bool = false
+    private var etag: String?
 
     init(
         currentVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0",
@@ -26,6 +28,8 @@ final class UpdateCheckService {
 
     func checkForUpdate() async {
         guard !isChecking else { return }
+        if let retryAfter, Date() < retryAfter { return }
+
         isChecking = true
         defer { isChecking = false }
 
@@ -33,13 +37,34 @@ final class UpdateCheckService {
 
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("ClaudeBar/\(currentVersion)", forHTTPHeaderField: "User-Agent")
+        if let etag {
+            request.setValue(etag, forHTTPHeaderField: "If-None-Match")
+        }
         request.timeoutInterval = 10
 
         do {
             let (data, response) = try await session.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else { return }
+            guard let httpResponse = response as? HTTPURLResponse else {
+                resetReleaseState()
+                return
+            }
+
+            if httpResponse.statusCode == 304 {
+                return
+            }
+
+            resetReleaseState()
+
+            if httpResponse.statusCode == 403 || httpResponse.statusCode == 429 {
+                retryAfter = backoffDate(from: httpResponse)
+                return
+            }
+
+            guard httpResponse.statusCode == 200 else { return }
+
+            etag = httpResponse.value(forHTTPHeaderField: "ETag")
 
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tagName = json["tag_name"] as? String,
@@ -64,16 +89,38 @@ final class UpdateCheckService {
                 Log.stats.debug("ClaudeBar is up to date (\(self.currentVersion))")
             }
         } catch {
+            resetReleaseState()
             Log.stats.debug("Update check failed silently: \(error.localizedDescription)")
         }
+    }
+
+    private func resetReleaseState() {
+        latestVersion = nil
+        updateAvailable = false
+        releaseURL = nil
+        assetDownloadURL = nil
+    }
+
+    private func backoffDate(from response: HTTPURLResponse) -> Date? {
+        if let value = response.value(forHTTPHeaderField: "Retry-After"),
+           let seconds = TimeInterval(value), seconds >= 0 {
+            return Date().addingTimeInterval(seconds)
+        }
+
+        if let value = response.value(forHTTPHeaderField: "X-RateLimit-Reset"),
+           let epoch = TimeInterval(value) {
+            return Date(timeIntervalSince1970: epoch)
+        }
+
+        return nil
     }
 
     // MARK: - Semantic Version Comparison
 
     /// Returns true if `remote` is strictly newer than `current`.
     func isNewer(remote: String, current: String) -> Bool {
-        let remoteParts = remote.split(separator: ".").compactMap { Int($0) }
-        let currentParts = current.split(separator: ".").compactMap { Int($0) }
+        guard let remoteParts = versionParts(remote),
+              let currentParts = versionParts(current) else { return false }
 
         let maxLength = max(remoteParts.count, currentParts.count)
         for i in 0..<maxLength {
@@ -83,5 +130,21 @@ final class UpdateCheckService {
             if r < c { return false }
         }
         return false
+    }
+
+    private func versionParts(_ version: String) -> [Int]? {
+        let release = version.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)[0]
+        let segments = release.split(separator: ".", omittingEmptySubsequences: false)
+
+        guard !segments.isEmpty else { return nil }
+
+        var parts: [Int] = []
+        for segment in segments {
+            guard !segment.isEmpty,
+                  segment.allSatisfy({ $0.isASCII && $0.isNumber }),
+                  let value = Int(segment) else { return nil }
+            parts.append(value)
+        }
+        return parts
     }
 }

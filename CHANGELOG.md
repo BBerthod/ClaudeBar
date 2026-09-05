@@ -5,6 +5,8 @@ All notable changes to ClaudeBar are documented here.
 ## [Unreleased]
 
 ### Fixed
+- Cleared stale update state after failed checks or releases without ZIP assets.
+- Made version comparison strict while supporting pre-release suffixes.
 - Updated pricing for Claude Sonnet 5, Opus 5, and Fable 5.1.
 - Corrected the 1M context window for Claude Opus 5 and Sonnet 5.
 - Deduplicated streamed assistant chunks in project, yearly, and live token/cost statistics.
@@ -12,6 +14,9 @@ All notable changes to ClaudeBar are documented here.
 - Based burn-rate projections on today's first activity instead of time since midnight.
 - Made self-updates transactional with rollback when installation fails.
 - Replaced the running app bundle instead of always targeting `/Applications`.
+
+### Changed
+- Added conditional GitHub release checks and rate-limit backoff.
 
 ## [1.0.13] — 2026-06-11
 

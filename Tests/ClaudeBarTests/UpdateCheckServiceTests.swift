@@ -45,4 +45,15 @@ struct UpdateCheckServiceTests {
         // "1.0.1" vs "1.0" — remote patch 1 > current implicit 0 → true
         #expect(service.isNewer(remote: "1.0.1", current: "1.0") == true)
     }
+
+    @Test func testPrereleaseSuffixIsIgnored() async throws {
+        let service = UpdateCheckService()
+        #expect(service.isNewer(remote: "1.2-beta.3", current: "1.1.9") == true)
+        #expect(service.isNewer(remote: "1.2-beta.3", current: "1.2.0") == false)
+    }
+
+    @Test func testNonNumericSegmentInvalidatesComparison() async throws {
+        let service = UpdateCheckService()
+        #expect(service.isNewer(remote: "1.beta.3", current: "1.0.0") == false)
+    }
 }
