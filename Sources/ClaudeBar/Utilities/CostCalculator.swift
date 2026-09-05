@@ -162,24 +162,14 @@ enum CostCalculator {
     ) -> Double {
         var total = 0.0
         for (modelId, tokenCount) in tokens {
-            let p = pricing(for: modelId)
-            let mTok = 1_000_000.0
-
             if let usage = modelUsage[modelId] {
-                let cumulativeIO = usage.inputTokens + usage.outputTokens
-                guard cumulativeIO > 0 else {
-                    total += Double(tokenCount) / mTok * p.inputPerMTok
-                    continue
+                if let cost = proportionalCost(modelId: modelId, tokenCount: tokenCount, usage: usage) {
+                    total += cost
+                } else {
+                    total += cost(modelId: modelId, input: tokenCount, output: 0, cacheRead: 0, cacheCreation: 0)
                 }
-                // Daily fraction based on input+output only (matching tokensByModel scope).
-                let fraction = Double(tokenCount) / Double(cumulativeIO)
-                let inputCost  = Double(usage.inputTokens)              * fraction / mTok * p.inputPerMTok
-                let outputCost = Double(usage.outputTokens)             * fraction / mTok * p.outputPerMTok
-                let readCost   = Double(usage.cacheReadInputTokens)     * fraction / mTok * p.cacheReadPerMTok
-                let writeCost  = Double(usage.cacheCreationInputTokens) * fraction / mTok * p.cacheWritePerMTok
-                total += inputCost + outputCost + readCost + writeCost
             } else {
-                total += Double(tokenCount) / mTok * p.inputPerMTok
+                total += cost(modelId: modelId, input: tokenCount, output: 0, cacheRead: 0, cacheCreation: 0)
             }
         }
         return total
@@ -193,6 +183,35 @@ enum CostCalculator {
              + Double(output)        / mTok * p.outputPerMTok
              + Double(cacheRead)     / mTok * p.cacheReadPerMTok
              + Double(cacheCreation) / mTok * p.cacheWritePerMTok
+    }
+
+    /// Estimates a model's cost from its share of cumulative input/output usage.
+    static func proportionalCost(modelId: String, tokenCount: Int, usage: ModelUsageEntry) -> Double? {
+        let cumulativeIO = usage.inputTokens + usage.outputTokens
+        guard cumulativeIO > 0 else { return nil }
+        let fraction = Double(tokenCount) / Double(cumulativeIO)
+        return proportionalCost(pricing: pricing(for: modelId), usage: usage, fraction: fraction)
+    }
+
+    /// Returns the savings from cache-read tokens versus fresh input tokens.
+    static func cacheSavings(modelId: String, cacheReadTokens: Int) -> Double {
+        let p = pricing(for: modelId)
+        return Double(cacheReadTokens) * (p.inputPerMTok - p.cacheReadPerMTok) / 1_000_000.0
+    }
+
+    /// Returns cache savings as a percentage of the uncached input price.
+    static func cacheSavingsPercent(modelUsage: [String: ModelUsageEntry]) -> Double {
+        let mTok = 1_000_000.0
+        var fullPrice = 0.0
+        var discountedPrice = 0.0
+        for (modelId, usage) in modelUsage {
+            let p = pricing(for: modelId)
+            let cacheReadTokens = Double(usage.cacheReadInputTokens)
+            fullPrice += cacheReadTokens * p.inputPerMTok / mTok
+            discountedPrice += cacheReadTokens * p.cacheReadPerMTok / mTok
+        }
+        guard fullPrice > 0 else { return 0 }
+        return (fullPrice - discountedPrice) / fullPrice * 100
     }
 
     /// Formats a cost value as a USD string, e.g. `"$12.34"` or `"$0.00"`.
@@ -209,30 +228,49 @@ enum CostCalculator {
     @MainActor
     static func modelCostBreakdown(stats: StatsCache) -> [(model: String, cost: Double)] {
         var costByModel: [String: Double] = [:]
-        let mTok = 1_000_000.0
         for day in stats.dailyModelTokens {
             for (modelId, tokenCount) in day.tokensByModel {
-                let p = pricing(for: modelId)
                 let displayName = StatsService.displayName(for: modelId)
                 if let usage = stats.modelUsage[modelId] {
-                    let io = usage.inputTokens + usage.outputTokens
-                    guard io > 0 else {
+                    guard let cost = proportionalCost(modelId: modelId, tokenCount: tokenCount, usage: usage) else {
                         // io is 0 but tokens exist — use input-only pricing as fallback
-                        costByModel[displayName, default: 0] += Double(tokenCount) / mTok * p.inputPerMTok
+                        costByModel[displayName, default: 0] += cost(
+                            modelId: modelId,
+                            input: tokenCount,
+                            output: 0,
+                            cacheRead: 0,
+                            cacheCreation: 0
+                        )
                         continue
                     }
-                    let frac = Double(tokenCount) / Double(io)
-                    let cost = (Double(usage.inputTokens)              * frac / mTok * p.inputPerMTok
-                              + Double(usage.outputTokens)             * frac / mTok * p.outputPerMTok
-                              + Double(usage.cacheReadInputTokens)     * frac / mTok * p.cacheReadPerMTok
-                              + Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
                     costByModel[displayName, default: 0] += cost
                 } else {
                     // No detailed usage — use input-only pricing (matches estimateDailyCost fallback)
-                    costByModel[displayName, default: 0] += Double(tokenCount) / mTok * p.inputPerMTok
+                    costByModel[displayName, default: 0] += cost(
+                        modelId: modelId,
+                        input: tokenCount,
+                        output: 0,
+                        cacheRead: 0,
+                        cacheCreation: 0
+                    )
                 }
             }
         }
         return costByModel.map { (model: $0.key, cost: $0.value) }.sorted { $0.cost > $1.cost }
+    }
+
+    // MARK: - Private helpers
+
+    private static func proportionalCost(
+        pricing: ModelPricing,
+        usage: ModelUsageEntry,
+        fraction: Double
+    ) -> Double {
+        let mTok = 1_000_000.0
+        let inputCost  = Double(usage.inputTokens)              * fraction / mTok * pricing.inputPerMTok
+        let outputCost = Double(usage.outputTokens)             * fraction / mTok * pricing.outputPerMTok
+        let readCost   = Double(usage.cacheReadInputTokens)     * fraction / mTok * pricing.cacheReadPerMTok
+        let writeCost  = Double(usage.cacheCreationInputTokens) * fraction / mTok * pricing.cacheWritePerMTok
+        return inputCost + outputCost + readCost + writeCost
     }
 }

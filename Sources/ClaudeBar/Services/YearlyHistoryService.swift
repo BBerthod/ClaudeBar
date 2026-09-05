@@ -132,12 +132,13 @@ final class YearlyHistoryService {
                         // ---- 365-day dayStats (not deduplicated for cost — follow original behaviour) ----
                         var cost = 0.0
                         if !model.isEmpty && totalTokens > 0 {
-                            let p = CostCalculator.pricing(for: model)
-                            let mTok = 1_000_000.0
-                            cost = Double(inputTokens)  / mTok * p.inputPerMTok
-                                 + Double(outputTokens) / mTok * p.outputPerMTok
-                                 + Double(cacheRead)    / mTok * p.cacheReadPerMTok
-                                 + Double(cacheWrite)   / mTok * p.cacheWritePerMTok
+                            cost = CostCalculator.cost(
+                                modelId: model,
+                                input: inputTokens,
+                                output: outputTokens,
+                                cacheRead: cacheRead,
+                                cacheCreation: cacheWrite
+                            )
                         }
                         dayTokenMap[day, default: 0] += totalTokens
                         dayCostMap[day,  default: 0.0] += cost

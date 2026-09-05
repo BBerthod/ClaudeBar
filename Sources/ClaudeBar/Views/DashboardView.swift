@@ -160,12 +160,12 @@ struct DashboardView: View {
     /// How much prompt caching saved vs paying full input price for those tokens.
     private var cacheSavings: Double {
         guard let modelUsage = statsService.stats?.modelUsage else { return 0 }
-        let mTok = 1_000_000.0
         var savings = 0.0
         for (modelId, usage) in modelUsage {
-            let p = CostCalculator.pricing(for: modelId)
-            let cacheReadTokens = Double(usage.cacheReadInputTokens)
-            savings += cacheReadTokens * (p.inputPerMTok - p.cacheReadPerMTok) / mTok
+            savings += CostCalculator.cacheSavings(
+                modelId: modelId,
+                cacheReadTokens: usage.cacheReadInputTokens
+            )
         }
         return savings
     }
@@ -173,17 +173,7 @@ struct DashboardView: View {
     /// Cache savings as a percentage of what the total cost would have been without caching.
     private var cacheSavingsPercent: Double {
         guard let modelUsage = statsService.stats?.modelUsage else { return 0 }
-        let mTok = 1_000_000.0
-        var fullPrice = 0.0
-        var discountedPrice = 0.0
-        for (modelId, usage) in modelUsage {
-            let p = CostCalculator.pricing(for: modelId)
-            let cacheReadTokens = Double(usage.cacheReadInputTokens)
-            fullPrice += cacheReadTokens * p.inputPerMTok / mTok
-            discountedPrice += cacheReadTokens * p.cacheReadPerMTok / mTok
-        }
-        guard fullPrice > 0 else { return 0 }
-        return (fullPrice - discountedPrice) / fullPrice * 100
+        return CostCalculator.cacheSavingsPercent(modelUsage: modelUsage)
     }
 
     // MARK: - Optimization Hints

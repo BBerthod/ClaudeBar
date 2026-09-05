@@ -174,17 +174,17 @@ final class ProjectService {
                         if let message = obj["message"] as? [String: Any],
                            let model = message["model"] as? String,
                            let usage = message["usage"] as? [String: Any] {
-                            let p = CostCalculator.pricing(for: model)
-                            let mTok = 1_000_000.0
                             let input      = (usage["input_tokens"] as? Int) ?? 0
                             let output     = (usage["output_tokens"] as? Int) ?? 0
                             let cacheRead  = (usage["cache_read_input_tokens"] as? Int) ?? 0
                             let cacheWrite = (usage["cache_creation_input_tokens"] as? Int) ?? 0
-                            accum.estimatedCost +=
-                                Double(input)      / mTok * p.inputPerMTok
-                              + Double(output)     / mTok * p.outputPerMTok
-                              + Double(cacheRead)  / mTok * p.cacheReadPerMTok
-                              + Double(cacheWrite) / mTok * p.cacheWritePerMTok
+                            accum.estimatedCost += CostCalculator.cost(
+                                modelId: model,
+                                input: input,
+                                output: output,
+                                cacheRead: cacheRead,
+                                cacheCreation: cacheWrite
+                            )
                         }
 
                         grouped[key] = accum

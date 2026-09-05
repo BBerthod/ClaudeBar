@@ -68,22 +68,24 @@ struct HistoryView: View {
         let modelUsage = statsService.stats?.modelUsage ?? [:]
         return filteredTokens.flatMap { day -> [(date: Date, model: String, cost: Double)] in
             guard let date = DateFormatter.isoDate.date(from: day.date) else { return [] }
-            let mTok = 1_000_000.0
             return day.tokensByModel.compactMap { (modelId, tokenCount) -> (date: Date, model: String, cost: Double)? in
-                let p = CostCalculator.pricing(for: modelId)
                 let displayName = StatsService.displayName(for: modelId)
                 if let usage = modelUsage[modelId] {
-                    let io = usage.inputTokens + usage.outputTokens
-                    guard io > 0 else { return nil }
-                    let frac = Double(tokenCount) / Double(io)
-                    let cost = (Double(usage.inputTokens)              * frac / mTok * p.inputPerMTok
-                              + Double(usage.outputTokens)             * frac / mTok * p.outputPerMTok
-                              + Double(usage.cacheReadInputTokens)     * frac / mTok * p.cacheReadPerMTok
-                              + Double(usage.cacheCreationInputTokens) * frac / mTok * p.cacheWritePerMTok)
+                    guard let cost = CostCalculator.proportionalCost(
+                        modelId: modelId,
+                        tokenCount: tokenCount,
+                        usage: usage
+                    ) else { return nil }
                     guard cost > 0 else { return nil }
                     return (date: date, model: displayName, cost: cost)
                 } else {
-                    let cost = Double(tokenCount) / mTok * p.inputPerMTok
+                    let cost = CostCalculator.cost(
+                        modelId: modelId,
+                        input: tokenCount,
+                        output: 0,
+                        cacheRead: 0,
+                        cacheCreation: 0
+                    )
                     guard cost > 0 else { return nil }
                     return (date: date, model: displayName, cost: cost)
                 }

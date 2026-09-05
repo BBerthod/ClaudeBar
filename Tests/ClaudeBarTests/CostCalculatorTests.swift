@@ -200,4 +200,88 @@ final class CostCalculatorTests: XCTestCase {
         )
         XCTAssertEqual(cost, 1.23, accuracy: 0.001)
     }
+
+    // MARK: - proportionalCost
+
+    func testProportionalCostWithFourTokenTypes() {
+        let usage = ModelUsageEntry(
+            inputTokens: 200_000,
+            outputTokens: 50_000,
+            cacheReadInputTokens: 400_000,
+            cacheCreationInputTokens: 100_000,
+            webSearchRequests: 0,
+            costUSD: 0,
+            contextWindow: 200_000,
+            maxOutputTokens: 8192
+        )
+
+        let cost = CostCalculator.proportionalCost(
+            modelId: "claude-opus-4-6",
+            tokenCount: 100_000,
+            usage: usage
+        )
+
+        // 40% × ($1.00 input + $1.25 output + $0.20 read + $0.625 write) = $1.23
+        XCTAssertEqual(cost ?? -1, 1.23, accuracy: 0.001)
+    }
+
+    func testProportionalCostRequiresCumulativeIO() {
+        let usage = ModelUsageEntry(
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheReadInputTokens: 100_000,
+            cacheCreationInputTokens: 0,
+            webSearchRequests: 0,
+            costUSD: 0,
+            contextWindow: 200_000,
+            maxOutputTokens: 8192
+        )
+
+        XCTAssertNil(CostCalculator.proportionalCost(
+            modelId: "claude-opus-4-6",
+            tokenCount: 100_000,
+            usage: usage
+        ))
+    }
+
+    // MARK: - Cache savings
+
+    func testCacheSavings() {
+        // 200K cache reads × ($5.00 - $0.50) / 1M = $0.90
+        let savings = CostCalculator.cacheSavings(
+            modelId: "claude-opus-4-6",
+            cacheReadTokens: 200_000
+        )
+        XCTAssertEqual(savings, 0.90, accuracy: 0.001)
+    }
+
+    func testCacheSavingsPercent() {
+        let opus = ModelUsageEntry(
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheReadInputTokens: 100_000,
+            cacheCreationInputTokens: 0,
+            webSearchRequests: 0,
+            costUSD: 0,
+            contextWindow: 200_000,
+            maxOutputTokens: 8192
+        )
+        let haiku = ModelUsageEntry(
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheReadInputTokens: 500_000,
+            cacheCreationInputTokens: 0,
+            webSearchRequests: 0,
+            costUSD: 0,
+            contextWindow: 200_000,
+            maxOutputTokens: 8192
+        )
+
+        // Full price = $1.00; cache-read price = $0.10; savings = 90%.
+        let percent = CostCalculator.cacheSavingsPercent(modelUsage: [
+            "claude-opus-4-6": opus,
+            "claude-haiku-4-5": haiku,
+        ])
+        XCTAssertEqual(percent, 90.0, accuracy: 0.001)
+    }
 }

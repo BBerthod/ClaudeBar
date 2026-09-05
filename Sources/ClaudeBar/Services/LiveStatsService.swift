@@ -203,11 +203,12 @@ final class LiveStatsService {
         model: String, input: Int, output: Int,
         cacheRead: Int, cacheWrite: Int
     ) -> Double {
-        let p = CostCalculator.pricing(for: model)
-        let mTok = 1_000_000.0
-        return (Double(input)      * p.inputPerMTok +
-                Double(output)     * p.outputPerMTok +
-                Double(cacheRead)  * p.cacheReadPerMTok +
-                Double(cacheWrite) * p.cacheWritePerMTok) / mTok
+        CostCalculator.cost(
+            modelId: model,
+            input: input,
+            output: output,
+            cacheRead: cacheRead,
+            cacheCreation: cacheWrite
+        )
     }
 }
