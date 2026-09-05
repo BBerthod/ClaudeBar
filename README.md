@@ -13,6 +13,7 @@ A macOS menu bar app for monitoring your [Claude Code](https://claude.ai/code) u
 - **5h forecast indicator** (on by default) — shows the estimated time to the 5-hour limit and the reset countdown next to the icon, e.g. `~1h38 → ↻2h10` when you're on pace to hit the limit, or `↻2h10` when usage is calm. Toggle it in Settings › Display & Alerts.
 
 ### Dashboard
+- **Gemini (Antigravity) activity** — prompts, conversations and active sessions today, login status (activity only: Antigravity does not expose tokens)
 - **oMLX local usage** — tokens, requests and throughput per model for today, loaded models, and the API-equivalent cost you avoided
 - **Estimated cost** for today, with a live fallback when `stats-cache.json` hasn't updated yet
 - **7-day sparkline** — mini activity chart in the header showing the last week's message trend
@@ -23,7 +24,7 @@ A macOS menu bar app for monitoring your [Claude Code](https://claude.ai/code) u
 - **Burn rate card** — cost/hr, projected daily cost, and pacing zone (Chill / On Track / Hot / Critical) compared to your 30-day average
 - **Human cost comparison** — estimated equivalent developer hours and cost, with ROI multiplier badge
 - **Active sessions** with context-window usage estimate; click any session to jump to its terminal
-- **Multi-provider tracking** — status cards for Claude, Gemini (OAuth token status), Codex (sessions, tokens, and context limits from local logs), and oMLX (local inference server health and active model)
+- **Multi-provider tracking** — status cards for Claude, Gemini (Antigravity activity), Codex (sessions, tokens, and context limits from local logs), and oMLX (local inference server health and active model)
 
 ### History
 - **30-day activity charts** for messages, sessions, tokens, and cost
@@ -103,9 +104,12 @@ Data is gathered from the following sources, in priority order:
 | `~/.claude*/stats-cache.json` | Primary stats — messages, sessions, tokens, model usage, 30-day history. Auto-detects active directory and file-watched for instant updates. |
 | `~/.claude*/projects/**/*.jsonl` | Live fallback & project aggregation — parsed directly across all profile directories when cache is stale. Deduplicates by message ID. |
 | Anthropic OAuth API | Real-time rate limit data (5h / 7d windows). OAuth token read from the system Keychain (`Claude Code-credentials`). Polled every 5 min. Auto-refreshes expired tokens via the OAuth refresh flow. |
-| Local Provider Logs | Codex sessions, tokens, and context limits from `~/.codex/logs_N.sqlite`; Gemini auth status from `~/.gemini/oauth_creds.json`. |
+| Local Provider Logs | Codex sessions, tokens, and context limits from `~/.codex/logs_N.sqlite`. |
+| `~/.gemini/antigravity-cli/{conversation_summaries.db,history.jsonl}` | Antigravity CLI conversations, prompts, active sessions, agents and workspaces. SQLite is opened read-only and immutable; refreshes every 5 minutes and when history changes. Login status uses token-file presence and size only. |
 | oMLX local usage | Daily per-model deltas from `~/.omlx/stats.json` and loaded-model status from `/v1/models/status`, polled every 30 seconds. API key read from `~/.omlx/settings.json`, never displayed or logged. |
 | Local oMLX Server | Status, engine pool memory, and loaded models polled from `http://127.0.0.1:8000/health`. |
+
+Gemini activity covers Antigravity CLI only. Antigravity IDE conversations and per-conversation protobuf payloads are not parsed; no Gemini token counts or costs are shown. Agents, workspaces and the last prompt appear in Analytics › System.
 
 Active sessions are detected by scanning `~/.claude*/sessions/` and confirming each stored PID is still alive.
 
@@ -143,7 +147,8 @@ All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observat
 | `ProjectService` | Per-project cost aggregation across all `~/.claude*` directories |
 | `HookHealthService` | Validates Claude Code hook configuration |
 | `McpHealthService` | Validates configured MCP server connectivity (`~/.claude.json`) |
-| `ProviderUsageService` | Tracks local Codex and Gemini usage and token metrics |
+| `ProviderUsageService` | Tracks local Codex sessions, tokens and context limits |
+| `GeminiActivityService` | Reads local Antigravity CLI activity and login status, without tokens or costs |
 | `OmlxUsageService` | Tracks daily per-model tokens, requests, throughput, loaded models, and API-equivalent cost against a selectable reference model in Analytics › System |
 | `OmlxMonitorService` | Polls local oMLX inference server health, models, and memory |
 | `AnomalyService` | Spend anomaly detection (flags daily spend ≥ 2× 30-day average) |
@@ -165,6 +170,7 @@ All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observat
 ClaudeBar never sends your usage data anywhere. All processing happens locally:
 
 - Stats are read from local `~/.claude*`, `~/.codex`, `~/.gemini`, and `~/.omlx` files on your machine
+- Gemini reads only `~/.gemini/antigravity-cli/conversation_summaries.db` and `history.jsonl`. For `antigravity-oauth-token`, only file presence and size are checked; its contents are never read. No Antigravity data is sent anywhere.
 - The only outbound network calls are to:
   - `api.anthropic.com/api/oauth/usage` (rate-limit data) and `console.anthropic.com/v1/oauth/token` (token refresh), both using your existing OAuth credentials
   - `api.github.com/repos/BBerthod/ClaudeBar/releases/latest` (version check for updates)

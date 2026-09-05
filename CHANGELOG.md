@@ -4,6 +4,16 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-09-05
+
+### Added
+- Gemini (Antigravity CLI) activity: prompts and conversations today, active conversations and login status on the Dashboard, without token or cost figures.
+- Agents, workspaces and last prompt in Analytics › System, read locally from SQLite summaries and JSONL history.
+- Read-only, immutable SQLite access with a timeout, five-minute polling and history file watching.
+
+### Removed
+- Legacy Gemini lookup of `~/.gemini/oauth_creds.json` and OAuth token-validity indicators.
+
 ## [1.3.0] — 2026-09-05
 
 ### Added
