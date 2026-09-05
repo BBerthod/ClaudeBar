@@ -4,6 +4,10 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- Updated pricing for Claude Sonnet 5, Opus 5, and Fable 5.1.
+- Corrected the 1M context window for Claude Opus 5 and Sonnet 5.
+
 ## [1.0.13] — 2026-06-11
 
 ### Added

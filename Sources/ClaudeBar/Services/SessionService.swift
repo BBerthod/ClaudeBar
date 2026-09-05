@@ -259,11 +259,13 @@ final class SessionService {
 
     // MARK: - Context Estimation
 
-    /// Context window (tokens) for a model name. Fable/Mythos 5 and current Claude 4
-    /// models support 1M; others default 200K.
+    /// Context window (tokens) for a model name. Current Fable, Mythos, Opus, and
+    /// Sonnet models support 1M; Haiku and unknown models use 200K.
     nonisolated static func contextWindow(forModel model: String) -> Int {
-        if model.contains("fable") || model.contains("mythos")
-            || model.contains("opus-4") || model.contains("sonnet-4") { return 1_000_000 }
+        let lower = model.lowercased()
+        if lower.contains("haiku") { return 200_000 }
+        if lower.contains("fable") || lower.contains("mythos")
+            || lower.contains("opus") || lower.contains("sonnet") { return 1_000_000 }
         return 200_000
     }
 

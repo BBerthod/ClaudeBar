@@ -22,15 +22,37 @@ enum CostCalculator {
 
     // MARK: - Pricing table
 
-    /// Published Anthropic pricing as of May 2026.
+    /// Published Anthropic pricing as of September 2026.
     /// Keys are canonical model IDs; aliases are resolved in `pricing(for:)`.
     static let pricing: [String: ModelPricing] = [
+        // Fable 5.1 / Mythos 5.1
+        "claude-fable-5-1": ModelPricing(
+            inputPerMTok: 10.00,
+            outputPerMTok: 50.00,
+            cacheReadPerMTok: 0.25,
+            cacheWritePerMTok: 12.50
+        ),
+        "claude-mythos-5-1": ModelPricing(
+            inputPerMTok: 10.00,
+            outputPerMTok: 50.00,
+            cacheReadPerMTok: 0.25,
+            cacheWritePerMTok: 12.50
+        ),
+
         // Fable 5 (top tier — also covers Mythos 5, same pricing)
         "claude-fable-5": ModelPricing(
             inputPerMTok: 10.00,
             outputPerMTok: 50.00,
             cacheReadPerMTok: 1.00,
             cacheWritePerMTok: 12.50
+        ),
+
+        // Opus 5
+        "claude-opus-5": ModelPricing(
+            inputPerMTok: 5.00,
+            outputPerMTok: 25.00,
+            cacheReadPerMTok: 0.50,
+            cacheWritePerMTok: 6.25
         ),
 
         // Opus 4.8
@@ -77,7 +99,21 @@ enum CostCalculator {
             cacheWritePerMTok: 3.75
         ),
 
+        // Sonnet 5
+        "claude-sonnet-5": ModelPricing(
+            inputPerMTok: 2.00,
+            outputPerMTok: 10.00,
+            cacheReadPerMTok: 0.20,
+            cacheWritePerMTok: 2.50
+        ),
+
         // Haiku 4.5
+        "claude-haiku-4-5": ModelPricing(
+            inputPerMTok: 1.00,
+            outputPerMTok: 5.00,
+            cacheReadPerMTok: 0.10,
+            cacheWritePerMTok: 1.25
+        ),
         "claude-haiku-4-5-20251001": ModelPricing(
             inputPerMTok: 1.00,
             outputPerMTok: 5.00,
@@ -95,17 +131,18 @@ enum CostCalculator {
     static func pricing(for modelId: String) -> ModelPricing {
         if let p = pricing[modelId] { return p }
 
-        // Partial-match aliases: any id containing "fable"/"mythos" → fable pricing,
-        // "sonnet" → sonnet pricing, "haiku" → haiku pricing, otherwise opus.
+        // Partial-match aliases resolve to the current generation for each family.
         let lower = modelId.lowercased()
-        if lower.contains("fable") || lower.contains("mythos") {
+        if lower.contains("fable-5-1") || lower.contains("mythos-5-1") {
+            return pricing["claude-fable-5-1"]!
+        } else if lower.contains("fable") || lower.contains("mythos") {
             return pricing["claude-fable-5"]!
         } else if lower.contains("haiku") {
-            return pricing["claude-haiku-4-5-20251001"]!
+            return pricing["claude-haiku-4-5"]!
         } else if lower.contains("sonnet") {
-            return pricing["claude-sonnet-4-6"]!
+            return pricing["claude-sonnet-5"]!
         }
-        return pricing["claude-opus-4-6"]!
+        return pricing["claude-opus-5"]!
     }
 
     /// Estimates the USD-equivalent API cost for a day given the per-model

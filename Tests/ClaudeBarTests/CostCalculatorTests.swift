@@ -27,6 +27,38 @@ final class CostCalculatorTests: XCTestCase {
         XCTAssertEqual(haiku.outputPerMTok, 5.00)
     }
 
+    func testPricingCurrentModelExactMatches() {
+        let fable = CostCalculator.pricing(for: "claude-fable-5-1")
+        XCTAssertEqual(fable.inputPerMTok, 10.00)
+        XCTAssertEqual(fable.outputPerMTok, 50.00)
+        XCTAssertEqual(fable.cacheReadPerMTok, 0.25)
+        XCTAssertEqual(fable.cacheWritePerMTok, 12.50)
+
+        let mythos = CostCalculator.pricing(for: "claude-mythos-5-1")
+        XCTAssertEqual(mythos.inputPerMTok, 10.00)
+        XCTAssertEqual(mythos.outputPerMTok, 50.00)
+        XCTAssertEqual(mythos.cacheReadPerMTok, 0.25)
+        XCTAssertEqual(mythos.cacheWritePerMTok, 12.50)
+
+        let opus = CostCalculator.pricing(for: "claude-opus-5")
+        XCTAssertEqual(opus.inputPerMTok, 5.00)
+        XCTAssertEqual(opus.outputPerMTok, 25.00)
+        XCTAssertEqual(opus.cacheReadPerMTok, 0.50)
+        XCTAssertEqual(opus.cacheWritePerMTok, 6.25)
+
+        let sonnet = CostCalculator.pricing(for: "claude-sonnet-5")
+        XCTAssertEqual(sonnet.inputPerMTok, 2.00)
+        XCTAssertEqual(sonnet.outputPerMTok, 10.00)
+        XCTAssertEqual(sonnet.cacheReadPerMTok, 0.20)
+        XCTAssertEqual(sonnet.cacheWritePerMTok, 2.50)
+
+        let haiku = CostCalculator.pricing(for: "claude-haiku-4-5")
+        XCTAssertEqual(haiku.inputPerMTok, 1.00)
+        XCTAssertEqual(haiku.outputPerMTok, 5.00)
+        XCTAssertEqual(haiku.cacheReadPerMTok, 0.10)
+        XCTAssertEqual(haiku.cacheWritePerMTok, 1.25)
+    }
+
     func testPricingPartialMatchHaiku() {
         let p = CostCalculator.pricing(for: "claude-haiku-unknown-version")
         XCTAssertEqual(p.inputPerMTok, 1.00)
@@ -34,7 +66,12 @@ final class CostCalculatorTests: XCTestCase {
 
     func testPricingPartialMatchSonnet() {
         let p = CostCalculator.pricing(for: "claude-sonnet-future")
-        XCTAssertEqual(p.inputPerMTok, 3.00)
+        XCTAssertEqual(p.inputPerMTok, 2.00)
+    }
+
+    func testPricingPartialMatchOpus() {
+        let p = CostCalculator.pricing(for: "claude-opus-future")
+        XCTAssertEqual(p.inputPerMTok, 5.00)
     }
 
     func testPricingFallbackToOpus() {
@@ -92,6 +129,16 @@ final class CostCalculatorTests: XCTestCase {
     func testPricingPartialMatchFable() {
         let p = CostCalculator.pricing(for: "claude-fable-future")
         XCTAssertEqual(p.inputPerMTok, 10.00)
+    }
+
+    func testPricingPartialMatchFable51() {
+        let p = CostCalculator.pricing(for: "claude-fable-5-1-future")
+        XCTAssertEqual(p.cacheReadPerMTok, 0.25)
+    }
+
+    func testPricingPartialMatchMythos51() {
+        let p = CostCalculator.pricing(for: "claude-mythos-5-1-future")
+        XCTAssertEqual(p.cacheReadPerMTok, 0.25)
     }
 
     func testPricingPartialMatchMythos() {
