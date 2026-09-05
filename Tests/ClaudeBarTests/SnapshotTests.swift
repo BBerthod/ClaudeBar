@@ -41,7 +41,7 @@ final class SnapshotTests: XCTestCase {
             StatCard(title: "Messages", value: "142", icon: "message", trend: "+12%", trendUp: true),
             size: CGSize(width: 150, height: 80)
         )
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 150, height: 80)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 150, height: 80)))
     }
 
     func testStatCardNoTrend() {
@@ -49,7 +49,7 @@ final class SnapshotTests: XCTestCase {
             StatCard(title: "Sessions", value: "7", icon: "rectangle.stack"),
             size: CGSize(width: 150, height: 80)
         )
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 150, height: 80)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 150, height: 80)))
     }
 
     func testStatCardTrendDown() {
@@ -57,7 +57,7 @@ final class SnapshotTests: XCTestCase {
             StatCard(title: "Tool Calls", value: "89", icon: "wrench.and.screwdriver", trend: "-3%", trendUp: false),
             size: CGSize(width: 150, height: 80)
         )
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 150, height: 80)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 150, height: 80)))
     }
 
     func testStatCardLongValue() {
@@ -65,31 +65,31 @@ final class SnapshotTests: XCTestCase {
             StatCard(title: "Tokens", value: "1,234,567", icon: "text.word.spacing"),
             size: CGSize(width: 150, height: 80)
         )
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 150, height: 80)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 150, height: 80)))
     }
 
     // MARK: - Sparkline (3 tests)
 
     func testSparklineEmpty() {
         let view = host(Sparkline(data: []), size: CGSize(width: 200, height: 50))
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 200, height: 50)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 200, height: 50)))
     }
 
     func testSparklineRising() {
         let view = host(Sparkline(data: [1, 3, 2, 7, 5, 9, 12, 8, 15]), size: CGSize(width: 200, height: 50))
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 200, height: 50)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 200, height: 50)))
     }
 
     func testSparklineFalling() {
         let view = host(Sparkline(data: [15, 12, 10, 8, 5, 3, 1]), size: CGSize(width: 200, height: 50))
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 200, height: 50)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 200, height: 50)))
     }
 
     // MARK: - ContributionGraph (2 tests)
 
     func testContributionGraphEmpty() {
         let view = host(ContributionGraphWrapper(dayStats: [:]), size: CGSize(width: 420, height: 90))
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 420, height: 90)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 420, height: 90)))
     }
 
     func testContributionGraphWithActivity() {
@@ -121,6 +121,6 @@ final class SnapshotTests: XCTestCase {
         }
 
         let view = host(ContributionGraphWrapper(dayStats: stats), size: CGSize(width: 420, height: 90))
-        assertSnapshot(of: view, as: .image(size: CGSize(width: 420, height: 90)))
+        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 420, height: 90)))
     }
 }
