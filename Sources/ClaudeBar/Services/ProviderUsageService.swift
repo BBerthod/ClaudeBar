@@ -16,7 +16,11 @@ final class ProviderUsageService {
     private(set) var omlxCallsToday: Int = 0
     private(set) var isOmlxActive: Bool = false
 
-    private var refreshTimer: Timer?
+    private nonisolated let refreshTimer = ServiceTimer()
+
+    deinit {
+        refreshTimer.invalidate()
+    }
 
     private let projectsDir: String
 
@@ -48,7 +52,7 @@ final class ProviderUsageService {
     // MARK: - Polling
 
     private func startPolling() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        refreshTimer.timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.refresh()

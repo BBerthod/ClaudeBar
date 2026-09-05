@@ -62,7 +62,11 @@ final class OmlxMonitorService {
     let endpoint: String
 
     private let session: URLSession
-    private var pollingTimer: Timer?
+    private nonisolated let pollingTimer = ServiceTimer()
+
+    deinit {
+        pollingTimer.invalidate()
+    }
 
     // MARK: - Init
 
@@ -80,7 +84,7 @@ final class OmlxMonitorService {
     // MARK: - Polling
 
     private func startPolling() {
-        pollingTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        pollingTimer.timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in await self.checkHealth() }
         }

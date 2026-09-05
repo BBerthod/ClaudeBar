@@ -22,7 +22,11 @@ final class NotificationService {
         digestPending = false
     }
 
-    private var digestTimer: Timer?
+    private nonisolated let digestTimer = ServiceTimer()
+
+    deinit {
+        digestTimer.invalidate()
+    }
 
     // MARK: - UserDefaults keys
 
@@ -233,9 +237,9 @@ final class NotificationService {
     // MARK: - Timer
 
     private func startDigestTimer() {
-        digestTimer?.invalidate()
+        digestTimer.invalidate()
         // Check every minute if it is time for the digest
-        digestTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        digestTimer.timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.checkDigestTime()
             }

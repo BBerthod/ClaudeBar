@@ -2,6 +2,21 @@ import AppKit
 import Darwin
 
 enum ProcessHelper {
+    /// Reads the current executable directly from libproc, without spawning a process.
+    static func executablePath(for pid: pid_t) -> String? {
+        guard pid > 0 else { return nil }
+        // PROC_PIDPATHINFO_MAXSIZE is 4 * MAXPATHLEN; the macro is not imported into Swift.
+        var buffer = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        return String(cString: buffer)
+    }
+
+    static func isLikelyClaudeProcess(executablePath: String) -> Bool {
+        let path = executablePath.lowercased()
+        return path.contains("claude") || path.contains("node")
+    }
+
     /// Attempt to bring the terminal window containing the given PID to the front.
     static func focusTerminal(forChildPID pid: Int) {
         // Walk up the process tree to find a GUI app

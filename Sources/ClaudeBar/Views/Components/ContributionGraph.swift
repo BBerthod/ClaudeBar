@@ -47,44 +47,37 @@ struct ContributionGraph: View {
         return gridCalendar.date(byAdding: .day, value: offset, to: gridStart)
     }
 
-    // MARK: - Max values for scaling
-
-    private var maxTokens: Int {
-        max(1, dayStats.values.map(\.tokens).max() ?? 1)
-    }
-
-    private var maxCost: Double {
-        max(0.001, dayStats.values.map(\.cost).max() ?? 0.001)
-    }
-
     // MARK: - Color helpers
 
-    private func tokenColor(for tokens: Int) -> Color {
-        guard tokens > 0 else { return Color.primary.opacity(0.06) }
-        let ratio = Double(tokens) / Double(maxTokens)
-        return Color.blue.opacity(min(1.0, 0.2 + 0.8 * ratio))
-    }
-
-    private func costColor(for cost: Double) -> Color {
-        guard cost > 0 else { return Color.primary.opacity(0.06) }
-        let ratio = cost / maxCost
-        if ratio < 0.33 {
-            return Color.green.opacity(max(0.2, ratio))
-        } else if ratio < 0.66 {
-            return Color.orange.opacity(max(0.2, ratio))
-        } else {
-            return Color.red.opacity(max(0.2, ratio))
+    /// Pure date-to-color mapping shared by rendering and regression tests.
+    static func cellColor(for date: Date, dayStats: [Date: DayStats], metric: ContributionMetric) -> Color {
+        let calendar = Calendar(identifier: .iso8601)
+        guard let stats = dayStats[calendar.startOfDay(for: date)] else {
+            return Color.primary.opacity(0.06)
+        }
+        switch metric {
+        case .tokens:
+            guard stats.tokens > 0 else { return Color.primary.opacity(0.06) }
+            let maxTokens = max(1, dayStats.values.map(\.tokens).max() ?? 1)
+            let ratio = Double(stats.tokens) / Double(maxTokens)
+            // Rounded so equal inputs yield equal Colors (0.2 + 0.8 * 0.5 ≠ 0.6 in binary).
+            return Color.blue.opacity(min(1.0, (0.2 + 0.8 * ratio).rounded(toPlaces: 4)))
+        case .cost:
+            guard stats.cost > 0 else { return Color.primary.opacity(0.06) }
+            let maxCost = max(0.001, dayStats.values.map(\.cost).max() ?? 0.001)
+            let ratio = stats.cost / maxCost
+            if ratio < 0.33 {
+                return Color.green.opacity(max(0.2, ratio))
+            } else if ratio < 0.66 {
+                return Color.orange.opacity(max(0.2, ratio))
+            } else {
+                return Color.red.opacity(max(0.2, ratio))
+            }
         }
     }
 
     private func cellColor(for date: Date) -> Color {
-        guard let stats = dayStats[gridCalendar.startOfDay(for: date)] else {
-            return Color.primary.opacity(0.06)
-        }
-        switch metric {
-        case .tokens: return tokenColor(for: stats.tokens)
-        case .cost:   return costColor(for: stats.cost)
-        }
+        Self.cellColor(for: date, dayStats: dayStats, metric: metric)
     }
 
     // MARK: - Tooltip helper
@@ -201,4 +194,11 @@ struct ContributionGraph: View {
     ContributionGraph(dayStats: [:], metric: .constant(.tokens))
         .padding()
         .frame(width: 420)
+}
+
+private extension Double {
+    func rounded(toPlaces places: Int) -> Double {
+        let factor = pow(10.0, Double(places))
+        return (self * factor).rounded() / factor
+    }
 }

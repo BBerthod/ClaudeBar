@@ -20,21 +20,68 @@ final class SessionService {
     /// Last file-activity date for each active session (sessionId -> jsonl mtime).
     private(set) var sessionLastActivity: [String: Date] = [:]
     private var fileWatcher = FileWatcher()
-    private var timer: Timer?
+    private nonisolated let timer = ServiceTimer()
+    private var activeScanGeneration = 0
+    private var recentScanGeneration = 0
+
+    enum ScanKind { case active, recent }
+
+    enum ScanResult: Sendable {
+        case active(sessions: [ActiveSession], estimates: [String: Double],
+                    resumeCost: [String: Double], lastActivity: [String: Date])
+        case recent([SessionIndexEntry])
+    }
+
+    /// Each stream has its own generation because polls and file events are independent.
+    func beginScan(_ kind: ScanKind) -> Int {
+        switch kind {
+        case .active:
+            activeScanGeneration += 1
+            return activeScanGeneration
+        case .recent:
+            recentScanGeneration += 1
+            return recentScanGeneration
+        }
+    }
+
+    func apply(_ result: ScanResult, generation: Int) {
+        switch result {
+        case let .active(sessions, estimates, resumeCost, lastActivity):
+            guard generation == activeScanGeneration else { return }
+            let previousCount = activeSessions.count
+            contextEstimates = estimates
+            sessionResumeCost = resumeCost
+            sessionLastActivity = lastActivity
+            activeSessions = sessions
+            if sessions.count != previousCount {
+                Log.sessions.info("Active sessions: \(sessions.count)")
+            }
+        case let .recent(sessions):
+            guard generation == recentScanGeneration else { return }
+            recentSessions = sessions
+        }
+    }
 
     private let sessionsDir: String
     private let projectsDir: String
     private let claudeDir: String
 
-    init(claudeDir: String = "~/.claude") {
+    /// Set `disableMonitoring` in tests to avoid scans, file watchers, and polling.
+    init(claudeDir: String = "~/.claude", disableMonitoring: Bool = false) {
         let base = NSString(string: claudeDir).expandingTildeInPath
         self.claudeDir = base
         self.sessionsDir = base + "/sessions"
         self.projectsDir = base + "/projects"
-        loadActiveSessions()
-        loadRecentSessions()
-        startPolling()
-        startWatchingProjects()
+        if !disableMonitoring {
+            loadActiveSessions()
+            loadRecentSessions()
+            startPolling()
+            startWatchingProjects()
+        }
+    }
+
+    deinit {
+        timer.invalidate()
     }
 
     // MARK: - Multi-installation discovery
@@ -68,7 +115,8 @@ final class SessionService {
     // MARK: - Active Sessions
 
     private func loadActiveSessions() {
-        Task.detached(priority: .userInitiated) {
+        let generation = beginScan(.active)
+        Task.detached(priority: .userInitiated) { [weak self] in
             let fm = FileManager.default
             let decoder = JSONDecoder()
             var sessions: [ActiveSession] = []
@@ -84,7 +132,10 @@ final class SessionService {
                     let filePath = sessionsDir + "/" + filename
                     guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
                     guard let session = try? decoder.decode(ActiveSession.self, from: data) else { continue }
-                    guard kill(Int32(session.pid), 0) == 0 else { continue }
+                    guard let pid = Int32(exactly: session.pid), pid > 0,
+                          kill(pid, 0) == 0,
+                          let path = ProcessHelper.executablePath(for: pid),
+                          ProcessHelper.isLikelyClaudeProcess(executablePath: path) else { continue }
                     sessions.append(session)
                     let info = SessionService.contextInfo(for: session, projectsDir: projectsDir)
                     estimates[session.sessionId] = info.fraction
@@ -105,34 +156,23 @@ final class SessionService {
                 }
             }
 
-            let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
-            let finalEstimates = estimates
-            let finalResumeCost = resumeCost
-            let finalLastActivity = lastActivity
-
-            await MainActor.run {
-                let previousCount = self.activeSessions.count
-                self.contextEstimates = finalEstimates
-                self.sessionResumeCost = finalResumeCost
-                self.sessionLastActivity = finalLastActivity
-                self.activeSessions = sorted
-                if sorted.count != previousCount {
-                    Log.sessions.info("Active sessions: \(sorted.count)")
-                }
-            }
+            let result = ScanResult.active(
+                sessions: sessions.sorted { $0.startedAt > $1.startedAt },
+                estimates: estimates, resumeCost: resumeCost, lastActivity: lastActivity
+            )
+            await self?.apply(result, generation: generation)
         }
     }
 
     // MARK: - Recent Sessions
 
     private func loadRecentSessions() {
+        let generation = beginScan(.recent)
         let dirs = SessionService.allProjectsDirs()
-        Task.detached(priority: .userInitiated) {
+        Task.detached(priority: .userInitiated) { [weak self] in
             let result = SessionService.scanRecentSessions(fromProjectsDirs: dirs, limit: 50)
 
-            await MainActor.run {
-                self.recentSessions = result
-            }
+            await self?.apply(.recent(result), generation: generation)
         }
     }
 
@@ -242,7 +282,7 @@ final class SessionService {
     // MARK: - Polling
 
     private func startPolling() {
-        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        timer.timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.loadActiveSessions()
             }

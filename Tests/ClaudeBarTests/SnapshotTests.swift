@@ -92,35 +92,35 @@ final class SnapshotTests: XCTestCase {
         assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 420, height: 90)))
     }
 
-    func testContributionGraphWithActivity() {
-        var stats: [Date: DayStats] = [:]
+}
 
-        let fixedValues: [(Int, Double)] = [
-            (5_000, 0.50),
-            (12_000, 1.20),
-            (800, 0.08),
-            (30_000, 3.00),
-            (7_500, 0.75),
-            (22_000, 2.20),
-            (1_200, 0.12),
-            (45_000, 4.50),
+@MainActor
+final class ContributionGraphTests: XCTestCase {
+    func testContributionGraphWithActivity() throws {
+        let calendar = Calendar(identifier: .iso8601)
+        let today = calendar.startOfDay(for: Date())
+        let values: [(Int, Double, Color, Color)] = [
+            (0, 0, .primary.opacity(0.06), .primary.opacity(0.06)),
+            (25, 10, .blue.opacity(0.4), .green.opacity(0.2)),
+            (50, 33, .blue.opacity(0.6), .orange.opacity(0.33)),
+            (75, 66, .blue.opacity(0.8), .red.opacity(0.66)),
+            (100, 100, .blue.opacity(1), .red.opacity(1)),
         ]
-
-        // Fixed anchor: Monday 6 January 2025 — prevents cell position from shifting
-        // across days of the week when the test runs at different times.
-        var anchorComponents = DateComponents()
-        anchorComponents.year = 2025
-        anchorComponents.month = 1
-        anchorComponents.day = 6
-        let anchor = Calendar.current.date(from: anchorComponents)!
-
-        for (i, (tokens, cost)) in fixedValues.enumerated() {
-            if let date = Calendar.current.date(byAdding: .weekOfYear, value: -i, to: anchor) {
-                stats[Calendar.current.startOfDay(for: date)] = DayStats(tokens: tokens, cost: cost)
-            }
+        let dates = try values.indices.map {
+            try XCTUnwrap(calendar.date(byAdding: .day, value: -$0, to: today))
         }
-
-        let view = host(ContributionGraphWrapper(dayStats: stats), size: CGSize(width: 420, height: 90))
-        assertSnapshot(of: view, as: .image(perceptualPrecision: 0.98, size: CGSize(width: 420, height: 90)))
+        let stats = Dictionary(uniqueKeysWithValues: zip(dates, values).map {
+            ($0.0, DayStats(tokens: $0.1.0, cost: $0.1.1))
+        })
+        for (date, value) in zip(dates, values) {
+            let noon = try XCTUnwrap(calendar.date(byAdding: .hour, value: 12, to: date))
+            XCTAssertEqual(ContributionGraph.cellColor(for: noon, dayStats: stats, metric: .tokens), value.2)
+            XCTAssertEqual(ContributionGraph.cellColor(for: noon, dayStats: stats, metric: .cost), value.3)
+        }
+        let missing = try XCTUnwrap(calendar.date(byAdding: .day, value: -10, to: today))
+        for metric in ContributionMetric.allCases {
+            XCTAssertEqual(ContributionGraph.cellColor(for: missing, dayStats: stats, metric: metric),
+                           Color.primary.opacity(0.06))
+        }
     }
 }
