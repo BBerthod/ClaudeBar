@@ -151,6 +151,7 @@ struct DashboardView: View {
                         VStack(alignment: .trailing, spacing: 2) {
                             HStack(alignment: .firstTextBaseline, spacing: 4) {
                                 Text(CostCalculator.formatCost(effectiveCost))
+                .monospacedDigit()
                                     .font(.title3)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.primary)
@@ -245,9 +246,7 @@ struct DashboardView: View {
 
                     if !effectiveTokensByModel.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Tokens by Model")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+            SettingsSectionLabel("Tokens by Model")
                                 .padding(.horizontal, 12)
 
                             TokenBar(segments: effectiveTokensByModel)
@@ -265,6 +264,7 @@ struct DashboardView: View {
                                                 .font(.caption2)
                                                 .foregroundStyle(.secondary)
                                             Text(entry.tokens.abbreviatedTokenCount)
+                .monospacedDigit()
                                                 .font(.caption2)
                                                 .fontWeight(.medium)
                                         }

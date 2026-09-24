@@ -99,6 +99,7 @@ struct ProjectsView: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(CostCalculator.formatCost(projectService.totalEstimatedCost))
+                .monospacedDigit()
                         .font(.title3)
                         .fontWeight(.semibold)
                     Text("total cost")
@@ -119,6 +120,7 @@ struct ProjectsView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Text(CostCalculator.formatCost(entry.cost))
+                        .monospacedDigit()
                                 .font(.caption2)
                                 .fontWeight(.medium)
                         }
@@ -154,6 +156,7 @@ struct ProjectsView: View {
                             .accessibilityHidden(true)
                     }
                     Text(CostCalculator.formatCost(project.estimatedCost))
+                    .monospacedDigit()
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(costColor(for: project.estimatedCost))

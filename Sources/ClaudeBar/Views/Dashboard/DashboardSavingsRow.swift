@@ -39,6 +39,7 @@ struct DashboardSavingsRow: View {
                 .foregroundStyle(Theme.color(.ok))
 
             Text("Cache saved \(CostCalculator.formatCost(cacheSavings))")
+                .monospacedDigit()
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

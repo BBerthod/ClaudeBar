@@ -9,13 +9,12 @@ struct DashboardActiveSessionsSection: View {
                 if !sessionService.activeSessions.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("Active Sessions")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+            SettingsSectionLabel("Active Sessions")
 
                             // Longest session badge
                             if let longest = sessionService.activeSessions.max(by: { $0.duration < $1.duration }) {
                                 Text("longest: \(longest.duration.formattedDuration)")
+                                    .monospacedDigit()
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }

@@ -336,7 +336,7 @@ struct HistoryView: View {
                 AxisMarks { value in
                     AxisValueLabel {
                         if let v = value.as(Int.self) {
-                            Text(v.abbreviatedTokenCount).font(.caption2)
+                            Text(v.abbreviatedTokenCount).monospacedDigit().font(.caption2)
                         }
                     }
                 }
@@ -419,6 +419,7 @@ struct HistoryView: View {
                         .font(.caption2)
                         .foregroundStyle(Theme.color(.high))
                     Text("Peak: \(peak.hour)h (\(peak.count.abbreviatedTokenCount) msgs)")
+                        .monospacedDigit()
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
