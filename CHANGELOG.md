@@ -4,6 +4,14 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.4.2] — 2026-09-24
+
+### Added
+- Opt-in scan profiler: set `CLAUDEBAR_PROFILE_FILE` to record scan durations, file counts and sizes as JSON lines (opaque path hashes only, never paths or content). Off by default.
+
+### Changed
+- Section titles across the popover use the tracked uppercase caption style already used in Settings, and cost, token and duration figures use tabular digits so values do not jitter as they refresh.
+
 ### Fixed
 - Analytics Savings and Trends, and the Dashboard Claude tile, showed $0 and no tracked days when `stats-cache.json` was absent; they now fall back to the JSONL history.
 - Opening Savings or Models in the Analytics window could crash: `YearlyHistoryService` was never injected into that window.
