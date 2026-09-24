@@ -94,11 +94,10 @@ final class YearlyHistoryService {
         var seenMessages: Set<String> = []
 
         for path in JSONLLocator.files(inProjectsDirectories: projectsDirs) {
-                    guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { continue }
-                    ScanProfiler.recordFile(label: "Yearly.scan", path: path, bytes: content.utf8.count)
-                    for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
-                        guard let data = line.data(using: .utf8),
-                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                    guard let fileData = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else { continue }
+                    ScanProfiler.recordFile(label: "Yearly.scan", path: path, bytes: fileData.count)
+                    for data in JSONLLines.lines(in: fileData, containing: "\"assistant\"") {
+                        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
                         else { continue }
 
                         // Only process assistant messages

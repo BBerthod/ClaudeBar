@@ -91,7 +91,6 @@ final class LiveStatsService {
     ) -> LiveStatsSnapshot {
         ScanProfiler.mark("Live.scanToday", "begin")
         defer { ScanProfiler.mark("Live.scanToday", "end") }
-        let fm = FileManager.default
         let isoFractional = ISO8601DateFormatter()
         isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let isoBasic = ISO8601DateFormatter()
@@ -107,12 +106,10 @@ final class LiveStatsService {
 
         for path in paths {
             autoreleasepool {
-                guard let data = fm.contents(atPath: path),
-                      let content = String(data: data, encoding: .utf8) else { return }
+                guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else { return }
                 ScanProfiler.recordFile(label: "Live.scanToday", path: path, bytes: data.count)
-                for line in content.split(separator: "\n") {
-                    guard let lineData = line.data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
+                for lineData in JSONLLines.lines(in: data, containing: "\"assistant\"") {
+                    guard let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
                           (json["type"] as? String) == "assistant",
                           let timestampString = json["timestamp"] as? String,
                           let timestamp = isoFractional.date(from: timestampString)
