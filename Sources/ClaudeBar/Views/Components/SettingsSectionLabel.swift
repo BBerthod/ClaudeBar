@@ -9,8 +9,10 @@ struct SettingsSectionLabel: View {
 
     var body: some View {
         Text(title)
-            .font(.subheadline)
-            .fontWeight(.medium)
+            .font(Theme.Font.label)
+            .textCase(.uppercase)
+            .tracking(0.6)
+            .foregroundStyle(.secondary)
     }
 }
 
