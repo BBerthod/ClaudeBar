@@ -35,10 +35,6 @@ struct ProjectsView: View {
         return base.filter { $0.projectName.localizedCaseInsensitiveContains(searchText) }
     }
 
-    private var totalEstimatedCost: Double {
-        projectService.projects.reduce(0) { $0 + $1.estimatedCost }
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -102,7 +98,7 @@ struct ProjectsView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(CostCalculator.formatCost(statsService.totalCostEstimate))
+                    Text(CostCalculator.formatCost(projectService.totalEstimatedCost))
                         .font(.title3)
                         .fontWeight(.semibold)
                     Text("total cost")
@@ -180,8 +176,8 @@ struct ProjectsView: View {
                 }
 
                 // Cost bar relative to total
-                if totalEstimatedCost > 0 && project.estimatedCost > 0 {
-                    let ratio = min(project.estimatedCost / totalEstimatedCost, 1.0)
+                if projectService.totalEstimatedCost > 0 && project.estimatedCost > 0 {
+                    let ratio = min(project.estimatedCost / projectService.totalEstimatedCost, 1.0)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 3)

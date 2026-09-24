@@ -23,7 +23,7 @@ struct AnalyticsProjectsPanel: View {
 
     private var projectsPanel: some View {
         let projects = filteredProjects
-        let totalCost = statsService.totalCostEstimate
+        let totalCost = projectService.totalEstimatedCost
         let totalMessages = projects.reduce(0) { $0 + $1.totalMessages }
 
         return ScrollView {

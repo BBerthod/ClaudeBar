@@ -15,6 +15,8 @@ final class ProjectService {
 
     var totalProjects: Int { projects.count }
 
+    var totalEstimatedCost: Double { projects.totalEstimatedCost }
+
     /// Reload projects from all ~/.claude*/projects/ directories.
     /// The `totalCostEstimate` parameter is kept for backward compatibility but is
     /// no longer used — costs are now computed directly from JSONL token data.

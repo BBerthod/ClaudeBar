@@ -16,3 +16,9 @@ struct ProjectStats: Identifiable, Comparable, Sendable {
         lhs.estimatedCost > rhs.estimatedCost // sort by cost descending
     }
 }
+
+extension Sequence where Element == ProjectStats {
+    /// Sum of per-project cost estimates. Derived from the JSONL scan, so unlike
+    /// `StatsService.totalCostEstimate` it does not depend on `stats-cache.json`.
+    var totalEstimatedCost: Double { reduce(0) { $0 + $1.estimatedCost } }
+}
