@@ -4,6 +4,17 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-09-24
+
+### Changed
+- Visual refresh: shared design tokens (spacing, radii, type roles) and a muted status palette (sage, slate, ochre, terracotta, brick) that adapts to light and dark appearance, replacing the system green/orange/red across gauges, badges, alerts and cost indicators.
+- Stat cards use a unified card surface with rounded numeric digits; Settings section titles are tracked uppercase captions.
+- Text on filled status badges stays readable in dark mode.
+
+### Fixed
+- Dashboard provider tiles (Claude, Gemini, Codex, oMLX) no longer wrap word by word; they sit in a two-column grid.
+- Projects and Analytics › Projects showed a $0.00 total and 0 % shares when `stats-cache.json` was absent; the total is now summed from the project scan.
+
 ## [1.4.0] — 2026-09-05
 
 ### Added
