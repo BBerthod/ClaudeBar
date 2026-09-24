@@ -63,6 +63,8 @@ final class YearlyHistoryService {
     nonisolated static func scanWithModels(
         projectsDirs: [String]
     ) -> (dayStats: [Date: DayStats], activity: [DailyActivity], tokens: [DailyModelTokens], modelBreakdown: [String: ModelTokenBreakdown], models: Set<String>) {
+        ScanProfiler.mark("Yearly.scan", "begin")
+        defer { ScanProfiler.mark("Yearly.scan", "end") }
         var models = Set<String>()
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -93,6 +95,7 @@ final class YearlyHistoryService {
 
         for path in JSONLLocator.files(inProjectsDirectories: projectsDirs) {
                     guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { continue }
+                    ScanProfiler.recordFile(label: "Yearly.scan", path: path, bytes: content.utf8.count)
                     for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
                         guard let data = line.data(using: .utf8),
                               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]

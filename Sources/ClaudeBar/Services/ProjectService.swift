@@ -43,6 +43,8 @@ final class ProjectService {
     }
 
     nonisolated static func scanWithModels(dirs: [String]) -> (projects: [ProjectStats], models: Set<String>) {
+        ScanProfiler.mark("Project.scan", "begin")
+        defer { ScanProfiler.mark("Project.scan", "end") }
         var models = Set<String>()
         let fm = FileManager.default
 
@@ -78,6 +80,7 @@ final class ProjectService {
                 // sessions-index.json has no token usage, so JSONL remains authoritative.
                 for filePath in JSONLLocator.files(inProjectDirectory: subdirPath) {
                     guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
+                    ScanProfiler.recordFile(label: "Project.scan", path: filePath, bytes: data.count)
                     let lines = data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
 
                     var sessionProjectPath: String? = nil

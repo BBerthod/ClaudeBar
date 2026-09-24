@@ -89,6 +89,8 @@ final class LiveStatsService {
         projectsDirectories: [String],
         startOfDay: Date
     ) -> LiveStatsSnapshot {
+        ScanProfiler.mark("Live.scanToday", "begin")
+        defer { ScanProfiler.mark("Live.scanToday", "end") }
         let fm = FileManager.default
         let isoFractional = ISO8601DateFormatter()
         isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -107,6 +109,7 @@ final class LiveStatsService {
             autoreleasepool {
                 guard let data = fm.contents(atPath: path),
                       let content = String(data: data, encoding: .utf8) else { return }
+                ScanProfiler.recordFile(label: "Live.scanToday", path: path, bytes: data.count)
                 for line in content.split(separator: "\n") {
                     guard let lineData = line.data(using: .utf8),
                           let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
