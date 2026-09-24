@@ -79,9 +79,9 @@ final class ProjectService {
 
                 // sessions-index.json has no token usage, so JSONL remains authoritative.
                 for filePath in JSONLLocator.files(inProjectDirectory: subdirPath) {
-                    guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { continue }
+                    guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath), options: .mappedIfSafe) else { continue }
                     ScanProfiler.recordFile(label: "Project.scan", path: filePath, bytes: data.count)
-                    let lines = data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
+                    let lines = JSONLLines.lines(in: data, containing: "\"assistant\"")
 
                     var sessionProjectPath: String? = nil
                     var sessionCount = 0
