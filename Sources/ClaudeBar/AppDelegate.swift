@@ -323,6 +323,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environment(updateCheckService)
             .environment(providerUsageService)
             .environment(geminiActivityService)
+            .environment(yearlyHistoryService)
             .environment(omlxMonitorService)
             .environment(omlxUsageService)
         mainWindowManager.show(content: analyticsView)
