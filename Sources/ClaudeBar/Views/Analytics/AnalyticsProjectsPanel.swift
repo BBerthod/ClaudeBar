@@ -23,7 +23,7 @@ struct AnalyticsProjectsPanel: View {
 
     private var projectsPanel: some View {
         let projects = filteredProjects
-        let totalCost = statsService.totalCostEstimate
+        let totalCost = projectService.totalEstimatedCost
         let totalMessages = projects.reduce(0) { $0 + $1.totalMessages }
 
         return ScrollView {
@@ -151,7 +151,7 @@ struct AnalyticsProjectsPanel: View {
                 if let copied = copiedProjectPath {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Theme.color(.ok))
                         Text("Copied: \(copied)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -238,10 +238,10 @@ struct AnalyticsProjectsPanel: View {
 
     private func projectCostColor(_ cost: Double) -> Color {
         switch cost {
-        case ..<1:    return .secondary
-        case ..<5:    return .yellow
-        case ..<20:   return .orange
-        default:      return .red
+        case ..<1:    return Theme.color(.neutral)
+        case ..<5:    return Theme.color(.warn)
+        case ..<20:   return Theme.color(.high)
+        default:      return Theme.color(.critical)
         }
     }
 

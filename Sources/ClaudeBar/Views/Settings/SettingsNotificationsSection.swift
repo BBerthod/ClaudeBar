@@ -32,7 +32,7 @@ struct SettingsNotificationsSection: View {
                     Spacer()
                     Text(notificationService.isAuthorized ? "Authorized" : "Not authorized")
                         .font(.caption)
-                        .foregroundStyle(notificationService.isAuthorized ? .green : .red)
+                        .foregroundStyle(notificationService.isAuthorized ? Theme.color(.ok) : Theme.color(.critical))
                 }
 
                 Divider()

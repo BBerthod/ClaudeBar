@@ -19,13 +19,13 @@ struct DashboardBurnRateCard: View {
                     HStack(spacing: 4) {
                         Text("5h projected: \(Int(min(projected, 999)))%")
                             .font(.caption2)
-                            .foregroundStyle(projected > 100 ? .red : .secondary)
+                            .foregroundStyle(projected > 100 ? Theme.color(.critical) : .secondary)
                         Text("·")
                             .foregroundStyle(.tertiary)
                         Text(pace.rawValue)
                             .font(.caption2)
                             .fontWeight(.medium)
-                            .foregroundStyle(projected > 100 ? .red : .secondary)
+                            .foregroundStyle(projected > 100 ? Theme.color(.critical) : .secondary)
                     }
                     .padding(.leading, 4)
                     .help("Extrapolation based on current pace — only shown after 10% of the 5h window has elapsed")
@@ -107,10 +107,10 @@ struct DashboardBurnRateCard: View {
 
     private func zoneColor(_ zone: PacingZone) -> Color {
         switch zone {
-        case .chill:    return .blue
-        case .onTrack:  return .green
-        case .hot:      return .orange
-        case .critical: return .red
+        case .chill:    return Theme.color(.info)
+        case .onTrack:  return Theme.color(.ok)
+        case .hot:      return Theme.color(.high)
+        case .critical: return Theme.color(.critical)
         }
     }
 }

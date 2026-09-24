@@ -167,7 +167,7 @@ struct DashboardView: View {
                                 if liveStatsService.isStale {
                                     Image(systemName: "bolt.fill")
                                         .font(.system(size: 7))
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Theme.color(.high))
                                 }
                                 Text(liveStatsService.isStale ? "live estimate" : "estimated cost")
                                     .font(.caption2)
@@ -313,7 +313,7 @@ struct DashboardView: View {
                 .monospacedDigit()
             Text("(\(Int(pct))%)")
                 .font(.caption2)
-                .foregroundStyle(pct > 80 ? .red : .secondary)
+                .foregroundStyle(pct > 80 ? Theme.color(.critical) : .secondary)
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
@@ -338,7 +338,7 @@ struct DashboardView: View {
         HStack(spacing: 8) {
             Image(systemName: "bolt.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(.yellow)
+                .foregroundStyle(Theme.color(.warn))
             Text("Speculation saved")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -349,7 +349,7 @@ struct DashboardView: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
-        .background(Color.yellow.opacity(0.05))
+        .background(Theme.color(.warn).opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 

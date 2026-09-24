@@ -369,7 +369,7 @@ struct HistoryView: View {
             }
             .chartForegroundStyleScale([
                 "Messages":   Color.accentColor,
-                "Tool Calls": Color.orange,
+                "Tool Calls": Theme.color(.high),
             ])
             .chartYAxis {
                 AxisMarks { value in
@@ -417,7 +417,7 @@ struct HistoryView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "flame")
                         .font(.caption2)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Theme.color(.high))
                     Text("Peak: \(peak.hour)h (\(peak.count.abbreviatedTokenCount) msgs)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

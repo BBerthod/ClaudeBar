@@ -46,7 +46,7 @@ struct DashboardOptimizationHints: View {
             hints.append(OptimizationHint(
                 icon: "bolt.horizontal.circle",
                 text: "Low cache savings — enable prompt caching to reduce costs",
-                color: .orange
+                color: Theme.color(.high)
             ))
         }
 
@@ -57,13 +57,13 @@ struct DashboardOptimizationHints: View {
                 hints.append(OptimizationHint(
                     icon: "bolt.fill",
                     text: "Cache efficiency: \(pct) (alltime) — prompt caching is saving you tokens",
-                    color: .green
+                    color: Theme.color(.ok)
                 ))
             } else if rate < 0.4 {
                 hints.append(OptimizationHint(
                     icon: "bolt",
                     text: "Cache efficiency: \(pct) (alltime) — consider structuring prompts to benefit from caching",
-                    color: .orange
+                    color: Theme.color(.high)
                 ))
             }
         }
@@ -74,7 +74,7 @@ struct DashboardOptimizationHints: View {
             hints.append(OptimizationHint(
                 icon: rate.zone.icon,
                 text: "Projected \(rate.projectedCostFormatted) today vs \(CostCalculator.formatCost(rate.averageDailyCost)) average",
-                color: rate.zone == .critical ? .red : .orange
+                color: rate.zone == .critical ? Theme.color(.critical) : Theme.color(.high)
             ))
         }
 

@@ -106,7 +106,7 @@ struct DesktopWidgetView: View {
                 // Active sessions
                 HStack(spacing: 3) {
                     Circle()
-                        .fill(sessionCount > 0 ? Color.green : Color.secondary.opacity(0.3))
+                        .fill(sessionCount > 0 ? Theme.color(.ok) : Color.secondary.opacity(0.3))
                         .frame(width: 5, height: 5)
                     Text("\(sessionCount) active")
                         .font(.system(size: 11))
@@ -198,10 +198,10 @@ struct DesktopWidgetView: View {
 
     private func gaugeColor(_ pct: Double) -> Color {
         switch pct {
-        case ..<30:  return .green
-        case 30..<60: return .blue
-        case 60..<80: return .orange
-        default:      return .red
+        case ..<30:  return Theme.color(.ok)
+        case 30..<60: return Theme.color(.info)
+        case 60..<80: return Theme.color(.high)
+        default:      return Theme.color(.critical)
         }
     }
 

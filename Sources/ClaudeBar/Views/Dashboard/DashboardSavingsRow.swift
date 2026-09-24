@@ -36,7 +36,7 @@ struct DashboardSavingsRow: View {
         HStack(spacing: 8) {
             Image(systemName: "bolt.horizontal.circle")
                 .font(.system(size: 12))
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.color(.ok))
 
             Text("Cache saved \(CostCalculator.formatCost(cacheSavings))")
                 .font(.caption)
@@ -48,17 +48,17 @@ struct DashboardSavingsRow: View {
                 Text("\(Int(cacheSavingsPercent))% cheaper")
                     .font(.caption2)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Theme.color(.ok))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.green.opacity(0.1))
+                    .background(Theme.color(.ok).opacity(0.1))
                     .clipShape(Capsule())
                     .help("Percentage saved on cache-eligible tokens vs full input price")
             }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
-        .background(Color.green.opacity(0.05))
+        .background(Theme.color(.ok).opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

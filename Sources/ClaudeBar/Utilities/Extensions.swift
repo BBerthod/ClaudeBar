@@ -141,12 +141,12 @@ extension PaceLevel {
     /// SwiftUI color associated with this pacing level.
     var color: Color {
         switch self {
-        case .comfortable: return .green
-        case .onTrack:     return .blue
-        case .warming:     return .yellow
-        case .pressing:    return .orange
-        case .critical:    return .red
-        case .runaway:     return .red
+        case .comfortable: return Theme.color(.ok)
+        case .onTrack:     return Theme.color(.info)
+        case .warming:     return Theme.color(.warn)
+        case .pressing:    return Theme.color(.high)
+        case .critical:    return Theme.color(.critical)
+        case .runaway:     return Theme.color(.critical)
         }
     }
 }

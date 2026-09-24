@@ -154,13 +154,13 @@ struct AnalyticsAlertsPanel: View {
                 if !activeAlerts.isEmpty {
                     HStack(spacing: 16) {
                         if criticalCount > 0 {
-                            alertSumBadge("\(criticalCount) critical", color: .red)
+                            alertSumBadge("\(criticalCount) critical", color: Theme.color(.critical))
                         }
                         if warningCount > 0 {
-                            alertSumBadge("\(warningCount) warning", color: .orange)
+                            alertSumBadge("\(warningCount) warning", color: Theme.color(.high))
                         }
                         if infoCount > 0 {
-                            alertSumBadge("\(infoCount) info", color: .blue)
+                            alertSumBadge("\(infoCount) info", color: Theme.color(.info))
                         }
                         Spacer()
                     }
@@ -226,9 +226,9 @@ struct AnalyticsAlertsPanel: View {
 
     private func alertColor(_ severity: AlertItem.AlertSeverity) -> Color {
         switch severity {
-        case .info:     return .blue
-        case .warning:  return .orange
-        case .critical: return .red
+        case .info:     return Theme.color(.info)
+        case .warning:  return Theme.color(.high)
+        case .critical: return Theme.color(.critical)
         }
     }
 

@@ -46,7 +46,16 @@ struct DashboardProviderSummary: View {
     // MARK: - Provider Summary
 
     private var providerSummary: some View {
-        HStack(spacing: 8) {
+        // Two equal columns, top-aligned: a single HStack squeezed four tiles into 420 pt and
+        // wrapped their text word by word.
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: Theme.Space.s, alignment: .top),
+                GridItem(.flexible(), alignment: .top),
+            ],
+            alignment: .leading,
+            spacing: Theme.Space.s
+        ) {
             ForEach(providers) { provider in
                 providerPill(provider)
                 if provider.name == "Claude" {
@@ -56,7 +65,6 @@ struct DashboardProviderSummary: View {
             if omlxUsageService.isAvailable {
                 omlxCard
             }
-            Spacer()
         }
     }
 
@@ -71,12 +79,12 @@ struct DashboardProviderSummary: View {
                 if activity.activeConversations > 0 {
                     Text("\(activity.activeConversations) active")
                         .padding(.horizontal, 4)
-                        .background(Color.green.opacity(0.15))
+                        .background(Theme.color(.ok).opacity(0.15))
                         .clipShape(Capsule())
                 }
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(activity.isLoggedIn ? Color.green : Color.secondary.opacity(0.4))
+                        .fill(activity.isLoggedIn ? Theme.color(.ok) : Color.secondary.opacity(0.4))
                         .frame(width: 5, height: 5)
                     Text(activity.isLoggedIn ? "logged in" : "logged out")
                 }
@@ -89,11 +97,12 @@ struct DashboardProviderSummary: View {
         .foregroundStyle(installed ? .primary : .secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
-        .background(installed ? Color.green.opacity(0.1) : Color.secondary.opacity(0.08))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(installed ? Theme.color(.ok).opacity(0.1) : Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(installed ? Color.green.opacity(0.3) : Color.secondary.opacity(0.15), lineWidth: 0.5)
+                .stroke(installed ? Theme.color(.ok).opacity(0.3) : Color.secondary.opacity(0.15), lineWidth: 0.5)
         )
         .help("Antigravity does not expose token counts — activity only")
     }
@@ -118,9 +127,10 @@ struct DashboardProviderSummary: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
-        .background(Color.green.opacity(0.1))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.color(.ok).opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.green.opacity(0.3), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.color(.ok).opacity(0.3), lineWidth: 0.5))
     }
 
     @ViewBuilder
@@ -139,7 +149,7 @@ struct DashboardProviderSummary: View {
                     .foregroundStyle(provider.isConfigured ? .primary : .secondary)
 
                 Circle()
-                    .fill(provider.isConfigured ? Color.green : Color.secondary.opacity(0.4))
+                    .fill(provider.isConfigured ? Theme.color(.ok) : Color.secondary.opacity(0.4))
                     .frame(width: 5, height: 5)
             }
 
@@ -166,7 +176,7 @@ struct DashboardProviderSummary: View {
                             .foregroundStyle(.tertiary)
                         Text("\(hits)⚠")
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.color(.high))
                     }
                 }
             } else if let details = provider.details {
@@ -177,9 +187,10 @@ struct DashboardProviderSummary: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             provider.isConfigured
-                ? Color.green.opacity(0.1)
+                ? Theme.color(.ok).opacity(0.1)
                 : Color.secondary.opacity(0.08)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -187,7 +198,7 @@ struct DashboardProviderSummary: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(
                     provider.isConfigured
-                        ? Color.green.opacity(0.3)
+                        ? Theme.color(.ok).opacity(0.3)
                         : Color.secondary.opacity(0.15),
                     lineWidth: 0.5
                 )

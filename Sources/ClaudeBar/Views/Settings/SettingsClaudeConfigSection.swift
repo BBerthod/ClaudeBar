@@ -141,15 +141,15 @@ struct SettingsClaudeConfigSection: View {
         if let permissions = settings.permissions {
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    permissionList("Allow", items: permissions.allow ?? [], color: .green)
+                    permissionList("Allow", items: permissions.allow ?? [], color: Theme.color(.ok))
                     if !(permissions.allow ?? []).isEmpty && !(permissions.deny ?? []).isEmpty {
                         Divider()
                     }
-                    permissionList("Deny", items: permissions.deny ?? [], color: .red)
+                    permissionList("Deny", items: permissions.deny ?? [], color: Theme.color(.critical))
                     if !(permissions.deny ?? []).isEmpty && !(permissions.ask ?? []).isEmpty {
                         Divider()
                     }
-                    permissionList("Ask", items: permissions.ask ?? [], color: .orange)
+                    permissionList("Ask", items: permissions.ask ?? [], color: Theme.color(.high))
                 }
                 .padding(8)
             } label: {

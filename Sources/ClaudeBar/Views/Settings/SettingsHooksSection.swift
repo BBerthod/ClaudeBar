@@ -64,11 +64,11 @@ struct SettingsHooksSection: View {
                         if hookHealthService.issueCount > 0 {
                             Label("\(hookHealthService.issueCount) issue\(hookHealthService.issueCount == 1 ? "" : "s")", systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Theme.color(.high))
                         } else {
                             Label("All OK", systemImage: "checkmark.circle.fill")
                                 .font(.caption)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.color(.ok))
                         }
                     }
 
@@ -95,9 +95,9 @@ struct SettingsHooksSection: View {
                             Spacer()
                             Text(hookHealthService.hasOAuthCredentials ? "Found" : "Not found")
                                 .font(.caption)
-                                .foregroundStyle(hookHealthService.hasOAuthCredentials ? .green : .red)
+                                .foregroundStyle(hookHealthService.hasOAuthCredentials ? Theme.color(.ok) : Theme.color(.critical))
                             Circle()
-                                .fill(hookHealthService.hasOAuthCredentials ? .green : .red)
+                                .fill(hookHealthService.hasOAuthCredentials ? Theme.color(.ok) : Theme.color(.critical))
                                 .frame(width: 6, height: 6)
                         }
 
@@ -180,15 +180,15 @@ struct SettingsHooksSection: View {
         case .ok:
             Image(systemName: "checkmark.circle.fill")
                 .font(.caption2)
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.color(.ok))
         case .missing:
             Image(systemName: "xmark.circle.fill")
                 .font(.caption2)
-                .foregroundStyle(.red)
+                .foregroundStyle(Theme.color(.critical))
         case .notExecutable:
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.caption2)
-                .foregroundStyle(.yellow)
+                .foregroundStyle(Theme.color(.warn))
         case .inline:
             Image(systemName: "minus.circle.fill")
                 .font(.caption2)
@@ -198,19 +198,19 @@ struct SettingsHooksSection: View {
 
     private func scriptStatusColor(_ status: HookHealthEntry.ScriptStatus) -> Color {
         switch status {
-        case .ok:            return .green
-        case .missing:       return .red
-        case .notExecutable: return .yellow
-        case .inline:        return .secondary
+        case .ok:            return Theme.color(.ok)
+        case .missing:       return Theme.color(.critical)
+        case .notExecutable: return Theme.color(.warn)
+        case .inline:        return Theme.color(.neutral)
         }
     }
 
     private func cacheStatusColor(_ status: HookHealthService.CacheStatus) -> Color {
         switch status {
-        case .fresh:   return .green
-        case .stale:   return .orange
-        case .missing: return .red
-        case .unknown: return .secondary
+        case .fresh:   return Theme.color(.ok)
+        case .stale:   return Theme.color(.high)
+        case .missing: return Theme.color(.critical)
+        case .unknown: return Theme.color(.neutral)
         }
     }
 

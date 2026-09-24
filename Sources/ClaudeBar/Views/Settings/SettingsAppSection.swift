@@ -79,11 +79,11 @@ struct SettingsAppSection: View {
                         Text(daysAgo == 0 ? "fresh" : "\(daysAgo)d old")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundStyle(daysAgo > 1 ? .orange : .green)
+                            .foregroundStyle(daysAgo > 1 ? Theme.color(.high) : Theme.color(.ok))
                     } else {
                         Text("unavailable")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Theme.color(.critical))
                     }
                 }
                 Text("Claude Code recalculates this automatically between sessions")
@@ -113,7 +113,7 @@ struct SettingsAppSection: View {
                 if let error = modelCatalogService.lastError {
                     Text(error)
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Theme.color(.high))
                 }
             }
             .padding(8)
@@ -136,7 +136,7 @@ struct SettingsAppSection: View {
                 if staleCleaned > 0 {
                     Text("Removed \(staleCleaned) stale session file\(staleCleaned == 1 ? "" : "s")")
                         .font(.caption2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Theme.color(.ok))
                 }
             }
             .padding(8)

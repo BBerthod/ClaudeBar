@@ -94,14 +94,14 @@ struct AnalyticsTrendsPanel: View {
                             x: .value("Date", point.date, unit: .day),
                             y: .value("Messages", point.messages)
                         )
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(Theme.color(.ok))
                         .interpolationMethod(.catmullRom)
 
                         AreaMark(
                             x: .value("Date", point.date, unit: .day),
                             y: .value("Messages", point.messages)
                         )
-                        .foregroundStyle(Color.green.opacity(0.1))
+                        .foregroundStyle(Theme.color(.ok).opacity(0.1))
                         .interpolationMethod(.catmullRom)
                     }
                     .frame(height: 180)
@@ -150,7 +150,7 @@ struct AnalyticsTrendsPanel: View {
                     "Cost",
                     value: CostCalculator.formatCost(effectiveCost),
                     icon: "dollarsign.circle",
-                    color: .green
+                    color: Theme.color(.ok)
                 )
                 summaryTile(
                     "Messages",
@@ -168,7 +168,7 @@ struct AnalyticsTrendsPanel: View {
                     "Tool Calls",
                     value: "\(effectiveToolCalls)",
                     icon: "wrench.and.screwdriver",
-                    color: .orange
+                    color: Theme.color(.high)
                 )
                 summaryTile(
                     "Sessions",
@@ -183,7 +183,7 @@ struct AnalyticsTrendsPanel: View {
                 HStack(spacing: 4) {
                     Image(systemName: "bolt.fill")
                         .font(.caption2)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Theme.color(.high))
                     Text("Live estimate — stats-cache has no entry for today")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -335,7 +335,7 @@ struct AnalyticsTrendsPanel: View {
                     )
                     .foregroundStyle(
                         Double(point.count) / Double(maxCount) > 0.7
-                            ? Color.orange.gradient
+                            ? Theme.color(.high).gradient
                             : Color.blue.opacity(0.6).gradient
                     )
                 }
@@ -432,7 +432,7 @@ struct AnalyticsTrendsPanel: View {
                             .font(.caption)
                             .fontWeight(.bold)
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(change > 20 ? Color.red.gradient : change < -20 ? Color.green.gradient : Color.accentColor.gradient)
+                            .fill(change > 20 ? Theme.color(.critical).gradient : change < -20 ? Theme.color(.ok).gradient : Color.accentColor.gradient)
                             .frame(width: 60, height: max(CGFloat(thisWeek / maxVal) * 120, 4))
                         Text("This Week")
                             .font(.caption2)
@@ -449,15 +449,15 @@ struct AnalyticsTrendsPanel: View {
                         Text(String(format: "%+.0f%%", change))
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(change > 20 ? .red : change < -20 ? .green : .primary)
+                            .foregroundStyle(change > 20 ? Theme.color(.critical) : change < -20 ? Theme.color(.ok) : .primary)
                         if change < 0 {
                             Label("Spending less", systemImage: "arrow.down.circle.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.color(.ok))
                         } else if change > 20 {
                             Label("Spending more", systemImage: "arrow.up.circle.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Theme.color(.critical))
                         }
                     }
                 }

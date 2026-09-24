@@ -11,9 +11,9 @@ struct SessionRow: View {
             // Active indicator
             if isActive {
                 Circle()
-                    .fill(Color.green)
+                    .fill(Theme.color(.ok))
                     .frame(width: 7, height: 7)
-                    .shadow(color: .green.opacity(0.5), radius: 3)
+                    .shadow(color: Theme.color(.ok).opacity(0.5), radius: 3)
             } else {
                 Circle()
                     .fill(Color.secondary.opacity(0.3))

@@ -8,38 +8,38 @@ struct StatCard: View {
     var trendUp: Bool = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let trendColor = Theme.color(trendUp ? .ok : .critical)
+
+        VStack(alignment: .leading, spacing: Theme.Space.xs + 2) {
             HStack {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .font(Theme.Font.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
                 if let trend {
                     Text(trend)
                         .font(.caption2)
                         .fontWeight(.medium)
-                        .foregroundStyle(trendUp ? .green : .red)
-                        .padding(.horizontal, 4)
+                        .monospacedDigit()
+                        .foregroundStyle(trendColor)
+                        .padding(.horizontal, Theme.Space.xs)
                         .padding(.vertical, 2)
-                        .background((trendUp ? Color.green : Color.red).opacity(0.12))
+                        .background(trendColor.opacity(0.12))
                         .clipShape(Capsule())
                 }
             }
 
             Text(value)
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(Theme.Font.metric)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text(title)
-                .font(.caption)
+                .font(Theme.Font.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(10)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .card()
     }
 }
 

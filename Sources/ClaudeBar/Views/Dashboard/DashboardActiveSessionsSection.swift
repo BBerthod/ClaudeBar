@@ -26,7 +26,7 @@ struct DashboardActiveSessionsSection: View {
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.green.opacity(0.15))
+                                .background(Theme.color(.ok).opacity(0.15))
                                 .clipShape(Capsule())
                         }
                         .padding(.horizontal, 12)
