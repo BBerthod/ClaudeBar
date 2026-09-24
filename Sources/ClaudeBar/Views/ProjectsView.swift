@@ -304,10 +304,10 @@ struct ProjectsView: View {
 
     private func costColor(for cost: Double) -> Color {
         switch cost {
-        case ..<1:    return .secondary
-        case ..<5:    return .yellow
-        case ..<20:   return Color.orange
-        default:      return .red
+        case ..<1:    return Theme.color(.neutral)
+        case ..<5:    return Theme.color(.warn)
+        case ..<20:   return Theme.color(.high)
+        default:      return Theme.color(.critical)
         }
     }
 

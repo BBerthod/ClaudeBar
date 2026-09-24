@@ -198,19 +198,19 @@ struct SettingsHooksSection: View {
 
     private func scriptStatusColor(_ status: HookHealthEntry.ScriptStatus) -> Color {
         switch status {
-        case .ok:            return .green
-        case .missing:       return .red
-        case .notExecutable: return .yellow
-        case .inline:        return .secondary
+        case .ok:            return Theme.color(.ok)
+        case .missing:       return Theme.color(.critical)
+        case .notExecutable: return Theme.color(.warn)
+        case .inline:        return Theme.color(.neutral)
         }
     }
 
     private func cacheStatusColor(_ status: HookHealthService.CacheStatus) -> Color {
         switch status {
-        case .fresh:   return .green
-        case .stale:   return .orange
-        case .missing: return .red
-        case .unknown: return .secondary
+        case .fresh:   return Theme.color(.ok)
+        case .stale:   return Theme.color(.high)
+        case .missing: return Theme.color(.critical)
+        case .unknown: return Theme.color(.neutral)
         }
     }
 

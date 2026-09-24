@@ -185,10 +185,10 @@ struct DashboardUsageSection: View {
 
     private func utilizationColor(_ pct: Double) -> Color {
         switch pct {
-        case ..<30:   return .green
-        case 30..<60: return .blue
-        case 60..<80: return .orange
-        default:      return .red
+        case ..<30:   return Theme.color(.ok)
+        case 30..<60: return Theme.color(.info)
+        case 60..<80: return Theme.color(.high)
+        default:      return Theme.color(.critical)
         }
     }
 }

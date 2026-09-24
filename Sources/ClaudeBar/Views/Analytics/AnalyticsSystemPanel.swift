@@ -438,12 +438,12 @@ struct AnalyticsSystemPanel: View {
     }
 
     private func tokenStatusColor() -> Color {
-        guard usageService.lastFetched != nil else { return .secondary }
+        guard usageService.lastFetched != nil else { return Theme.color(.neutral) }
         if let error = usageService.lastError {
-            if error.contains("401") || error.contains("expired") { return .red }
-            return .orange
+            if error.contains("401") || error.contains("expired") { return Theme.color(.critical) }
+            return Theme.color(.high)
         }
-        return .green
+        return Theme.color(.ok)
     }
 
     private func statsCacheStaleness(_ dateString: String) -> String {
@@ -455,11 +455,11 @@ struct AnalyticsSystemPanel: View {
     }
 
     private func statsCacheStalenessColor(_ dateString: String) -> Color {
-        guard let date = DateFormatter.isoDate.date(from: dateString) else { return .secondary }
+        guard let date = DateFormatter.isoDate.date(from: dateString) else { return Theme.color(.neutral) }
         let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
-        if days == 0 { return .green }
-        if days == 1 { return .orange }
-        return .red
+        if days == 0 { return Theme.color(.ok) }
+        if days == 1 { return Theme.color(.high) }
+        return Theme.color(.critical)
     }
 }
 

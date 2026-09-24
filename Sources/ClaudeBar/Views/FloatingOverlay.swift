@@ -94,10 +94,10 @@ struct FloatingSessionPill: View {
 
     private func contextColor(_ pct: Double) -> Color {
         switch pct {
-        case ..<0.4: return .green
-        case 0.4..<0.6: return .yellow
-        case 0.6..<0.8: return .orange
-        default: return .red
+        case ..<0.4: return Theme.color(.ok)
+        case 0.4..<0.6: return Theme.color(.warn)
+        case 0.6..<0.8: return Theme.color(.high)
+        default: return Theme.color(.critical)
         }
     }
 }

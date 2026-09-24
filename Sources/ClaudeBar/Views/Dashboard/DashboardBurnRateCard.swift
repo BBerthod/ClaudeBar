@@ -107,10 +107,10 @@ struct DashboardBurnRateCard: View {
 
     private func zoneColor(_ zone: PacingZone) -> Color {
         switch zone {
-        case .chill:    return .blue
-        case .onTrack:  return .green
-        case .hot:      return .orange
-        case .critical: return .red
+        case .chill:    return Theme.color(.info)
+        case .onTrack:  return Theme.color(.ok)
+        case .hot:      return Theme.color(.high)
+        case .critical: return Theme.color(.critical)
         }
     }
 }

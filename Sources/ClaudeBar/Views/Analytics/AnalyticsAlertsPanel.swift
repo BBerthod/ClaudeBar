@@ -226,9 +226,9 @@ struct AnalyticsAlertsPanel: View {
 
     private func alertColor(_ severity: AlertItem.AlertSeverity) -> Color {
         switch severity {
-        case .info:     return .blue
-        case .warning:  return .orange
-        case .critical: return .red
+        case .info:     return Theme.color(.info)
+        case .warning:  return Theme.color(.high)
+        case .critical: return Theme.color(.critical)
         }
     }
 
