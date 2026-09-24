@@ -10,6 +10,12 @@ final class YearlyHistoryService {
     private(set) var isLoading = false
     private(set) var isLoaded = false
 
+    /// Sum of the estimated daily costs over the loaded window (JSONL-derived).
+    var totalCost: Double { dayStats.values.reduce(0) { $0 + $1.cost } }
+
+    /// Number of days with recorded token usage in the loaded window.
+    var trackedDays: Int { dayStats.values.filter { $0.tokens > 0 }.count }
+
     private let projectsDir: String
 
     private let modelCatalogService: ModelCatalogService?

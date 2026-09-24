@@ -4,6 +4,10 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- Analytics Savings and Trends, and the Dashboard Claude tile, showed $0 and no tracked days when `stats-cache.json` was absent; they now fall back to the JSONL history.
+- Opening Savings or Models in the Analytics window could crash: `YearlyHistoryService` was never injected into that window.
+
 ## [1.4.1] — 2026-09-24
 
 ### Changed
