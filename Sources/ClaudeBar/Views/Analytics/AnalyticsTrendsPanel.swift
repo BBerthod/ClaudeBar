@@ -6,6 +6,7 @@ struct AnalyticsTrendsPanel: View {
     let sessionService: SessionService
     let burnRateService: BurnRateService
     let liveStatsService: LiveStatsService
+    let yearlyHistoryService: YearlyHistoryService
 
     var body: some View {
         trendsPanel
@@ -353,9 +354,9 @@ struct AnalyticsTrendsPanel: View {
         let stats = statsService.stats
         let totalSessions = stats?.totalSessions ?? 0
         let totalMessages = stats?.totalMessages ?? 0
-        let totalDays = stats?.dailyModelTokens.count ?? 0
+        let totalDays = CostSource.trackedDays(statsCache: stats?.dailyModelTokens.count ?? 0, history: yearlyHistoryService.trackedDays)
         let avgMessagesPerDay = totalDays > 0 ? totalMessages / totalDays : 0
-        let avgCostPerDay = totalDays > 0 ? statsService.totalCostEstimate / Double(totalDays) : 0
+        let avgCostPerDay = totalDays > 0 ? CostSource.totalCost(statsCache: statsService.totalCostEstimate, history: yearlyHistoryService.totalCost) / Double(totalDays) : 0
         let speculationSaved = stats?.totalSpeculationTimeSavedMs ?? 0
         let specSeconds = speculationSaved / 1000
         let specFormatted = specSeconds >= 3600

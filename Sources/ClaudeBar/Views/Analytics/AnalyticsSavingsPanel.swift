@@ -8,9 +8,9 @@ struct AnalyticsSavingsPanel: View {
         savingsPanel
     }
     private var savingsPanel: some View {
-        let totalApiCost = statsService.totalCostEstimate
+        let totalApiCost = CostSource.totalCost(statsCache: statsService.totalCostEstimate, history: yearlyHistoryService.totalCost)
         let monthlySubscription = 200.0
-        let days = Double(statsService.stats?.dailyModelTokens.count ?? 1)
+        let days = Double(CostSource.trackedDays(statsCache: statsService.stats?.dailyModelTokens.count ?? 0, history: yearlyHistoryService.trackedDays))
         let months = max(days / 30.0, 1.0)
         let totalSubscriptionCost = months * monthlySubscription
         let saved = totalApiCost - totalSubscriptionCost

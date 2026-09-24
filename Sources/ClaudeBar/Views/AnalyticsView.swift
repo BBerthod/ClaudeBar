@@ -60,7 +60,8 @@ struct AnalyticsView: View {
             statsService: statsService,
             sessionService: sessionService,
             burnRateService: burnRateService,
-            liveStatsService: liveStatsService
+            liveStatsService: liveStatsService,
+            yearlyHistoryService: yearlyHistoryService
         )
     }
 

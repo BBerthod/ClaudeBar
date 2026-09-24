@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardProviderSummary: View {
     @Environment(GeminiActivityService.self) private var geminiActivityService
     @Environment(OmlxUsageService.self) private var omlxUsageService
+    @Environment(YearlyHistoryService.self) private var yearlyHistoryService
     let statsService: StatsService
     let mcpHealthService: McpHealthService
     let providerUsageService: ProviderUsageService
@@ -13,7 +14,7 @@ struct DashboardProviderSummary: View {
     }
     /// Derives active provider information from available stats.
     private var providers: [ProviderInfo] {
-        let claudeConfigured = statsService.todayTokens > 0 || statsService.totalCostEstimate > 0
+        let claudeConfigured = statsService.todayTokens > 0 || CostSource.totalCost(statsCache: statsService.totalCostEstimate, history: yearlyHistoryService.totalCost) > 0
         let claudeTokens = statsService.todayTokens
         let claudeProvider = ProviderInfo(
             name: "Claude",
