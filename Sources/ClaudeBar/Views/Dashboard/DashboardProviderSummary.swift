@@ -46,7 +46,16 @@ struct DashboardProviderSummary: View {
     // MARK: - Provider Summary
 
     private var providerSummary: some View {
-        HStack(spacing: 8) {
+        // Two equal columns, top-aligned: a single HStack squeezed four tiles into 420 pt and
+        // wrapped their text word by word.
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: Theme.Space.s, alignment: .top),
+                GridItem(.flexible(), alignment: .top),
+            ],
+            alignment: .leading,
+            spacing: Theme.Space.s
+        ) {
             ForEach(providers) { provider in
                 providerPill(provider)
                 if provider.name == "Claude" {
@@ -56,7 +65,6 @@ struct DashboardProviderSummary: View {
             if omlxUsageService.isAvailable {
                 omlxCard
             }
-            Spacer()
         }
     }
 
@@ -89,6 +97,7 @@ struct DashboardProviderSummary: View {
         .foregroundStyle(installed ? .primary : .secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(installed ? Theme.color(.ok).opacity(0.1) : Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
@@ -118,6 +127,7 @@ struct DashboardProviderSummary: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.color(.ok).opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.color(.ok).opacity(0.3), lineWidth: 0.5))
@@ -177,6 +187,7 @@ struct DashboardProviderSummary: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             provider.isConfigured
                 ? Theme.color(.ok).opacity(0.1)
