@@ -4,6 +4,11 @@ All notable changes to ClaudeBar are documented here.
 
 ## [Unreleased]
 
+## [1.4.3] — 2026-09-24
+
+### Changed
+- Transcript scans (yearly history, projects, live stats) skip non-assistant JSONL lines on raw bytes before any JSON parsing and read files memory-mapped. On 3 378 transcripts (4.2 GB) a full scan drops from about 108 s to 38 s of CPU (history 65 s to 18 s, projects 36 s to 18 s, live 7.4 s to 1.5 s), and the results are identical to the previous code on the same files.
+
 ## [1.4.2] — 2026-09-24
 
 ### Added
