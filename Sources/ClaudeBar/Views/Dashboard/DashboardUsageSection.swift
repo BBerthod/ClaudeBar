@@ -72,7 +72,7 @@ struct DashboardUsageSection: View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.caption)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.color(.high))
             VStack(alignment: .leading, spacing: 1) {
                 Text("5h usage unavailable")
                     .font(.caption)
@@ -84,7 +84,7 @@ struct DashboardUsageSection: View {
             Spacer()
         }
         .padding(10)
-        .background(Color.orange.opacity(0.08))
+        .background(Theme.color(.high).opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
@@ -99,7 +99,7 @@ struct DashboardUsageSection: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
             }
             .gaugeStyle(.accessoryCircular)
-            .tint(Gradient(colors: [.green, .yellow, .orange, .red]))
+            .tint(Gradient(colors: [Theme.color(.ok), Theme.color(.warn), Theme.color(.high), Theme.color(.critical)]))
             .scaleEffect(0.8)
             .frame(width: 44, height: 44)
 
@@ -129,7 +129,7 @@ struct DashboardUsageSection: View {
                     )
                     Text(forecast)
                         .font(.caption2)
-                        .foregroundStyle(urgent ? .orange : .secondary)
+                        .foregroundStyle(urgent ? Theme.color(.high) : .secondary)
                 }
                 if let pace {
                     Text(pace.rawValue)

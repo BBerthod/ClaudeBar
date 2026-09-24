@@ -54,7 +54,7 @@ struct AnalyticsSystemPanel: View {
                         }
                         if let lastError = usageService.lastError {
                             Divider().padding(.horizontal, 8)
-                            systemInfoRow("API Error", value: lastError, valueColor: .red)
+                            systemInfoRow("API Error", value: lastError, valueColor: Theme.color(.critical))
                         }
                     }
                     .padding(4)
@@ -81,7 +81,7 @@ struct AnalyticsSystemPanel: View {
                         }
                         if let lastError = statsService.lastError {
                             Divider().padding(.horizontal, 8)
-                            systemInfoRow("Load Error", value: lastError, valueColor: .red)
+                            systemInfoRow("Load Error", value: lastError, valueColor: Theme.color(.critical))
                         }
                     }
                     .padding(4)
@@ -145,7 +145,7 @@ struct AnalyticsSystemPanel: View {
                             Divider().padding(.horizontal, 8)
                             systemInfoRow("Last prompt", value: geminiActivityService.activity.lastPromptAt?.timeAgoString ?? "—")
                             if let error = geminiActivityService.lastError {
-                                systemInfoRow("Error", value: error, valueColor: .red)
+                                systemInfoRow("Error", value: error, valueColor: Theme.color(.critical))
                             }
                         } else {
                             systemInfoRow("Status", value: "Antigravity not installed", valueColor: .secondary)
@@ -161,7 +161,7 @@ struct AnalyticsSystemPanel: View {
                         systemInfoRow(
                             "Status",
                             value: omlxMonitorService.isOnline ? "Online ✓" : "Offline",
-                            valueColor: omlxMonitorService.isOnline ? .green : .secondary
+                            valueColor: omlxMonitorService.isOnline ? Theme.color(.ok) : .secondary
                         )
                         if omlxMonitorService.isOnline {
                             Divider().padding(.horizontal, 8)
@@ -179,7 +179,7 @@ struct AnalyticsSystemPanel: View {
                         }
                         if let err = omlxMonitorService.lastError {
                             Divider().padding(.horizontal, 8)
-                            systemInfoRow("Error", value: err, valueColor: .red)
+                            systemInfoRow("Error", value: err, valueColor: Theme.color(.critical))
                         }
                         if omlxUsageService.isAvailable {
                             Divider().padding(.horizontal, 8)

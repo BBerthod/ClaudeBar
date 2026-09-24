@@ -42,7 +42,7 @@ struct AnalyticsSavingsPanel: View {
                                 Text(CostCalculator.formatCost(totalApiCost))
                                     .font(.largeTitle)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(Theme.color(.critical))
                             }
 
                             Image(systemName: "arrow.right")
@@ -56,7 +56,7 @@ struct AnalyticsSavingsPanel: View {
                                 Text(CostCalculator.formatCost(totalSubscriptionCost))
                                     .font(.largeTitle)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Theme.color(.ok))
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -69,7 +69,7 @@ struct AnalyticsSavingsPanel: View {
                                 .foregroundStyle(.secondary)
                             Text(CostCalculator.formatCost(max(saved, 0)))
                                 .font(.system(size: 48, weight: .bold))
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.color(.ok))
                                 .help("Difference between API pricing and your Max subscription cost")
 
                             Text("×\(Int(multiplier)) return on your Max subscription")
@@ -123,7 +123,7 @@ struct AnalyticsSavingsPanel: View {
                         HStack(spacing: 16) {
                             Image(systemName: "calendar.badge.checkmark")
                                 .font(.title2)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.color(.ok))
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("At this rate, you'll save approximately")
@@ -132,7 +132,7 @@ struct AnalyticsSavingsPanel: View {
                                 Text(CostCalculator.formatCost(projectedAnnualSavings))
                                     .font(.title2)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Theme.color(.ok))
                                 Text("over the next 12 months")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -208,7 +208,7 @@ struct AnalyticsSavingsPanel: View {
                         Text(CostCalculator.formatCost(apiCost))
                             .font(.subheadline)
                             .monospacedDigit()
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Theme.color(.critical))
                             .frame(width: 80, alignment: .trailing)
 
                         Text(CostCalculator.formatCost(monthlySubscription))
@@ -221,7 +221,7 @@ struct AnalyticsSavingsPanel: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .monospacedDigit()
-                            .foregroundStyle(savings > 0 ? .green : .secondary)
+                            .foregroundStyle(savings > 0 ? Theme.color(.ok) : .secondary)
                             .frame(width: 80, alignment: .trailing)
                     }
                     .padding(.horizontal, 8)

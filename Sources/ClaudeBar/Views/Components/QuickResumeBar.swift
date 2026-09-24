@@ -110,7 +110,7 @@ struct QuickResumeBar: View {
                     if isCopied {
                         Label("Copied!", systemImage: "checkmark.circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Theme.color(.ok))
                     } else {
                         Label("Resume", systemImage: "doc.on.clipboard")
                             .font(.caption2)

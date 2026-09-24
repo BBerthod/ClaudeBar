@@ -21,10 +21,10 @@ struct SessionsView: View {
                         if !sessionService.activeSessions.isEmpty {
                             Text("\(sessionService.activeSessions.count)")
                                 .font(.caption)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.onFill)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.green)
+                                .background(Theme.color(.ok))
                                 .clipShape(Capsule())
                         }
                         Spacer()
@@ -97,10 +97,10 @@ struct SessionsView: View {
                        let label = SessionService.idleLabel(lastActivity: last) {
                         Text(label)
                             .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.color(.high))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.12))
+                            .background(Theme.color(.high).opacity(0.12))
                             .clipShape(Capsule())
                     }
                 }

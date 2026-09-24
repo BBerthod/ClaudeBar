@@ -37,6 +37,10 @@ enum Theme {
         }
     }
 
+    /// Text color for content drawn on an opaque `Theme.color(_:)` fill: white on the darker
+    /// light-mode fills, near-black on the lighter dark-mode fills (white would be ~2:1 there).
+    static let onFill = dynamic(light: (1, 1, 1), dark: (0.08, 0.08, 0.08))
+
     // Contrast ratios measured against white (light) and #1e1e1e (dark):
     // ok 5.2 / 7.6 · info 6.3 / 7.3 · warn 4.9 / 9.0 · high 4.8 / 7.3 · critical 6.3 / 5.9.
     private static func dynamic(light: (Double, Double, Double), dark: (Double, Double, Double)) -> Color {

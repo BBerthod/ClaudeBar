@@ -62,7 +62,7 @@ struct FloatingSessionPill: View {
         HStack(spacing: 6) {
             // Status dot (green = active)
             Circle()
-                .fill(.green)
+                .fill(Theme.color(.ok))
                 .frame(width: 6, height: 6)
 
             // Project name

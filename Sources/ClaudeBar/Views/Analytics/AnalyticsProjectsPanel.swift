@@ -151,7 +151,7 @@ struct AnalyticsProjectsPanel: View {
                 if let copied = copiedProjectPath {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Theme.color(.ok))
                         Text("Copied: \(copied)")
                             .font(.caption)
                             .foregroundStyle(.secondary)

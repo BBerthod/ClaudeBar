@@ -47,13 +47,13 @@ struct SettingsView: View {
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.color(.high))
             Text(message)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(8)
-        .background(Color.orange.opacity(0.1))
+        .background(Theme.color(.high).opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 12)
     }

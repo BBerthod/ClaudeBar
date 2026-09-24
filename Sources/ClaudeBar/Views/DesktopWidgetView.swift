@@ -106,7 +106,7 @@ struct DesktopWidgetView: View {
                 // Active sessions
                 HStack(spacing: 3) {
                     Circle()
-                        .fill(sessionCount > 0 ? Color.green : Color.secondary.opacity(0.3))
+                        .fill(sessionCount > 0 ? Theme.color(.ok) : Color.secondary.opacity(0.3))
                         .frame(width: 5, height: 5)
                     Text("\(sessionCount) active")
                         .font(.system(size: 11))

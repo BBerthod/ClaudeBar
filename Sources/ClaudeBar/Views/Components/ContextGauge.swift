@@ -13,10 +13,10 @@ struct ContextGauge: View {
 
     private var gaugeColor: Color {
         switch percentage {
-        case ..<0.4:  return .green
-        case ..<0.6:  return .yellow
-        case ..<0.8:  return Color.orange
-        default:      return .red
+        case ..<0.4:  return Theme.color(.ok)
+        case ..<0.6:  return Theme.color(.warn)
+        case ..<0.8:  return Theme.color(.high)
+        default:      return Theme.color(.critical)
         }
     }
 

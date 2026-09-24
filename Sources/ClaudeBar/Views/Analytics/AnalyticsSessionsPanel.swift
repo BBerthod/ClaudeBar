@@ -26,7 +26,7 @@ struct AnalyticsSessionsPanel: View {
                         HStack {
                             HStack(spacing: 5) {
                                 Circle()
-                                    .fill(.green)
+                                    .fill(Theme.color(.ok))
                                     .frame(width: 7, height: 7)
                                 Text("Active Sessions")
                                     .font(.subheadline)
@@ -39,7 +39,7 @@ struct AnalyticsSessionsPanel: View {
                                 VStack(alignment: .trailing, spacing: 1) {
                                     Text("\(sessionService.activeSessions.count) running")
                                         .font(.caption)
-                                        .foregroundStyle(.green)
+                                        .foregroundStyle(Theme.color(.ok))
                                     Text("total: \(totalActiveTime.formattedDuration)")
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)

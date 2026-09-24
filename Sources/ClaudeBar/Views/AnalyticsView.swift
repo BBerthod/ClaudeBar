@@ -124,11 +124,11 @@ struct AnalyticsView: View {
     private func badgeView(for section: AnalyticsSection) -> some View {
         switch section {
         case .alerts where alertCount > 0:
-            badgePill("\(alertCount)", color: alertCount > 0 ? criticalOrWarningColor : .blue)
+            badgePill("\(alertCount)", color: alertCount > 0 ? criticalOrWarningColor : Theme.color(.info))
         case .projects where projectCount > 0:
             badgePill("\(projectCount)", color: .secondary)
         case .sessions where sessionCount > 0:
-            badgePill("\(sessionCount)", color: .green)
+            badgePill("\(sessionCount)", color: Theme.color(.ok))
         default:
             EmptyView()
         }
@@ -139,16 +139,16 @@ struct AnalyticsView: View {
         Text(text)
             .font(.caption2)
             .fontWeight(.semibold)
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onFill)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(color.opacity(0.8))
+            .background(color)
             .clipShape(Capsule())
     }
 
     private var criticalOrWarningColor: Color {
         let hasCritical = alertsPanel.activeAlerts.contains { $0.severity == .critical }
-        return hasCritical ? .red : .orange
+        return hasCritical ? Theme.color(.critical) : Theme.color(.high)
     }
 
     // MARK: - Alerts Panel

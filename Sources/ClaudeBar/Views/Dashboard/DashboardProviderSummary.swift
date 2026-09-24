@@ -71,12 +71,12 @@ struct DashboardProviderSummary: View {
                 if activity.activeConversations > 0 {
                     Text("\(activity.activeConversations) active")
                         .padding(.horizontal, 4)
-                        .background(Color.green.opacity(0.15))
+                        .background(Theme.color(.ok).opacity(0.15))
                         .clipShape(Capsule())
                 }
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(activity.isLoggedIn ? Color.green : Color.secondary.opacity(0.4))
+                        .fill(activity.isLoggedIn ? Theme.color(.ok) : Color.secondary.opacity(0.4))
                         .frame(width: 5, height: 5)
                     Text(activity.isLoggedIn ? "logged in" : "logged out")
                 }
@@ -89,11 +89,11 @@ struct DashboardProviderSummary: View {
         .foregroundStyle(installed ? .primary : .secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
-        .background(installed ? Color.green.opacity(0.1) : Color.secondary.opacity(0.08))
+        .background(installed ? Theme.color(.ok).opacity(0.1) : Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(installed ? Color.green.opacity(0.3) : Color.secondary.opacity(0.15), lineWidth: 0.5)
+                .stroke(installed ? Theme.color(.ok).opacity(0.3) : Color.secondary.opacity(0.15), lineWidth: 0.5)
         )
         .help("Antigravity does not expose token counts — activity only")
     }
@@ -118,9 +118,9 @@ struct DashboardProviderSummary: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
-        .background(Color.green.opacity(0.1))
+        .background(Theme.color(.ok).opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.green.opacity(0.3), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.color(.ok).opacity(0.3), lineWidth: 0.5))
     }
 
     @ViewBuilder
@@ -139,7 +139,7 @@ struct DashboardProviderSummary: View {
                     .foregroundStyle(provider.isConfigured ? .primary : .secondary)
 
                 Circle()
-                    .fill(provider.isConfigured ? Color.green : Color.secondary.opacity(0.4))
+                    .fill(provider.isConfigured ? Theme.color(.ok) : Color.secondary.opacity(0.4))
                     .frame(width: 5, height: 5)
             }
 
@@ -166,7 +166,7 @@ struct DashboardProviderSummary: View {
                             .foregroundStyle(.tertiary)
                         Text("\(hits)⚠")
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.color(.high))
                     }
                 }
             } else if let details = provider.details {
@@ -179,7 +179,7 @@ struct DashboardProviderSummary: View {
         .padding(.vertical, 4)
         .background(
             provider.isConfigured
-                ? Color.green.opacity(0.1)
+                ? Theme.color(.ok).opacity(0.1)
                 : Color.secondary.opacity(0.08)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -187,7 +187,7 @@ struct DashboardProviderSummary: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(
                     provider.isConfigured
-                        ? Color.green.opacity(0.3)
+                        ? Theme.color(.ok).opacity(0.3)
                         : Color.secondary.opacity(0.15),
                     lineWidth: 0.5
                 )
