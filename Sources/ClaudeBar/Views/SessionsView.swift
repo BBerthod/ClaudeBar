@@ -15,9 +15,7 @@ struct SessionsView: View {
                 // Active sessions
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("Active")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+            SettingsSectionLabel("Active")
                         if !sessionService.activeSessions.isEmpty {
                             Text("\(sessionService.activeSessions.count)")
                                 .font(.caption)
@@ -46,9 +44,7 @@ struct SessionsView: View {
 
                 // Recent sessions
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Recent")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+            SettingsSectionLabel("Recent")
                         .padding(.horizontal, 12)
 
                     if sessionService.recentSessions.isEmpty {
@@ -90,6 +86,7 @@ struct SessionsView: View {
                     }
                     if let rc = sessionService.sessionResumeCost[session.sessionId], rc > 0 {
                         Text("~\(CostCalculator.formatCost(rc))/msg")
+                    .monospacedDigit()
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }

@@ -85,9 +85,7 @@ struct DashboardOptimizationHints: View {
 
     private var optimizationHintsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Optimization Hints")
-                .font(.subheadline)
-                .fontWeight(.medium)
+            SettingsSectionLabel("Optimization Hints")
 
             ForEach(optimizationHints) { hint in
                 HStack(spacing: 8) {

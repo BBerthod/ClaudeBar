@@ -113,7 +113,7 @@ struct DashboardProviderSummary: View {
             Label("oMLX", systemImage: "cpu.fill")
                 .fontWeight(.medium)
             Text("\(omlxUsageService.today?.totals.requests ?? 0) req today")
-            Text("\((omlxUsageService.today?.totals.completionTokens ?? 0).abbreviatedTokenCount) output tokens")
+            Text("\((omlxUsageService.today?.totals.completionTokens ?? 0).abbreviatedTokenCount) output tokens").monospacedDigit()
             if let model = omlxUsageService.loadedModels.first(where: { $0.isLoaded })?.id
                 ?? omlxMonitorService.defaultModel {
                 Text(model)
@@ -122,6 +122,7 @@ struct DashboardProviderSummary: View {
                     .help(model)
             }
             Text("≈ \(CostCalculator.formatCost(omlxUsageService.todayApiEquivalentCost)) saved")
+                .monospacedDigit()
                 .help("API-equivalent cost if these tokens had gone to \(omlxUsageService.referenceModelId)")
         }
         .font(.caption2)
@@ -168,6 +169,7 @@ struct DashboardProviderSummary: View {
                     }
                     if let tokens = provider.totalTokens, tokens > 0 {
                         Text(tokens.abbreviatedTokenCount)
+                    .monospacedDigit()
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

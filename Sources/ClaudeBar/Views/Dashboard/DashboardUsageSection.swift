@@ -20,9 +20,7 @@ struct DashboardUsageSection: View {
     private var usageSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Rate Limits")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+            SettingsSectionLabel("Rate Limits")
                 Spacer()
                 HStack(spacing: 4) {
                     Text(usageService.plan.displayName)
