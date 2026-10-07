@@ -65,6 +65,16 @@ A floating always-on-top panel showing at a glance: 5-hour usage gauge, today's 
 
 ---
 
+## Install
+
+1. Download `ClaudeBar.zip` from the [latest release](https://github.com/BBerthod/ClaudeBar/releases/latest).
+2. Unzip it and move `ClaudeBar.app` to `/Applications`.
+3. The build is not notarized yet: on first launch, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine /Applications/ClaudeBar.app`.
+
+ClaudeBar then updates itself from GitHub Releases.
+
+---
+
 ## Requirements
 
 - macOS 14 Sonoma or later
