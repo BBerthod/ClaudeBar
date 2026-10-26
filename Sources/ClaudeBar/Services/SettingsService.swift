@@ -37,12 +37,51 @@ final class SettingsService {
 
     // MARK: - Write
 
+    /// Writes `settings` to disk without dropping what ClaudeBar does not model: the file is
+    /// re-read as a generic JSON object and only the entries that differ from the settings
+    /// loaded earlier are patched into it. Unknown keys (and unknown nested fields) survive.
     func saveSettings(_ settings: ClaudeSettings) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        let data = try encoder.encode(settings)
-        try data.write(to: URL(fileURLWithPath: settingsPath), options: .atomic)
+        let url = URL(fileURLWithPath: settingsPath)
+        var raw: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: settingsPath) {
+            let existing = try Data(contentsOf: url)
+            guard let object = try JSONSerialization.jsonObject(with: existing) as? [String: Any] else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            raw = object
+        }
+        let old = try Self.jsonObject(self.settings ?? ClaudeSettings())
+        let new = try Self.jsonObject(settings)
+        let merged = Self.merge(raw, old: old, new: new)
+        let data = try JSONSerialization.data(
+            withJSONObject: merged,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        try data.write(to: url, options: .atomic)
         self.settings = settings
+    }
+
+    private static func jsonObject(_ settings: ClaudeSettings) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(settings)
+        return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+    }
+
+    /// Applies to `raw` the difference between `old` and `new`, recursing into nested objects.
+    private static func merge(_ raw: [String: Any], old: [String: Any], new: [String: Any]) -> [String: Any] {
+        var result = raw
+        for key in Set(old.keys).union(new.keys) {
+            guard let newValue = new[key] else {
+                result.removeValue(forKey: key)
+                continue
+            }
+            if let oldValue = old[key], (oldValue as AnyObject).isEqual(newValue) { continue }
+            if let newDict = newValue as? [String: Any], let rawDict = result[key] as? [String: Any] {
+                result[key] = merge(rawDict, old: old[key] as? [String: Any] ?? [:], new: newDict)
+            } else {
+                result[key] = newValue
+            }
+        }
+        return result
     }
 
     // MARK: - Convenience Mutators
