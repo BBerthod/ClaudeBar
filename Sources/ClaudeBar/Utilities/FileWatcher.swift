@@ -32,16 +32,16 @@ final class FileWatcher {
         guard fd >= 0 else { return }
         fileDescriptor = fd
 
+        // Main queue, not a global one: the cancel handler that closes fd runs on this
+        // queue, and a starved worker pool left it pending, leaking one fd per re-watch.
         let src = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
             eventMask: [.write, .rename, .delete],
-            queue: .global(qos: .utility)
+            queue: .main
         )
 
         src.setEventHandler {
-            DispatchQueue.main.async {
-                onChange()
-            }
+            onChange()
         }
 
         // Capture fd by value so close() runs even if self is already deallocated.
