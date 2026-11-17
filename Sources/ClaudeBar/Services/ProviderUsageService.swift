@@ -35,7 +35,21 @@ final class ProviderUsageService {
         return best?.path ?? (codexDir + "/logs_1.sqlite")
     }()
 
-    init() {
+    typealias CodexQuery = @Sendable (_ dbPath: String, _ startOfDayEpoch: Int) async -> (success: Bool, rows: [String])
+
+    private let dbPathOverride: String?
+    private let codexQuery: CodexQuery
+
+    init(
+        codexDbPath: String? = nil,
+        codexQuery: CodexQuery? = nil,
+        disablePolling: Bool = false
+    ) {
+        self.dbPathOverride = codexDbPath
+        self.codexQuery = codexQuery ?? { path, epoch in
+            await Self.queryCodexDb(at: path, startOfDayEpoch: epoch)
+        }
+        guard !disablePolling else { return }
         Task { await refresh() }
         startPolling()
     }
@@ -64,7 +78,7 @@ final class ProviderUsageService {
         guard !isRefreshingCodex else { return }
         isRefreshingCodex = true
         defer { isRefreshingCodex = false }
-        let dbPath = Self.codexDbPath
+        let dbPath = dbPathOverride ?? Self.codexDbPath
         guard FileManager.default.fileExists(atPath: dbPath) else {
             isCodexAvailable = false
             codexSessionsToday = 0
@@ -77,7 +91,7 @@ final class ProviderUsageService {
         // Compute local-timezone start-of-day to avoid SQLite's UTC strftime
         let localCutoff = Int(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970)
 
-        let result = await Self.queryCodexDb(at: dbPath, startOfDayEpoch: localCutoff)
+        let result = await codexQuery(dbPath, localCutoff)
 
         guard result.success else {
             Log.providers.error("Codex DB query failed at \(dbPath, privacy: .private)")
