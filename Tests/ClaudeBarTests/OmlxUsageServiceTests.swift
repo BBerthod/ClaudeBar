@@ -200,6 +200,45 @@ final class OmlxUsageServiceTests: XCTestCase {
         }
     }
 
+    /// Open descriptors of this process whose path lies inside `directory`.
+    private func openDescriptors(in directory: URL) -> Int {
+        // realpath, not resolvingSymlinksInPath: F_GETPATH reports /private/var, not /var.
+        guard let resolved = realpath(directory.path, nil) else { return 0 }
+        let prefix = String(cString: resolved)
+        free(resolved)
+        var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        return (0..<getdtablesize()).filter { fd in
+            fcntl(fd, F_GETPATH, &buffer) == 0 && String(cString: buffer).hasPrefix(prefix)
+        }.count
+    }
+
+    func testAtomicReplacementsCloseWatcherDescriptorsWhileWorkerPoolIsStarved() throws {
+        let (service, directory, _, _) = try fixture()
+        // Field condition: one Swift Concurrency thread per core stuck in waitUntilExit.
+        let sleepers = (0..<ProcessInfo.processInfo.activeProcessorCount).map { _ in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+            process.arguments = ["30"]
+            return process
+        }
+        defer { sleepers.forEach { $0.terminate() } }
+        for process in sleepers {
+            try process.run()
+            Task.detached(priority: .utility) { process.waitUntilExit() }
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        for requests in 10..<30 {
+            try write(stats(requests: requests), to: directory)
+            service.reload()
+        }
+        let deadline = Date().addingTimeInterval(1)
+        while openDescriptors(in: directory) > 1 && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        // Exactly one: the descriptor on the current stats.json inode.
+        XCTAssertEqual(openDescriptors(in: directory), 1)
+    }
+
     private func settings(_ directory: URL, key: String = "test-secret", port: Int? = 8123) throws {
         var object: [String: Any] = ["api_key": key]
         if let port { object["port"] = port }
