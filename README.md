@@ -171,7 +171,7 @@ All services use the `@Observable` macro (Swift 5.9 / iOS 17 / macOS 14 observat
 | `OverlayManager` | Floating PiP session panel lifecycle |
 | `DesktopWidgetManager` | Floating desktop widget panel lifecycle |
 | `MainWindowManager` | Standalone analytics window lifecycle |
-| `SettingsService` | Reads and watches Claude Code configuration from `settings.json` |
+| `SettingsService` | Reads and watches Claude Code configuration from `settings.json`, and writes it when toggled from Settings |
 
 ---
 
@@ -184,9 +184,11 @@ ClaudeBar never sends your usage data anywhere. All processing happens locally:
 - The only outbound network calls are to:
   - `api.anthropic.com/api/oauth/usage` (rate-limit data) and `console.anthropic.com/v1/oauth/token` (token refresh), both using your existing OAuth credentials
   - `api.github.com/repos/BBerthod/ClaudeBar/releases/latest` (version check for updates)
+  - the release `.zip` asset URL returned by that API (`github.com` download, followed for automatic updates)
   - `raw.githubusercontent.com` (LiteLLM model catalog download; no usage data sent)
   - `http://127.0.0.1:<port>/v1/models/status` (local oMLX model status; port and API key read from `~/.omlx/settings.json`, key never displayed or logged)
   - `http://127.0.0.1:8000/health` (local oMLX inference health monitoring, entirely on localhost)
+  - the `url` of each HTTP MCP server configured in `~/.claude.json` (reachability check from the MCP health monitor)
 
 ---
 
